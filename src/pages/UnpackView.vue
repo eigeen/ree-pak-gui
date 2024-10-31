@@ -11,7 +11,7 @@ import { file_table_load } from '@/api/tauri/filelist';
 
 // const pakStore = usePakStore();
 
-// 过滤器输入（未处理）
+// 过滤器输入（原始输入）
 const filterTextInput = ref('');
 // 过滤器输入（已处理）
 const filterText = ref('');
@@ -42,6 +42,7 @@ watch(pakData, () => {
   treeData.value = null;
 })
 
+// 更新过滤器
 const updateFilter = () => {
   const input = filterTextInput.value.trim();
   if (input !== filterText.value) {
@@ -106,6 +107,7 @@ async function handleClose(index: number) {
   }
 }
 
+// 点击 Render 按钮后的事件回调
 async function handleRender() {
   try {
     // 载入文件名列表

@@ -31,30 +31,40 @@ const props = defineProps<Props>()
 //   data: (): RenderTreeNode[] => { return [] },
 // })
 const treeComponent = ref<InstanceType<typeof ElTree>>()
-const filteredData = ref<TreeData[]>([])
+// 是否正在加载
 const loading = ref(false)
+// 缓存的已转换的 TreeData
+const cachedTreeData = ref<TreeData[]>([])
+// 已过滤的数据
+const filteredData = ref<TreeData[]>([])
 
-// watch(() => props.filterText,
-//   (filterText) => {
-//     const filter = filterText ? filterText : ''
-//     console.log('applying filter', filter)
+// 监听过滤器文本，应用过滤器
+watch(() => props.filterText,
+  (filterText) => {
+    const filter = filterText ? filterText : ''
+    console.log('applying filter', filter)
 
-//     filteredData.value = sortAndMerge(filterTreeData(deepCopy(props.data), filter))
-//   }
-// )
+    filteredData.value = filterTreeData(deepCopy(cachedTreeData.value), filter)
+  }
+)
+
+// 监听输入数据，输入变化时重新生成树
 watch(() => props.data,
   (data) => {
 
     if (!data) {
+      cachedTreeData.value = []
       filteredData.value = []
       return
     }
 
     const treeData = createTreeData(data)
-    filteredData.value = [treeData]
+    cachedTreeData.value = [treeData]
+    filteredData.value = cachedTreeData.value
   }
 )
 
+// 从输入的树格式 RenderTreeNode 转换成显示用的 TreeData 格式
 function createTreeData(node: RenderTreeNode): TreeData {
   let size;
   if (node.uncompressedSize !== undefined) {
@@ -82,24 +92,23 @@ function createTreeData(node: RenderTreeNode): TreeData {
 
 function formatSize(size: number): string {
   if (size < 0) {
-        return "Invalid size";
-    }
-    
-    const units = ["B", "KB", "MB", "GB", "TB"];
-    let index = 0;
+    return "Invalid";
+  }
 
-    while (size >= 1024 && index < units.length - 1) {
-        size /= 1024;
-        index++;
-    }
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let index = 0;
 
-    return `${size.toFixed(2)} ${units[index]}`;
+  while (size >= 1024 && index < units.length - 1) {
+    size /= 1024;
+    index++;
+  }
+
+  return `${size.toFixed(2)} ${units[index]}`;
 }
 
-// const deepCopy = (data: TreeData[]): TreeData[] => {
-//   // return structuredClone(data)
-//   return JSON.parse(JSON.stringify(data))
-// }
+function deepCopy(data: TreeData[]): TreeData[] {
+  return JSON.parse(JSON.stringify(data))
+}
 
 // // 关键词过滤
 // const filterTreeData = (data: TreeData[], text: string): TreeData[] => {
@@ -121,6 +130,31 @@ function formatSize(size: number): string {
 //     return null;
 //   }).filter((node): node is TreeData => node !== null);
 // }
+
+// 通过关键词过滤树的叶子结点，返回新的树
+function filterTreeData(data: TreeData[], text: string): TreeData[] {
+  const lowerCaseText = text.toLowerCase();
+
+  return data.map(node => {
+    // 过滤子节点
+    const filteredChildren = filterTreeData(node.children, text);
+
+    // 判断当前节点是否包含关键词
+    const isMatch = node.label.toLowerCase().includes(lowerCaseText);
+
+    // 如果当前节点匹配或有匹配的子节点，则保留该节点
+    if (isMatch || filteredChildren.length > 0) {
+      return {
+        ...node,
+        children: filteredChildren // 只保留匹配的子节点
+      };
+    }
+
+    // 如果当前节点和子节点都不匹配，则返回 null
+    return null;
+  }).filter(node => node !== null) as TreeData[];
+}
+
 
 function getCheckedNodes(): ExtractFileInfo[] {
   const nodes = treeComponent.value?.getCheckedNodes(true).filter(node => !node.isDir)
@@ -158,7 +192,7 @@ defineExpose({ getCheckedNodes })
 <template>
   <el-tree-v2 ref="treeComponent" class="tree" :height="500" :props="treeProps" :data="filteredData" v-loading="loading"
     show-checkbox />
-    <!-- <el-button @click="test">test</el-button> -->
+  <!-- <el-button @click="test">test</el-button> -->
 </template>
 
 <style scoped>

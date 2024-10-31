@@ -31,7 +31,7 @@ pub struct NodeInfo {
     pub uncompressed_size: u64,
     pub compressed_size: u64,
     /// Belonging to which pak.
-    /// If is a directory, will be None.
+    /// If node is a directory, it will be None.
     pub belonging_to: Option<PakId>,
 }
 
@@ -44,6 +44,8 @@ impl FileTree {
 
         // 合并两个树的根节点
         combined_root = Self::combine_nodes(combined_root, other.root);
+
+        // TODO: 重新计算所有目录大小
 
         // 目录大小由其他函数独立计算
         let combined_uncompressed_size = 0;
@@ -58,19 +60,42 @@ impl FileTree {
         }
     }
 
-    fn combine_nodes(mut node1: FileTreeNode, node2: FileTreeNode) -> FileTreeNode {
+    fn combine_nodes(node1: FileTreeNode, node2: FileTreeNode) -> FileTreeNode {
+        let mut combined_node = node1;
+
         // 目录，直接合并子节点
         if node2.info.is_dir {
-            for (key, child_node2) in node2.children {
-                let child_node1 = node1.children.entry(key).or_default();
+            for (ref key, child_node2) in node2.children {
+                // 如果key已经存在，则合并，否则直接插入
+                let child_node1 = combined_node.children.entry(key.clone()).or_insert_with(|| {
+                    // 如果不存在，直接克隆一个新的节点
+                    FileTreeNode {
+                        info: NodeInfo {
+                            is_dir: true, // 新节点是目录
+                            relative_path: key.clone(),
+                            hash: None,
+                            uncompressed_size: 0,
+                            compressed_size: 0,
+                            belonging_to: None,
+                        },
+                        children: FxHashMap::default(),
+                    }
+                });
+
+                // 合并子节点
                 *child_node1 = Self::combine_nodes(child_node1.clone(), child_node2);
             }
         } else {
             // 非目录覆盖
-            node1.info = node2.info;
+            combined_node.info = node2.info;
         }
 
-        node1
+        combined_node
+    }
+
+    /// 计算并更新所有父节点的大小
+    fn update_dir_node_size(root: &mut FileTreeNode) {
+        todo!();
     }
 }
 
@@ -191,7 +216,7 @@ fn merge_nested_dirs(nodes: &mut [RenderTreeNode]) {
         if node.is_dir && node.children.len() == 1 {
             let child = node.children.iter_mut().next().unwrap();
             if child.is_dir {
-                let new_name = format!("{}/{}", node.name, child.name);
+                let new_name = format!("{} / {}", node.name, child.name);
                 // 合并后的节点
                 node.name = new_name.clone();
                 node.children = child.children.clone();
