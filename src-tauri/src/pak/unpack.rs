@@ -2,7 +2,7 @@ use std::{
     collections::{HashMap, HashSet},
     fs::{File, OpenOptions},
     hash::BuildHasherDefault,
-    io::{BufReader, Read, Seek},
+    io::{BufReader, Read, Seek, Write},
     path::{Path, PathBuf},
     sync::Mutex,
     time::Duration,
@@ -10,7 +10,7 @@ use std::{
 
 use nohash::NoHashHasher;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use ree_pak_core::{filename::FileNameTable, pak::PakEntry, read::io::archive::PakArchiveReader};
+use ree_pak_core::{filename::FileNameTable, pak::PakEntry, read::archive::PakArchiveReader};
 
 use super::{ExtractOptions, Pak};
 
@@ -51,6 +51,12 @@ where
             if options.extract_all || target_files.contains(&entry.hash()) {
                 let result = process_entry(entry, file_name_table, output_path, &archive_reader, true);
                 if let Err(e) = &result {
+                    println!(
+                        "Error processing entry: {}. Path: {:?}\nEntry: {:?}",
+                        e,
+                        file_name_table.get_file_name(entry.hash()).unwrap(),
+                        entry
+                    )
                     // bar.println(format!("Error processing entry: {}\nEntry: {:?}", e, entry));
                 };
                 return result;
@@ -61,11 +67,17 @@ where
 
     // bar.finish();
 
-    // if !results.is_empty() {
-    //     println!("Done with {} errors", results.len());
-    // } else {
-    //     println!("Done.");
-    // }
+    if !results.is_empty() {
+        let errors = results.iter().filter(|r| r.is_err()).collect::<Vec<_>>();
+        println!("Done with {} errors", errors.len());
+        if errors.len() < 30 {
+            println!("Errors: {:?}", errors);
+        } else {
+            println!("Too many errors to display.");
+        }
+    } else {
+        println!("Done.");
+    }
 
     pak.reader.replace(archive_reader.into_inner().unwrap().into_inner());
 
@@ -92,29 +104,32 @@ where
         .map(|fname| fname.get_name().to_string())
         .unwrap_or_else(|| format!("_Unknown/{:08X}", entry.hash()))
         .into();
-    let filepath = output_path.join(file_relative_path);
-    let filedir = filepath.parent().unwrap();
+    let file_path = output_path.join(file_relative_path);
+    let file_dir = file_path.parent().unwrap();
 
-    if !filedir.exists() {
-        std::fs::create_dir_all(filedir)?;
+    if !file_dir.exists() {
+        std::fs::create_dir_all(file_dir)?;
     }
+
+    let mut data = vec![];
+    std::io::copy(&mut entry_reader, &mut data)?;
 
     let mut file = if r#override {
         OpenOptions::new()
             .create(true)
             .write(true)
             .truncate(true)
-            .open(&filepath)?
+            .open(&file_path)?
     } else {
-        OpenOptions::new().create_new(true).write(true).open(&filepath)?
+        OpenOptions::new().create_new(true).write(true).open(&file_path)?
     };
-    std::io::copy(&mut entry_reader, &mut file)?;
+    file.write_all(&data)?;
 
     // guess unknown file extension
-    if filepath.extension().is_none() {
+    if file_path.extension().is_none() {
         if let Some(ext) = entry_reader.determine_extension() {
-            let new_path = filepath.with_extension(ext);
-            std::fs::rename(filepath, new_path)?;
+            let new_path = file_path.with_extension(ext);
+            std::fs::rename(file_path, new_path)?;
         }
     }
 
