@@ -1,6 +1,6 @@
 use std::env;
 
-use ree_pak_core::{filename::FileNameTable, read::io::archive::PakArchiveReader};
+use ree_pak_core::filename::FileNameTable;
 
 use crate::{
     error::{Error, Result},

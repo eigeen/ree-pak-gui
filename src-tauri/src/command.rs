@@ -1,5 +1,3 @@
-use rayon::option;
-
 use crate::{
     filename::FileListInfo,
     pak::{

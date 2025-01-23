@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { pak_close, pak_extract_all, pak_list_all, pak_open, pak_read_file_tree_optimized } from '@/api/tauri/pak';
-import type { ExtractFileInfo, ExtractOptions, FileTreeNode, PakInfo, RenderTreeNode } from '@/api/tauri/pak';
+import type { ExtractOptions, PakInfo, RenderTreeNode } from '@/api/tauri/pak';
 import PakFiles from '@/components/PakFiles.vue'
 import FileTree from '@/components/FileTree.vue'
 import FileNameTableSelector from '@/components/FileNameTableSelector.vue'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
-import { listen, TauriEvent as TauriEventName, type Event as TauriEvent } from '@tauri-apps/api/event'
-import { open as dialogOpen } from '@tauri-apps/api/dialog'
+// import { listen, TauriEvent as TauriEventName, type Event as TauriEvent } from '@tauri-apps/api/event'
+import { open as dialogOpen } from '@tauri-apps/plugin-dialog'
 import { file_table_load } from '@/api/tauri/filelist';
+import { getCurrentWebview } from "@tauri-apps/api/webview";
+import type { UnlistenFn } from '@tauri-apps/api/event';
 
 // const pakStore = usePakStore();
 
@@ -140,7 +142,7 @@ async function doExtract() {
     loading.value = true
 
     const options: ExtractOptions = {
-      outputPath: selected,
+      outputPath: selected as string,
       overwrite: true,
       extractAll: false,
       extractFiles: fileTreeComponent.value?.getCheckedNodes() || [],
@@ -174,11 +176,13 @@ async function reloadData() {
   pakData.value = await getLoadedPaks()
 }
 
-let unlisten: () => void
+let unlisten: UnlistenFn
 
 async function startListenForDrop() {
-  unlisten = await listen(TauriEventName.WINDOW_FILE_DROP, async (event: TauriEvent<string[]>) => {
-    await dropInAddPaks(event.payload)
+  unlisten = await getCurrentWebview().onDragDropEvent(async (event) => {
+    if (event.payload.type === 'drop') {
+      await dropInAddPaks(event.payload.paths)
+    }
   })
 }
 
