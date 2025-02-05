@@ -8,8 +8,18 @@ mod filename;
 mod macros;
 mod pak;
 mod usecase;
+mod utility;
+
+fn panic_hook(info: &std::panic::PanicHookInfo) {
+    #[cfg(target_os = "windows")]
+    utility::message_box_error(&format!("panic occurred: {:#}", info));
+    #[cfg(not(target_os = "windows"))]
+    println!("panic occurred: {:#}", info);
+}
 
 fn main() {
+    std::panic::set_hook(Box::new(panic_hook));
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
