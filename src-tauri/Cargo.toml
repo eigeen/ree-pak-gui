@@ -1,13 +1,13 @@
 [package]
 name = "app"
-version = "0.2.1"
+version = "0.2.2"
 description = "RE Engine Unpacker"
 authors = ["Eigeen <dengyk2002@qq.com>"]
 license = "MIT"
 repository = "https://github.com/eigeen/ree-pak-rs"
 default-run = "app"
 edition = "2021"
-rust-version = "1.80"
+rust-version = "1.83"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
