@@ -38,7 +38,7 @@ pub struct ExtractProgress {}
 #[serde(rename_all = "camelCase")]
 pub struct ExtractOptions {
     pub output_path: String,
-    pub overwrite: bool,
+    pub r#override: bool,
     pub extract_all: bool,
     pub extract_files: Vec<ExtractFileInfo>,
 }

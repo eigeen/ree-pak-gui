@@ -1,8 +1,8 @@
 use crate::{
     filename::FileListInfo,
     pak::{
-        tree::{FileTree, RenderTreeNode, RenderTreeOptions},
         ExtractOptions, ExtractProgress, PakId, PakInfo,
+        tree::{FileTree, RenderTreeNode, RenderTreeOptions},
     },
     usecase, warp_result_elapsed,
 };
@@ -73,7 +73,7 @@ pub fn pak_extract_all(options: ExtractOptions) -> Result<(), String> {
 
 /// Get the current extract progress.
 #[tauri::command]
-pub fn pak_peek_extract_progress(id: PakId) -> Result<ExtractProgress, String> {
+pub fn pak_peek_extract_progress(_id: PakId) -> Result<ExtractProgress, String> {
     todo!()
 }
 

@@ -6,19 +6,10 @@ authors = ["Eigeen <dengyk2002@qq.com>"]
 license = "MIT"
 repository = "https://github.com/eigeen/ree-pak-rs"
 default-run = "app"
-edition = "2021"
-rust-version = "1.83"
+edition = "2024"
+rust-version = "1.85"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[profile.dev]
-incremental = true
-
-[profile.release]
-strip = true
-codegen-units = 1
-lto = true
-# panic = "abort"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
