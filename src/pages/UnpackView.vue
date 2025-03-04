@@ -39,9 +39,10 @@ const enableExtract = computed(() => treeData.value !== null)
 
 // watch(paks, () => canRenderTree.value = true);
 
-// 文件变化时清空当前树
+// 文件变化时清空当前树和过滤器
 watch(pakData, () => {
   treeData.value = null;
+  filterText.value = '';
 })
 
 // 更新过滤器
@@ -143,7 +144,7 @@ async function doExtract() {
 
     const options: ExtractOptions = {
       outputPath: selected as string,
-      overwrite: true,
+      override: true,
       extractAll: false,
       extractFiles: fileTreeComponent.value?.getCheckedNodes() || [],
     }
@@ -216,7 +217,7 @@ onUnmounted(async () => {
       <div class="aside-container">
         <div class="tool-chunk">
           <el-text class="block-text">File Name Table</el-text>
-          <FileNameTableSelector @change="onFileNameTableChange">
+          <FileNameTableSelector @change="onFileNameTableChange" :disabled="false">
           </FileNameTableSelector>
         </div>
         <div class="tool-chunk">

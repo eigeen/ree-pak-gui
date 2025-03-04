@@ -46,7 +46,7 @@ export interface RenderTreeNode {
 
 export interface ExtractOptions {
   outputPath: string
-  overwrite: boolean
+  override: boolean
   extractAll: boolean
   extractFiles: ExtractFileInfo[]
 }
