@@ -1,24 +1,23 @@
 <script setup lang="ts">
-import type { PakId, PakInfo } from '@/api/tauri/pak';
+import type { PakId, PakInfo } from '@/api/tauri/pak'
 
 export interface Props {
   // 文件列表
-  pakList: PakInfo[];
+  pakList: PakInfo[]
   // 是否允许添加文件
-  enableAdd: boolean;
+  enableAdd: boolean
 }
 
 export interface Data {
-  id: PakId;
-  path: string;
+  id: PakId
+  path: string
 }
 
 withDefaults(defineProps<Props>(), {
-  enableAdd: true,
+  enableAdd: true
 })
 
 defineEmits(['open', 'close', 'render'])
-
 </script>
 
 <template>
@@ -33,11 +32,20 @@ defineEmits(['open', 'close', 'render'])
     </el-table-column>
   </el-table>
   <div class="button-panel">
-    <el-tooltip class="box-item" effect="dark" content="Please select a File Name Table before adding paks"
-      placement="top-start" :disabled="enableAdd">
-      <el-button class="button" type="primary" @click="$emit('open')" :disabled="!enableAdd">Add Files</el-button>
+    <el-tooltip
+      class="box-item"
+      effect="dark"
+      content="Please select a File Name Table before adding paks"
+      placement="top-start"
+      :disabled="enableAdd"
+    >
+      <el-button class="button" type="primary" @click="$emit('open')" :disabled="!enableAdd"
+        >Add Files</el-button
+      >
     </el-tooltip>
-    <el-button class="button" type="success" @click="$emit('render')" :disabled="!enableAdd">Render Tree</el-button>
+    <el-button class="button" type="success" @click="$emit('render')" :disabled="!enableAdd"
+      >Render Tree</el-button
+    >
   </div>
 </template>
 

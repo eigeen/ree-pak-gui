@@ -1,33 +1,41 @@
 <script setup lang="ts">
-import { pak_close, pak_extract_all, pak_list_all, pak_open, pak_read_file_tree_optimized } from '@/api/tauri/pak';
-import type { ExtractOptions, PakInfo, RenderTreeNode } from '@/api/tauri/pak';
+import {
+  pak_close,
+  pak_extract_all,
+  pak_list_all,
+  pak_open,
+  pak_read_file_tree_optimized
+} from '@/api/tauri/pak'
+import type { ExtractOptions, PakInfo, RenderTreeNode } from '@/api/tauri/pak'
 import PakFiles from '@/components/PakFiles.vue'
 import FileTree from '@/components/FileTree.vue'
 import FileNameTableSelector from '@/components/FileNameTableSelector.vue'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 // import { listen, TauriEvent as TauriEventName, type Event as TauriEvent } from '@tauri-apps/api/event'
 import { open as dialogOpen } from '@tauri-apps/plugin-dialog'
-import { file_table_load } from '@/api/tauri/filelist';
-import { getCurrentWebview } from "@tauri-apps/api/webview";
-import type { UnlistenFn } from '@tauri-apps/api/event';
+import { file_table_load } from '@/api/tauri/filelist'
+import { getCurrentWebview } from '@tauri-apps/api/webview'
+import type { UnlistenFn } from '@tauri-apps/api/event'
 
 // const pakStore = usePakStore();
 
 // 过滤器输入（原始输入）
-const filterTextInput = ref('');
+const filterTextInput = ref('')
 // 过滤器输入（已处理）
-const filterText = ref('');
+const filterText = ref('')
 // 已加载的pak
 const pakData = ref<PakInfo[]>([])
 // 树视图加载状态
-const loading = ref(false);
+const loading = ref(false)
 // 树视图数据
-const treeData = ref<RenderTreeNode | null>(null);
-const fileNameTablePath = ref('');
+const treeData = ref<RenderTreeNode | null>(null)
+const fileNameTablePath = ref('')
 // 是否允许添加Pak文件
-const enableAddPaks = computed(() => { return fileNameTablePath.value !== '' })
+const enableAddPaks = computed(() => {
+  return fileNameTablePath.value !== ''
+})
 
-const fileTreeComponent = ref<InstanceType<typeof FileTree>>();
+const fileTreeComponent = ref<InstanceType<typeof FileTree>>()
 // const paks = ref<Map<string, PakId>>(new Map());
 // const canRenderTree = ref(false);
 // // 启用FileList选择
@@ -41,15 +49,15 @@ const enableExtract = computed(() => treeData.value !== null)
 
 // 文件变化时清空当前树和过滤器
 watch(pakData, () => {
-  treeData.value = null;
-  filterText.value = '';
+  treeData.value = null
+  filterText.value = ''
 })
 
 // 更新过滤器
 const updateFilter = () => {
-  const input = filterTextInput.value.trim();
+  const input = filterTextInput.value.trim()
   if (input !== filterText.value) {
-    filterText.value = filterTextInput.value;
+    filterText.value = filterTextInput.value
   }
 }
 
@@ -64,16 +72,19 @@ const updateFilter = () => {
 // }
 
 function onFileNameTableChange(filePath: string) {
-  fileNameTablePath.value = filePath;
+  fileNameTablePath.value = filePath
 }
 
 async function handleOpen() {
   try {
     let result = await dialogOpen({
-      multiple: true, filters: [{
-        name: 'RE Engine Pak',
-        extensions: ['pak']
-      }]
+      multiple: true,
+      filters: [
+        {
+          name: 'RE Engine Pak',
+          extensions: ['pak']
+        }
+      ]
     })
     if (!result) {
       console.log('No file selected')
@@ -87,7 +98,6 @@ async function handleOpen() {
       await pak_open(filePath)
     }
     await reloadData()
-
   } catch (error) {
     console.error(error)
   }
@@ -104,7 +114,6 @@ async function handleClose(index: number) {
     await pak_close(pak.id)
 
     await reloadData()
-
   } catch (error) {
     console.error(error)
   }
@@ -119,7 +128,6 @@ async function handleRender() {
     // 渲染树
     const result = await pak_read_file_tree_optimized()
     treeData.value = result
-
   } catch (error) {
     console.error(error)
   }
@@ -130,7 +138,7 @@ async function doExtract() {
     // 请求解压目录
     let selected = await dialogOpen({
       directory: true,
-      multiple: false,
+      multiple: false
     })
     if (!selected) {
       console.log('No directory selected')
@@ -146,11 +154,10 @@ async function doExtract() {
       outputPath: selected as string,
       override: true,
       extractAll: false,
-      extractFiles: fileTreeComponent.value?.getCheckedNodes() || [],
+      extractFiles: fileTreeComponent.value?.getCheckedNodes() || []
     }
     // console.log('Extract options', options)
     await pak_extract_all(options)
-
   } catch (error) {
     console.error(error)
   } finally {
@@ -222,8 +229,13 @@ onUnmounted(async () => {
         </div>
         <div class="tool-chunk">
           <el-text class="block-text">Pak Files</el-text>
-          <PakFiles :pak-list="pakData" :enable-add="enableAddPaks" @open="handleOpen" @close="handleClose"
-            @render="handleRender"></PakFiles>
+          <PakFiles
+            :pak-list="pakData"
+            :enable-add="enableAddPaks"
+            @open="handleOpen"
+            @close="handleClose"
+            @render="handleRender"
+          ></PakFiles>
         </div>
         <div class="tool-chunk">
           <el-text class="block-text">Filter</el-text>
@@ -272,6 +284,5 @@ onUnmounted(async () => {
 
 .tree-actions {
   margin-top: 20px;
-
 }
 </style>
