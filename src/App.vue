@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { RouterView } from 'vue-router';
-
+import { ref } from 'vue'
+import { RouterView } from 'vue-router'
 </script>
 
 <template>
@@ -19,7 +18,7 @@ import { RouterView } from 'vue-router';
 </template>
 
 <style lang="scss">
-@import "styles/global.scss";
+@use 'styles/global.scss';
 
 .root {
   display: flex;
