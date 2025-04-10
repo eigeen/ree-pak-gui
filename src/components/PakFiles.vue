@@ -32,24 +32,24 @@ defineEmits(['open', 'close', 'render'])
     </el-table-column>
   </el-table>
   <div class="button-panel">
-    <el-tooltip
-      class="box-item"
-      effect="dark"
-      content="Please select a File Name Table before adding paks"
-      placement="top-start"
-      :disabled="enableAdd"
-    >
-      <el-button class="button" type="primary" @click="$emit('open')" :disabled="!enableAdd"
-        >Add Files</el-button
+    <div class="w100">
+      <v-btn
+        class="button text-none"
+        color="#409eff"
+        prepend-icon="mdi-file-plus-outline"
+        @click="$emit('open')"
+        :disabled="!enableAdd"
       >
-    </el-tooltip>
-    <el-button class="button" type="success" @click="$emit('render')" :disabled="!enableAdd"
-      >Render Tree</el-button
-    >
+        Open Paks
+      </v-btn>
+      <v-tooltip activator="parent" location="top" :disabled="enableAdd"
+        >Select a File Name Table first.</v-tooltip
+      >
+    </div>
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
 .file-table {
   width: 100%;
   border: 1px solid var(--el-border-color);
@@ -61,9 +61,17 @@ defineEmits(['open', 'close', 'render'])
   display: flex;
   flex-flow: row;
   justify-content: space-between;
+
+  .button {
+    flex: 1;
+    width: 100%;
+  }
+  .button-right {
+    margin-left: 10px;
+  }
 }
 
-.button-panel .button {
-  flex: 1;
+.w100 {
+  width: 100%;
 }
 </style>

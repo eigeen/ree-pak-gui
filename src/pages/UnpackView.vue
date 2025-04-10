@@ -223,7 +223,6 @@ onUnmounted(async () => {
     <el-aside class="aside-outer">
       <div class="aside-container">
         <div class="tool-chunk">
-          <el-text class="block-text">File Name Table</el-text>
           <FileNameTableSelector @change="onFileNameTableChange" :disabled="false">
           </FileNameTableSelector>
         </div>
@@ -238,17 +237,31 @@ onUnmounted(async () => {
           ></PakFiles>
         </div>
         <div class="tool-chunk">
-          <el-text class="block-text">Filter</el-text>
-          <el-input v-model="filterTextInput" placeholder="Filter keyword" />
-          <el-button type="primary" @click="updateFilter">Apply Filter</el-button>
+          <v-text-field
+            v-model="filterTextInput"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+            label="Filter keyword"
+          ></v-text-field>
+          <v-btn class="text-none" prepend-icon="mdi-filter-variant" @click="updateFilter"
+            >Apply Filter</v-btn
+          >
         </div>
       </div>
     </el-aside>
     <el-main v-loading="loading">
       <FileTree ref="fileTreeComponent" :data="treeData" :filter-text="filterText"></FileTree>
-      <el-button-group class="tree-actions">
-        <el-button type="primary" @click="doExtract" :disabled="!enableExtract">Extract</el-button>
-      </el-button-group>
+      <div class="tree-actions">
+        <v-btn
+          class="text-none"
+          color="#409eff"
+          prepend-icon="mdi-export"
+          @click="doExtract"
+          :disabled="!enableExtract"
+          >Extract</v-btn
+        >
+      </div>
     </el-main>
   </el-container>
 </template>
@@ -267,7 +280,7 @@ onUnmounted(async () => {
 .aside-container {
   display: flex;
   flex-direction: column;
-  row-gap: 1rem;
+  row-gap: 1.5rem;
   margin: 0 10px;
 }
 
