@@ -27,6 +27,7 @@ fn main() {
             command::pak_list_all,
             command::pak_open,
             command::pak_close,
+            command::pak_order,
             command::pak_get_info,
             command::pak_read_file_tree,
             command::pak_read_file_tree_optimized,

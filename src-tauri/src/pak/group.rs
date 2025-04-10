@@ -6,7 +6,7 @@ use std::{
 
 use ree_pak_core::filename::FileNameTable;
 
-use super::{tree::FileTree, ExtractOptions, Pak, PakId, PakInfo};
+use super::{ExtractOptions, Pak, PakId, PakInfo, tree::FileTree};
 
 use crate::{
     error::{Error, Result},
@@ -39,14 +39,12 @@ impl PakGroup<BufReader<File>> {
         }
     }
 
-    #[inline]
     pub fn file_name_table(&self) -> Option<&FileNameTable> {
         self.file_name_table.as_ref()
     }
 
-    #[inline]
-    pub fn paks(&self) -> &[PakBufReaderFile] {
-        &self.paks
+    pub fn paks_mut(&mut self) -> &mut [PakBufReaderFile] {
+        &mut self.paks
     }
 
     pub fn pak_infos(&self) -> Vec<PakInfo> {

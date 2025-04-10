@@ -25,9 +25,11 @@ declare module 'vue' {
     ElTreeV2: typeof import('element-plus/es')['ElTreeV2']
     FileNameTableSelector: typeof import('./src/components/FileNameTableSelector.vue')['default']
     FileTree: typeof import('./src/components/FileTree.vue')['default']
+    PakFileItem: typeof import('./src/components/PakFileItem.vue')['default']
     PakFiles: typeof import('./src/components/PakFiles.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    TestComponent: typeof import('./src/components/TestComponent.vue')['default']
   }
   export interface ComponentCustomProperties {
     vLoading: typeof import('element-plus/es')['ElLoadingDirective']

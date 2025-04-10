@@ -1,40 +1,25 @@
-<script setup lang="ts">
-import type { PakId, PakInfo } from '@/api/tauri/pak'
-
-export interface Props {
-  // 文件列表
-  pakList: PakInfo[]
-  // 是否允许添加文件
-  enableAdd: boolean
-}
-
-export interface Data {
-  id: PakId
-  path: string
-}
-
-withDefaults(defineProps<Props>(), {
-  enableAdd: true
-})
-
-defineEmits(['open', 'close', 'render'])
-</script>
-
 <template>
-  <el-table class="file-table" :data="pakList" max-height="200" :show-header="false" stripe>
-    <el-table-column prop="path" label="Path" />
-    <el-table-column label="Operations" fixed="right" min-width="40">
-      <template #default="scope">
-        <el-button link type="primary" size="small" @click="$emit('close', scope.$index)">
-          Close
-        </el-button>
+  <v-card class="file-table">
+    <draggable
+      v-model="orderedPakList"
+      item-key="path"
+      :animation="200"
+      handle=".drag-handle"
+      ghost-class="ghost"
+      @change="onChange"
+    >
+      <template #item="{ element, index }">
+        <div>
+          <PakFileItem :file-path="element.path" @remove="$emit('close', index)"></PakFileItem>
+        </div>
       </template>
-    </el-table-column>
-  </el-table>
+    </draggable>
+  </v-card>
   <div class="button-panel">
-    <div class="w100">
+    <div style="flex: 1 1 auto">
       <v-btn
-        class="button text-none"
+        class="button long-btn text-none"
+        style="width: 100%"
         color="#409eff"
         prepend-icon="mdi-file-plus-outline"
         @click="$emit('open')"
@@ -46,8 +31,76 @@ defineEmits(['open', 'close', 'render'])
         >Select a File Name Table first.</v-tooltip
       >
     </div>
+    <div>
+      <v-btn
+        class="button mg-l-10 short-btn text-none"
+        icon="mdi-close-box-multiple"
+        rounded="rounded"
+        size="small"
+        :disabled="pakList.length === 0"
+        @click="$emit('closeAll')"
+      >
+      </v-btn>
+      <v-tooltip activator="parent" location="top" :disabled="pakList.length === 0"
+        >Close all paks.</v-tooltip
+      >
+    </div>
   </div>
 </template>
+
+<script setup lang="ts">
+import { pak_order, type PakId, type PakInfo } from '@/api/tauri/pak'
+import PakFileItem from '@/components/PakFileItem.vue'
+import { ref, watch } from 'vue'
+import draggable from 'vuedraggable'
+
+export interface Props {
+  // 文件列表
+  pakList: PakInfo[]
+  // 是否允许添加文件
+  enableAdd: boolean
+}
+
+export interface OrderedData {
+  id: PakId
+  path: string
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  enableAdd: true
+})
+
+const emit = defineEmits(['open', 'close', 'order', 'closeAll'])
+
+const orderedPakList = ref<OrderedData[]>([])
+
+watch(
+  () => props.pakList,
+  (newValue: PakInfo[]) => {
+    orderedPakList.value = newValue.map((pak, index) => ({
+      id: pak.id,
+      path: pak.path
+    }))
+  }
+)
+
+// 监听拖拽变化事件
+async function onChange(event: any) {
+  console.log('Draggable change event:', event)
+  if (!event.moved) {
+    return
+  }
+  const { oldIndex, newIndex } = event
+  // create ordered list
+  const newList = [...orderedPakList.value]
+  const item = newList.splice(oldIndex, 1)[0]
+  newList.splice(newIndex, 0, item)
+  const orderList = newList.map((item) => item.id)
+  // send order list to backend
+  await pak_order(orderList)
+  emit('order', orderList)
+}
+</script>
 
 <style scoped lang="scss">
 .file-table {
@@ -55,19 +108,35 @@ defineEmits(['open', 'close', 'render'])
   border: 1px solid var(--el-border-color);
   border-radius: var(--el-border-radius-base);
   height: 200px;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.ghost {
+  opacity: 0.5;
+  background: #eee;
 }
 
 .button-panel {
   display: flex;
   flex-flow: row;
   justify-content: space-between;
+  width: 100%;
 
   .button {
-    flex: 1;
+    min-width: auto;
+  }
+  .long-btn {
+    flex: 1 1 auto;
     width: 100%;
   }
-  .button-right {
+  .mg-l-10 {
     margin-left: 10px;
+  }
+  .short-btn {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 auto;
   }
 }
 

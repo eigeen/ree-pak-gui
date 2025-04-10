@@ -32,6 +32,12 @@ pub fn pak_close(id: PakId) -> Result<(), String> {
     usecase::pak_close(id).map_err(|e| e.to_string())
 }
 
+/// Set the order of loaded Pak files.
+#[tauri::command]
+pub fn pak_order(order: Vec<PakId>) -> Result<(), String> {
+    usecase::pak_order(&order).map_err(|e| e.to_string())
+}
+
 /// Get the information of a Pak file.
 #[tauri::command]
 pub fn pak_get_info(id: PakId) -> Result<PakInfo, String> {

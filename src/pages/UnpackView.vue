@@ -47,11 +47,22 @@ const enableExtract = computed(() => treeData.value !== null)
 
 // watch(paks, () => canRenderTree.value = true);
 
-// 文件变化时清空当前树和过滤器
-watch(pakData, () => {
+// 文件变化时更新
+watch(pakData, async () => {
+  console.debug('pakData changed', pakData.value)
   treeData.value = null
   filterText.value = ''
 })
+
+// auto render tree
+watch(
+  () => [pakData.value, fileNameTablePath.value],
+  async () => {
+    if (fileNameTablePath.value && pakData.value.length > 0) {
+      await doRender()
+    }
+  }
+)
 
 // 更新过滤器
 const updateFilter = () => {
@@ -120,7 +131,7 @@ async function handleClose(index: number) {
 }
 
 // 点击 Render 按钮后的事件回调
-async function handleRender() {
+async function doRender() {
   try {
     // 载入文件名列表
     await file_table_load(fileNameTablePath.value)
@@ -128,6 +139,23 @@ async function handleRender() {
     // 渲染树
     const result = await pak_read_file_tree_optimized()
     treeData.value = result
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+const handleOrder = async () => {
+  // reload pak list
+  await reloadData()
+}
+
+async function handleCloseAll() {
+  try {
+    console.log('Closing all paks')
+    for (const pak of pakData.value) {
+      await pak_close(pak.id)
+    }
+    await reloadData()
   } catch (error) {
     console.error(error)
   }
@@ -233,7 +261,8 @@ onUnmounted(async () => {
             :enable-add="enableAddPaks"
             @open="handleOpen"
             @close="handleClose"
-            @render="handleRender"
+            @order="handleOrder"
+            @close-all="handleCloseAll"
           ></PakFiles>
         </div>
         <div class="tool-chunk">

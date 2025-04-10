@@ -74,6 +74,10 @@ export function pak_close(id: PakId): Promise<void> {
   return invoke('pak_close', { id })
 }
 
+export function pak_order(order: PakId[]): Promise<void> {
+  return invoke('pak_order', { order })
+}
+
 export function pak_get_info(id: PakId): Promise<PakInfo> {
   return invoke('pak_get_info', { id })
 }

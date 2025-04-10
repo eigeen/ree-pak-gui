@@ -21,4 +21,6 @@ pub enum Error {
     PakIdNotFound(PakId),
     #[error("No Paks loaded.")]
     NoPaksLoaded,
+    #[error("Invalid pak order: {0}")]
+    InvalidOrder(String),
 }

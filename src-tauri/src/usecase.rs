@@ -6,9 +6,9 @@ use crate::{
     error::{Error, Result},
     filename::FileListInfo,
     pak::{
+        ExtractOptions, Pak, PakId, PakInfo,
         group::PakGroup,
         tree::{FileTree, RenderTreeNode, RenderTreeOptions},
-        ExtractOptions, Pak, PakId, PakInfo,
     },
 };
 
@@ -35,7 +35,6 @@ pub fn pak_open(path: &str) -> Result<PakId> {
     let id: PakId = pak.id();
 
     PakGroup::instance().lock().unwrap().add_pak(pak);
-
     Ok(id)
 }
 
@@ -43,7 +42,25 @@ pub fn pak_close(id: PakId) -> Result<()> {
     if PakGroup::instance().lock().unwrap().remove_pak(&id).is_none() {
         return Err(Error::PakIdNotFound(id));
     };
+    Ok(())
+}
 
+pub fn pak_order(order: &[PakId]) -> Result<()> {
+    let pak_group = PakGroup::instance();
+    let mut pak_group = pak_group.lock().unwrap();
+    let paks = pak_group.paks_mut();
+    // check if order list is valid
+    if order.len() != paks.len() {
+        return Err(Error::InvalidOrder(
+            "Order list length does not match number of paks.".to_string(),
+        ));
+    }
+    let all_found = order.iter().all(|id| paks.iter().any(|pak| pak.id() == *id));
+    if !all_found {
+        return Err(Error::InvalidOrder("Order list contains unknown pak ids.".to_string()));
+    }
+    // sort paks by order list
+    paks.sort_by_key(|pak| order.iter().position(|id| pak.id() == *id).unwrap());
     Ok(())
 }
 
@@ -64,7 +81,6 @@ pub fn pak_read_file_tree() -> Result<FileTree> {
 
 pub fn pak_read_file_tree_optimized(options: &RenderTreeOptions) -> Result<RenderTreeNode> {
     let basic_tree = PakGroup::instance().lock().unwrap().render_tree_combined()?;
-
     RenderTreeNode::try_from_file_tree(basic_tree, options)
 }
 
@@ -103,6 +119,5 @@ pub fn get_file_lists() -> Result<Vec<FileListInfo>> {
 pub fn load_file_list(path: &str) -> Result<()> {
     let table = FileNameTable::from_list_file(path)?;
     PakGroup::instance().lock().unwrap().set_file_name_table(table);
-
     Ok(())
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { file_table_get_list } from '@/api/tauri/filelist'
 
 interface Option {
@@ -11,7 +11,7 @@ interface Props {
   disabled: boolean
 }
 
-defineEmits(['change'])
+const emit = defineEmits(['change'])
 
 withDefaults(defineProps<Props>(), {
   disabled: false
@@ -19,6 +19,12 @@ withDefaults(defineProps<Props>(), {
 const selectedValue = ref<string | null>(null)
 const options = ref<Option[]>([])
 const hintData = ref<string | null>(null)
+
+watch(selectedValue, (newValue) => {
+  if (newValue !== null) {
+    emit('change', newValue)
+  }
+})
 
 onMounted(async () => {
   try {
@@ -45,7 +51,6 @@ onMounted(async () => {
   <v-autocomplete
     label="File Name Table"
     v-model="selectedValue"
-    @change="$emit('change', selectedValue)"
     :disabled="disabled"
     :items="options"
     item-title="label"

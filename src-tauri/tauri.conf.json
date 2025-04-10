@@ -53,7 +53,8 @@
         "resizable": true,
         "title": "RE Engine Pak GUI",
         "width": 1024,
-        "useHttpsScheme": true
+        "useHttpsScheme": true,
+        "dragDropEnabled": false
       }
     ],
     "security": {
