@@ -28,13 +28,17 @@ export default defineConfig({
       autoImport: true
     }),
     Unfonts({
-      google: {
-        families: [ {
-          name: 'Roboto',
-          styles: 'wght@100;300;400;500;700;900',
-        }],
-      },
-    }),
+      fontsource: {
+        families: [
+          {
+            name: 'Roboto',
+            weights: [400, 700],
+            styles: ['normal'],
+            subset: 'latin-ext'
+          }
+        ]
+      }
+    })
   ],
   resolve: {
     alias: {

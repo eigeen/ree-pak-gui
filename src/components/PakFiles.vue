@@ -42,7 +42,7 @@
       >
       </v-btn>
       <v-tooltip activator="parent" location="top" :disabled="pakList.length === 0"
-        >Close all paks.</v-tooltip
+        >Close all paks</v-tooltip
       >
     </div>
   </div>
