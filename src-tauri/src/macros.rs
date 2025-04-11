@@ -4,7 +4,7 @@ macro_rules! warp_result_elapsed {
         let start = std::time::Instant::now();
         let result = $expr.map_err(|e| e.to_string());
         let elapsed = start.elapsed();
-        println!("Wrapped command spent {} ms", elapsed.as_millis());
+        log::info!("Wrapped command spent {} ms", elapsed.as_millis());
         result
     }};
 
@@ -12,7 +12,7 @@ macro_rules! warp_result_elapsed {
         let start = std::time::Instant::now();
         let result = $expr.map_err(|e| e.to_string());
         let elapsed = start.elapsed();
-        println!($msg, elapsed.as_millis());
+        log::info!($msg, elapsed.as_millis());
         result
     }};
 }

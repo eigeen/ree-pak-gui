@@ -1,8 +1,3 @@
-<script setup lang="ts">
-import { ref } from 'vue'
-import { RouterView } from 'vue-router'
-</script>
-
 <template>
   <v-app>
     <v-main class="root">
@@ -19,10 +14,15 @@ import { RouterView } from 'vue-router'
   </v-app>
 </template>
 
+<script setup lang="ts">
+import { ref } from 'vue'
+import { RouterView } from 'vue-router'
+</script>
+
 <style>
-html { 
+html {
   /* disable vuetify scrollbar */
-  overflow-y: auto !important 
+  overflow-y: auto !important;
 }
 
 .root {

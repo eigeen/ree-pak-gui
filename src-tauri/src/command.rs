@@ -77,12 +77,6 @@ pub fn pak_extract_all(options: ExtractOptions) -> Result<(), String> {
     warp_result_elapsed!(usecase::pak_extract_all(&options), "pak_extract_all spent {} ms")
 }
 
-/// Get the current extract progress.
-#[tauri::command]
-pub fn pak_peek_extract_progress(_id: PakId) -> Result<ExtractProgress, String> {
-    todo!()
-}
-
 /// List all .list files in the file table directory.
 #[tauri::command]
 pub fn file_table_get_list() -> Result<Vec<FileListInfo>, String> {

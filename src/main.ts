@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import App from './App.vue'
 
 import 'unfonts.css'
+import 'element-plus/dist/index.css'
 
 // Plugins
 import { registerPlugins } from '@/plugins'

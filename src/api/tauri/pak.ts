@@ -56,8 +56,6 @@ export interface ExtractFileInfo {
   belongsTo: PakId
 }
 
-export interface ExtractProgress {}
-
 export function pak_clear_all(): Promise<void> {
   return invoke('pak_clear_all')
 }
@@ -92,8 +90,4 @@ export function pak_read_file_tree_optimized(options?: RenderTreeOptions): Promi
 
 export function pak_extract_all(options: ExtractOptions): Promise<void> {
   return invoke('pak_extract_all', { options })
-}
-
-export function pak_peek_extract_progress(id: PakId): Promise<ExtractProgress> {
-  return invoke('pak_peek_extract_progress', { id })
 }

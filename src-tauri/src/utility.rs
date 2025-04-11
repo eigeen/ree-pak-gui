@@ -1,8 +1,8 @@
 #[cfg(target_os = "windows")]
 pub fn message_box_error(message: &str) {
     use windows::{
-        core::{w, PCWSTR},
-        Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR},
+        Win32::UI::WindowsAndMessaging::{MB_ICONERROR, MessageBoxW},
+        core::{PCWSTR, w},
     };
 
     let msg = to_utf16_with_nul(message);
@@ -11,6 +11,7 @@ pub fn message_box_error(message: &str) {
     }
 }
 
+#[cfg(target_os = "windows")]
 fn to_utf16_with_nul(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(Some(0)).collect::<Vec<_>>()
 }
