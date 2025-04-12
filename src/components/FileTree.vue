@@ -184,23 +184,30 @@ defineExpose({ getCheckedNodes })
 </script>
 
 <template>
-  <el-tree-v2
-    ref="treeComponent"
-    class="tree"
-    :height="500"
-    :props="treeProps"
-    :data="filteredData"
-    v-loading="loading"
-    show-checkbox
-  />
-  <!-- <el-button @click="test">test</el-button> -->
+  <div class="tree-container">
+    <el-tree-v2
+      ref="treeComponent"
+      class="tree"
+      :props="treeProps"
+      :data="filteredData"
+      v-loading="loading"
+      show-checkbox
+    />
+  </div>
 </template>
 
 <style scoped>
+.tree-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 .tree {
-  max-width: 800px;
-  min-height: 500px;
+  flex: 1;
+  min-height: 0;
   border: 1px solid var(--el-border-color);
   border-radius: 2px;
+  overflow: auto;
 }
 </style>

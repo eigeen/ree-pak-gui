@@ -291,23 +291,35 @@ onUnmounted(async () => {
         </div>
       </div>
     </el-aside>
-    <el-main v-loading="loading">
-      <FileTree ref="fileTreeComponent" :data="treeData" :filter-text="filterText"></FileTree>
-      <div class="tree-actions">
-        <v-btn
-          class="text-none"
-          color="#409eff"
-          prepend-icon="mdi-export"
-          @click="doExtract"
-          :disabled="!enableExtract"
-          >Extract</v-btn
-        >
+    <div v-loading="loading" class="main-content">
+      <div class="tree-panel">
+        <FileTree
+          class="file-tree"
+          ref="fileTreeComponent"
+          :data="treeData"
+          :filter-text="filterText"
+        ></FileTree>
+        <div class="tree-actions">
+          <v-btn
+            class="text-none"
+            color="#409eff"
+            prepend-icon="mdi-export"
+            @click="doExtract"
+            :disabled="!enableExtract"
+            >Extract</v-btn
+          >
+        </div>
       </div>
-    </el-main>
+      <div class="progress-panel">
+        <div class="progress-text">Extracting files...</div>
+        <v-progress-linear color="primary" height="10" :model-value="30"></v-progress-linear>
+        <div class="progress-detail">Processing: file1.dat (30%)</div>
+      </div>
+    </div>
   </el-container>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
 .main-container {
   height: 100%;
 }
@@ -336,7 +348,44 @@ onUnmounted(async () => {
   row-gap: 10px;
 }
 
+.main-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+
+  .tree-panel {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+    padding: 10px;
+
+    .file-tree {
+      flex-grow: 1;
+      overflow: auto;
+    }
+  }
+}
+
 .tree-actions {
   margin-top: 20px;
+}
+
+.progress-panel {
+  padding: 10px 10px 15px 10px;
+  background-color: white;
+  border-top: 1px solid #eee;
+}
+
+.progress-text {
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.progress-detail {
+  margin-top: 5px;
+  font-size: 0.8em;
+  color: #666;
 }
 </style>

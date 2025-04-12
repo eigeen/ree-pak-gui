@@ -8,6 +8,8 @@
   "permissions": [
     "core:default",
     "dialog:allow-open",
-    "dialog:default"
+    "dialog:default",
+    "core:window:allow-set-ignore-cursor-events",
+    "core:window:allow-start-dragging"
   ]
 }
