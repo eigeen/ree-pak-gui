@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ExtractFileInfo, JsSafeHash, RenderTreeNode } from '@/api/tauri/pak'
 import type { ElTree } from 'element-plus'
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 
 export interface TreeData {
   // 唯一ID
@@ -24,12 +24,42 @@ const props = defineProps<Props>()
 //   data: (): RenderTreeNode[] => { return [] },
 // })
 const treeComponent = ref<InstanceType<typeof ElTree>>()
+const containerRef = ref<HTMLElement>()
+const treeHeight = ref(200)
 // 是否正在加载
 const loading = ref(false)
 // 缓存的已转换的 TreeData
 const cachedTreeData = ref<TreeData[]>([])
 // 已过滤的数据
 const filteredData = ref<TreeData[]>([])
+let resizeObserver: ResizeObserver | null = null
+let lazyUpdateTimeout: number | undefined
+
+// 监听容器大小变化
+onMounted(() => {
+  if (containerRef.value) {
+    resizeObserver = new ResizeObserver((entries) => {
+      let parentHeight = 0
+      for (const entry of entries) {
+        const { height } = entry.contentRect
+        parentHeight = height
+      }
+
+      // 减去边框高度2和一个预留空间5
+      // 不留额外空间会导致缩小时外层容器不变化，导致无法缩小
+      treeHeight.value = Math.max(200, parentHeight - 7)
+    })
+    resizeObserver.observe(containerRef.value)
+  }
+})
+
+// 组件卸载时清理监听
+onUnmounted(() => {
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+  }
+  clearTimeout(lazyUpdateTimeout)
+})
 
 // 监听过滤器文本，应用过滤器
 watch(
@@ -184,12 +214,13 @@ defineExpose({ getCheckedNodes })
 </script>
 
 <template>
-  <div class="tree-container">
+  <div class="tree-container" ref="containerRef">
     <el-tree-v2
       ref="treeComponent"
       class="tree"
       :props="treeProps"
       :data="filteredData"
+      :height="treeHeight"
       v-loading="loading"
       show-checkbox
     />
@@ -208,6 +239,5 @@ defineExpose({ getCheckedNodes })
   min-height: 0;
   border: 1px solid var(--el-border-color);
   border-radius: 2px;
-  overflow: auto;
 }
 </style>

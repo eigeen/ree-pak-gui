@@ -25,6 +25,10 @@ html {
   overflow-y: auto !important;
 }
 
+html::-webkit-scrollbar {
+  display: none;
+}
+
 .root {
   display: flex;
   flex-direction: column;

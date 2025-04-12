@@ -30,6 +30,10 @@ const loading = ref(false)
 // 树视图数据
 const treeData = ref<RenderTreeNode | null>(null)
 const fileNameTablePath = ref('')
+// 进度条
+const showProgressPanel = ref(false)
+const progressValue = ref(0)
+const currentFile = ref('test.bin')
 // 是否允许添加Pak文件
 const enableAddPaks = computed(() => {
   return fileNameTablePath.value !== ''
@@ -266,6 +270,36 @@ onUnmounted(async () => {
           <FileNameTableSelector @change="onFileNameTableChange" :disabled="false">
           </FileNameTableSelector>
         </div>
+        <div class="test-buttons">
+          <v-btn
+            class="text-none"
+            density="compact"
+            @click="showProgressPanel = !showProgressPanel"
+          >
+            Toggle Panel
+          </v-btn>
+          <v-btn
+            class="text-none"
+            density="compact"
+            @click="progressValue = Math.min(100, progressValue + 10)"
+          >
+            +10% Progress
+          </v-btn>
+          <v-btn
+            class="text-none"
+            density="compact"
+            @click="progressValue = Math.max(0, progressValue - 10)"
+          >
+            -10% Progress
+          </v-btn>
+          <v-btn
+            class="text-none"
+            density="compact"
+            @click="currentFile = 'test_file_' + Math.floor(Math.random() * 100) + '.dat'"
+          >
+            Random File
+          </v-btn>
+        </div>
         <div class="tool-chunk">
           <el-text class="block-text">Pak Files</el-text>
           <PakFiles
@@ -310,10 +344,15 @@ onUnmounted(async () => {
           >
         </div>
       </div>
-      <div class="progress-panel">
+      <div class="progress-panel" v-show="showProgressPanel">
         <div class="progress-text">Extracting files...</div>
-        <v-progress-linear color="primary" height="10" :model-value="30"></v-progress-linear>
-        <div class="progress-detail">Processing: file1.dat (30%)</div>
+        <v-progress-linear
+          :color="progressValue >= 100 ? 'green' : 'primary'"
+          height="8"
+          :model-value="progressValue"
+          rounded
+        ></v-progress-linear>
+        <div class="progress-detail">Processing: {{ currentFile }} ({{ progressValue }}%)</div>
       </div>
     </div>
   </el-container>
@@ -387,5 +426,14 @@ onUnmounted(async () => {
   margin-top: 5px;
   font-size: 0.8em;
   color: #666;
+}
+
+.test-buttons {
+  display: flex;
+  flex-flow: column;
+  gap: 10px;
+  padding: 10px;
+  background-color: #f5f5f5;
+  border-top: 1px solid #ddd;
 }
 </style>
