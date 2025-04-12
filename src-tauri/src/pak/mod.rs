@@ -30,10 +30,6 @@ pub struct PakInfo {
     pub path: String,
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ExtractProgress {}
-
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExtractOptions {

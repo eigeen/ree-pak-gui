@@ -6,18 +6,18 @@ import {
   pak_open,
   pak_read_file_tree_optimized
 } from '@/api/tauri/pak'
-import type { ExtractOptions, PakInfo, RenderTreeNode } from '@/api/tauri/pak'
+import type { ExtractOptions, PakInfo, RenderTreeNode, WorkProgressEvent } from '@/api/tauri/pak'
 import PakFiles from '@/components/PakFiles.vue'
 import FileTree from '@/components/FileTree.vue'
 import FileNameTableSelector from '@/components/FileNameTableSelector.vue'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, getCurrentInstance, onMounted, onUnmounted, ref, watch } from 'vue'
 // import { listen, TauriEvent as TauriEventName, type Event as TauriEvent } from '@tauri-apps/api/event'
 import { open as dialogOpen } from '@tauri-apps/plugin-dialog'
 import { file_table_load } from '@/api/tauri/filelist'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import type { UnlistenFn } from '@tauri-apps/api/event'
-
-// const pakStore = usePakStore();
+import { Channel } from '@tauri-apps/api/core'
+import { ShowError } from '@/utils'
 
 // 过滤器输入（原始输入）
 const filterTextInput = ref('')
@@ -110,7 +110,7 @@ async function handleOpen() {
     }
     await reloadData()
   } catch (error) {
-    console.error(error)
+    ShowError(error)
   }
 }
 
@@ -126,7 +126,7 @@ async function handleClose(index: number) {
 
     await reloadData()
   } catch (error) {
-    console.error(error)
+    ShowError(error)
   }
 }
 
@@ -140,7 +140,7 @@ async function doRender() {
     const result = await pak_read_file_tree_optimized()
     treeData.value = result
   } catch (error) {
-    console.error(error)
+    ShowError(error)
   }
 }
 
@@ -157,7 +157,7 @@ async function handleCloseAll() {
     }
     await reloadData()
   } catch (error) {
-    console.error(error)
+    ShowError(error)
   }
 }
 
@@ -185,22 +185,34 @@ async function doExtract() {
       extractFiles: fileTreeComponent.value?.getCheckedNodes() || []
     }
     // console.log('Extract options', options)
-    await pak_extract_all(options)
+    const onEvent = new Channel<WorkProgressEvent>()
+    onEvent.onmessage = (event) => {
+      // TODO: 进度条更新
+      if (event.event === 'start') {
+        console.log('Extract start', event.data)
+      } else if (event.event === 'progress') {
+        console.log('Extract progress', event.data)
+      } else if (event.event === 'finished') {
+        console.log('Extract end')
+      }
+    }
+
+    await pak_extract_all(options, onEvent)
   } catch (error) {
-    console.error(error)
+    ShowError(error)
   } finally {
     loading.value = false
   }
 }
 
-async function dropInAddPaks(filePaths: string[]) {
+const dropInAddPaks = async (filePaths: string[]) => {
   try {
     for (const filePath of filePaths) {
       await pak_open(filePath)
     }
     await reloadData()
   } catch (error) {
-    console.error(error)
+    ShowError(error)
   }
 }
 

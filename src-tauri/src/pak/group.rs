@@ -9,6 +9,7 @@ use ree_pak_core::filename::FileNameTable;
 use super::{ExtractOptions, Pak, PakId, PakInfo, tree::FileTree};
 
 use crate::{
+    channel::ProgressChannel,
     error::{Error, Result},
     pak::unpack,
 };
@@ -55,6 +56,10 @@ impl PakGroup<BufReader<File>> {
                 path: pak.path.clone(),
             })
             .collect()
+    }
+
+    pub fn total_files(&self) -> u64 {
+        self.paks.iter().map(|pak| pak.archive.entries().len() as u64).sum()
     }
 
     pub fn add_pak(&mut self, pak: PakBufReaderFile) {
@@ -116,7 +121,7 @@ impl PakGroup<BufReader<File>> {
         }
     }
 
-    pub fn unpack_optional(&mut self, options: &ExtractOptions) -> Result<()> {
+    pub fn unpack_optional(&mut self, options: &ExtractOptions, progress: ProgressChannel) -> Result<()> {
         if self.paks.is_empty() {
             return Err(Error::NoPaksLoaded);
         }
@@ -124,12 +129,20 @@ impl PakGroup<BufReader<File>> {
             return Err(Error::MissingFileList);
         }
 
+        let file_count = if options.extract_all {
+            self.total_files() as u32
+        } else {
+            options.extract_files.len() as u32
+        };
+        progress.start(file_count);
+
         for pak in self.paks.iter_mut() {
             let file_name_table = self.file_name_table.as_ref().unwrap();
-            if let Err(e) = unpack::unpack_parallel_error_continue(pak, file_name_table, options) {
+            if let Err(e) = unpack::unpack_parallel_error_continue(pak, file_name_table, options, progress.clone()) {
                 eprintln!("Error unpacking pak: {}", e);
             }
         }
+        progress.finished();
 
         Ok(())
     }

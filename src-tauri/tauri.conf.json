@@ -54,7 +54,7 @@
         "title": "RE Engine Pak GUI",
         "width": 1024,
         "useHttpsScheme": true,
-        "dragDropEnabled": false
+        "dragDropEnabled": true
       }
     ],
     "security": {

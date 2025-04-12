@@ -3,7 +3,7 @@
 
 use std::sync::OnceLock;
 
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 mod channel;
 mod command;

@@ -1,7 +1,10 @@
+use tauri::ipc::Channel;
+
 use crate::{
+    channel::{ProgressChannel, WorkProgressEvent},
     filename::FileListInfo,
     pak::{
-        ExtractOptions, ExtractProgress, PakId, PakInfo,
+        ExtractOptions, PakId, PakInfo,
         tree::{FileTree, RenderTreeNode, RenderTreeOptions},
     },
     usecase, warp_result_elapsed,
@@ -67,14 +70,18 @@ pub fn pak_read_file_tree_optimized(options: Option<RenderTreeOptions>) -> Resul
 
 /// Extract all loaded paks.
 #[tauri::command]
-pub fn pak_extract_all(options: ExtractOptions) -> Result<(), String> {
+pub fn pak_extract_all(options: ExtractOptions, on_event: Channel<WorkProgressEvent>) -> Result<(), String> {
     if options.extract_all {
         println!("Extracting all entries...");
     } else {
         println!("Extracting {} entries...", options.extract_files.len());
     }
 
-    warp_result_elapsed!(usecase::pak_extract_all(&options), "pak_extract_all spent {} ms")
+    let channel = ProgressChannel::new(on_event);
+    warp_result_elapsed!(
+        usecase::pak_extract_all(&options, channel),
+        "pak_extract_all spent {} ms"
+    )
 }
 
 /// List all .list files in the file table directory.

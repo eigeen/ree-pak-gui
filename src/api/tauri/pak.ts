@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { Channel, invoke } from '@tauri-apps/api/core'
 
 export type PakId = string
 export type JsSafeHash = [number, number]
@@ -56,6 +56,21 @@ export interface ExtractFileInfo {
   belongsTo: PakId
 }
 
+export type WorkProgressEvent = {
+  event: 'start',
+  data: {
+    fileCount: number,
+  }
+} | {
+  event: 'progress',
+  data: {
+    finishedCount: number,
+  }
+} | {
+  event: 'finished',
+  data: null
+}
+
 export function pak_clear_all(): Promise<void> {
   return invoke('pak_clear_all')
 }
@@ -88,6 +103,6 @@ export function pak_read_file_tree_optimized(options?: RenderTreeOptions): Promi
   return invoke('pak_read_file_tree_optimized', { options })
 }
 
-export function pak_extract_all(options: ExtractOptions): Promise<void> {
-  return invoke('pak_extract_all', { options })
+export function pak_extract_all(options: ExtractOptions, onEvent: Channel<WorkProgressEvent>): Promise<void> {
+  return invoke('pak_extract_all', { options, onEvent })
 }

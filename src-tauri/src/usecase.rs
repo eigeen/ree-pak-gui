@@ -3,6 +3,7 @@ use std::env;
 use ree_pak_core::filename::FileNameTable;
 
 use crate::{
+    channel::ProgressChannel,
     error::{Error, Result},
     filename::FileListInfo,
     pak::{
@@ -84,8 +85,8 @@ pub fn pak_read_file_tree_optimized(options: &RenderTreeOptions) -> Result<Rende
     RenderTreeNode::try_from_file_tree(basic_tree, options)
 }
 
-pub fn pak_extract_all(options: &ExtractOptions) -> Result<()> {
-    PakGroup::instance().lock().unwrap().unpack_optional(options)
+pub fn pak_extract_all(options: &ExtractOptions, progress: ProgressChannel) -> Result<()> {
+    PakGroup::instance().lock().unwrap().unpack_optional(options, progress)
 }
 
 pub fn get_file_lists() -> Result<Vec<FileListInfo>> {

@@ -12,12 +12,15 @@ use nohash::NoHashHasher;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use ree_pak_core::{filename::FileNameTable, pak::PakEntry, read::archive::PakArchiveReader};
 
+use crate::channel::ProgressChannel;
+
 use super::{ExtractOptions, Pak};
 
 pub fn unpack_parallel_error_continue<R>(
     pak: &mut Pak<R>,
     file_name_table: &FileNameTable,
     options: &ExtractOptions,
+    progress: ProgressChannel,
 ) -> anyhow::Result<()>
 where
     R: Read + Seek + Send,
@@ -37,12 +40,6 @@ where
     let output_path = Path::new(&options.output_path);
 
     // extract files
-    // let bar = ProgressBar::new(archive.entries().len() as u64);
-    // bar.set_style(
-    //     ProgressStyle::default_bar().template("{pos}/{len} files written {wide_bar} elapsed: {elapsed} eta: {eta}")?,
-    // );
-    // bar.enable_steady_tick(Duration::from_millis(100));
-    // bar.println(format!("Output directory: `{}`", output_path.display()));
     let results: Vec<anyhow::Result<()>> = pak
         .archive
         .entries()
@@ -51,33 +48,31 @@ where
             if options.extract_all || target_files.contains(&entry.hash()) {
                 let result = process_entry(entry, file_name_table, output_path, &archive_reader, true);
                 if let Err(e) = &result {
-                    println!(
-                        "Error processing entry: {}. Path: {:?}\nEntry: {:?}",
+                    log::error!(
+                        "Error processing entry: {}. Path: {:?}",
                         e,
                         file_name_table.get_file_name(entry.hash()).unwrap(),
-                        entry
-                    )
-                    // bar.println(format!("Error processing entry: {}\nEntry: {:?}", e, entry));
+                    );
+                    log::debug!("Entry: {:?}", entry);
                 };
+                progress.inc_finished();
                 return result;
             }
             Ok(())
         })
         .collect();
 
-    // bar.finish();
-
-    if !results.is_empty() {
-        let errors = results.iter().filter(|r| r.is_err()).collect::<Vec<_>>();
-        println!("Done with {} errors", errors.len());
-        if errors.len() < 30 {
-            println!("Errors: {:?}", errors);
-        } else {
-            println!("Too many errors to display.");
-        }
-    } else {
-        println!("Done.");
-    }
+    // if !results.is_empty() {
+    //     let errors = results.iter().filter(|r| r.is_err()).collect::<Vec<_>>();
+    //     println!("Done with {} errors", errors.len());
+    //     if errors.len() < 30 {
+    //         println!("Errors: {:?}", errors);
+    //     } else {
+    //         println!("Too many errors to display.");
+    //     }
+    // } else {
+    //     println!("Done.");
+    // }
 
     pak.reader.replace(archive_reader.into_inner().unwrap().into_inner());
 
