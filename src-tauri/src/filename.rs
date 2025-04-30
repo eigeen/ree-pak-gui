@@ -17,11 +17,11 @@ impl FileListInfo {
             let path = entry.path();
             let full_ext = path
                 .iter()
-                .last()
+                .next_back()
                 .unwrap_or_default()
                 .to_string_lossy()
                 .split('.')
-                .last()
+                .next_back()
                 .unwrap_or_default()
                 .to_lowercase();
             if !path.is_file() || [".list", ".list.zst"].contains(&full_ext.as_str()) {

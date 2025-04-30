@@ -6,6 +6,7 @@
       :animation="200"
       handle=".drag-handle"
       ghost-class="ghost"
+      :forceFallback="true"
       @change="onChange"
     >
       <template #item="{ element, index }">
@@ -20,7 +21,7 @@
       <v-btn
         class="button long-btn text-none"
         style="width: 100%"
-        color="#409eff"
+        color="primary"
         prepend-icon="mdi-file-plus-outline"
         @click="$emit('open')"
         :disabled="!enableAdd"

@@ -51,7 +51,7 @@
         "fullscreen": false,
         "height": 768,
         "resizable": true,
-        "title": "RE Engine Pak GUI",
+        "title": "REE Pak GUI",
         "width": 1024,
         "useHttpsScheme": true,
         "dragDropEnabled": true

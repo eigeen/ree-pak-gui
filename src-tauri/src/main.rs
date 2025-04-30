@@ -33,6 +33,10 @@ fn main() {
     tauri::Builder::default()
         .setup(|app| {
             let _ = APP_HANDLE.set(app.handle().clone());
+            let main_window = app.get_webview_window("main").unwrap();
+            main_window
+                .set_title(&format!("REE Pak GUI - v{}", env!("CARGO_PKG_VERSION")))
+                .unwrap();
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())

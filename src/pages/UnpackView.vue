@@ -30,10 +30,14 @@ const loading = ref(false)
 // 树视图数据
 const treeData = ref<RenderTreeNode | null>(null)
 const fileNameTablePath = ref('')
-// 进度条
+// 解包进度条
 const showProgressPanel = ref(false)
-const progressValue = ref(0)
-const currentFile = ref('test.bin')
+const currentFile = ref('natives/test.bin')
+const totalFileCount = ref(0)
+const finishFileCount = ref(0)
+const progressValue = computed(() =>
+  totalFileCount.value === 0 ? 0 : finishFileCount.value / totalFileCount.value
+)
 // 是否允许添加Pak文件
 const enableAddPaks = computed(() => {
   return fileNameTablePath.value !== ''
@@ -191,13 +195,18 @@ async function doExtract() {
     // console.log('Extract options', options)
     const onEvent = new Channel<WorkProgressEvent>()
     onEvent.onmessage = (event) => {
-      // TODO: 进度条更新
-      if (event.event === 'start') {
-        console.log('Extract start', event.data)
-      } else if (event.event === 'progress') {
-        console.log('Extract progress', event.data)
-      } else if (event.event === 'finished') {
-        console.log('Extract end')
+      if (event.event === 'workStart') {
+        totalFileCount.value = event.data.fileCount
+        finishFileCount.value = 0
+        console.log('Work start', event.data)
+      } else if (event.event === 'workFinished') {
+        console.log('Work finished')
+      } else if (event.event === 'fileStart') {
+        currentFile.value = event.data.path
+        console.log('File start', event.data)
+      } else if (event.event === 'fileDone') {
+        finishFileCount.value = event.data.finishCount
+        console.log('File done', event.data)
       }
     }
 
@@ -336,7 +345,7 @@ onUnmounted(async () => {
         <div class="tree-actions">
           <v-btn
             class="text-none"
-            color="#409eff"
+            color="primary"
             prepend-icon="mdi-export"
             @click="doExtract"
             :disabled="!enableExtract"
@@ -344,16 +353,29 @@ onUnmounted(async () => {
           >
         </div>
       </div>
-      <div class="progress-panel" v-show="showProgressPanel">
-        <div class="progress-text">Extracting files...</div>
-        <v-progress-linear
-          :color="progressValue >= 100 ? 'green' : 'primary'"
-          height="8"
-          :model-value="progressValue"
-          rounded
-        ></v-progress-linear>
-        <div class="progress-detail">Processing: {{ currentFile }} ({{ progressValue }}%)</div>
-      </div>
+      <v-dialog v-model="showProgressPanel" persistent>
+        <v-card>
+          <v-card-text class="pa-8">
+            <div class="text-center text-h6 mb-4">Extracting Files</div>
+            <v-progress-linear
+              :color="progressValue >= 100 ? 'green' : 'primary'"
+              height="12px"
+              :model-value="progressValue"
+              rounded
+              class="mb-2"
+            ></v-progress-linear>
+            <div class="text-body-1 mb-4">{{ finishFileCount }} / {{ totalFileCount }} files</div>
+            <div class="text-body-2">Extracting: {{ currentFile }}</div>
+            <v-btn
+              class="mt-4 text-none"
+              :color="progressValue >= 100 ? 'primary' : 'error'"
+              @click="showProgressPanel = false"
+            >
+              {{ progressValue >= 100 ? 'Close' : 'Terminate' }}
+            </v-btn>
+          </v-card-text>
+        </v-card>
+      </v-dialog>
     </div>
   </el-container>
 </template>
@@ -409,23 +431,6 @@ onUnmounted(async () => {
 
 .tree-actions {
   margin-top: 20px;
-}
-
-.progress-panel {
-  padding: 10px 10px 15px 10px;
-  background-color: white;
-  border-top: 1px solid #eee;
-}
-
-.progress-text {
-  margin-bottom: 5px;
-  font-weight: bold;
-}
-
-.progress-detail {
-  margin-top: 5px;
-  font-size: 0.8em;
-  color: #666;
 }
 
 .test-buttons {

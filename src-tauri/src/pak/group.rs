@@ -134,7 +134,7 @@ impl PakGroup<BufReader<File>> {
         } else {
             options.extract_files.len() as u32
         };
-        progress.start(file_count);
+        progress.work_start(file_count);
 
         for pak in self.paks.iter_mut() {
             let file_name_table = self.file_name_table.as_ref().unwrap();
@@ -142,7 +142,7 @@ impl PakGroup<BufReader<File>> {
                 eprintln!("Error unpacking pak: {}", e);
             }
         }
-        progress.finished();
+        progress.work_finished();
 
         Ok(())
     }
