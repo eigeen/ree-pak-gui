@@ -70,18 +70,11 @@ export type WorkProgressEvent =
       data: null
     }
   | {
-      event: 'fileStart'
+      event: 'fileDone'
       data: {
         path: string
         hash: JsSafeHash
-      }
-    }
-  | {
-      event: 'fileDone'
-      data: {
-        hash: JsSafeHash
         finishCount: number
-        errMsg?: string
       }
     }
 
@@ -109,17 +102,21 @@ export function pak_get_info(id: PakId): Promise<PakInfo> {
   return invoke('pak_get_info', { id })
 }
 
+export function pak_extract_all(
+  options: ExtractOptions,
+  onEvent: Channel<WorkProgressEvent>
+): Promise<void> {
+  return invoke('pak_extract_all', { options, onEvent })
+}
+
+export function pak_terminate_extraction(): Promise<void> {
+  return invoke('pak_terminate_extraction')
+}
+
 export function pak_read_file_tree(): Promise<FileTree> {
   return invoke('pak_read_file_tree')
 }
 
 export function pak_read_file_tree_optimized(options?: RenderTreeOptions): Promise<RenderTreeNode> {
   return invoke('pak_read_file_tree_optimized', { options })
-}
-
-export function pak_extract_all(
-  options: ExtractOptions,
-  onEvent: Channel<WorkProgressEvent>
-): Promise<void> {
-  return invoke('pak_extract_all', { options, onEvent })
 }

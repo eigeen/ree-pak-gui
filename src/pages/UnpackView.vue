@@ -4,7 +4,8 @@ import {
   pak_extract_all,
   pak_list_all,
   pak_open,
-  pak_read_file_tree_optimized
+  pak_read_file_tree_optimized,
+  pak_terminate_extraction
 } from '@/api/tauri/pak'
 import type { ExtractOptions, PakInfo, RenderTreeNode, WorkProgressEvent } from '@/api/tauri/pak'
 import PakFiles from '@/components/PakFiles.vue'
@@ -17,7 +18,7 @@ import { file_table_load } from '@/api/tauri/filelist'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import type { UnlistenFn } from '@tauri-apps/api/event'
 import { Channel } from '@tauri-apps/api/core'
-import { ShowError } from '@/utils'
+import { ShowError, ShowWarn } from '@/utils'
 
 // 过滤器输入（原始输入）
 const filterTextInput = ref('')
@@ -31,13 +32,15 @@ const loading = ref(false)
 const treeData = ref<RenderTreeNode | null>(null)
 const fileNameTablePath = ref('')
 // 解包进度条
+const unpackWorking = ref(false)
 const showProgressPanel = ref(false)
-const currentFile = ref('natives/test.bin')
+const currentFile = ref('')
 const totalFileCount = ref(0)
 const finishFileCount = ref(0)
 const progressValue = computed(() =>
-  totalFileCount.value === 0 ? 0 : finishFileCount.value / totalFileCount.value
+  totalFileCount.value === 0 ? 0 : (finishFileCount.value / totalFileCount.value) * 100
 )
+const showConfirmTermination = ref(false)
 // 是否允许添加Pak文件
 const enableAddPaks = computed(() => {
   return fileNameTablePath.value !== ''
@@ -169,7 +172,7 @@ async function handleCloseAll() {
   }
 }
 
-async function doExtract() {
+async function doExtraction() {
   try {
     // 请求解压目录
     let selected = await dialogOpen({
@@ -198,17 +201,19 @@ async function doExtract() {
       if (event.event === 'workStart') {
         totalFileCount.value = event.data.fileCount
         finishFileCount.value = 0
-        console.log('Work start', event.data)
       } else if (event.event === 'workFinished') {
-        console.log('Work finished')
-      } else if (event.event === 'fileStart') {
-        currentFile.value = event.data.path
-        console.log('File start', event.data)
+        unpackWorking.value = false
+        if (finishFileCount.value !== totalFileCount.value) {
+          finishFileCount.value = totalFileCount.value
+        }
       } else if (event.event === 'fileDone') {
         finishFileCount.value = event.data.finishCount
-        console.log('File done', event.data)
+        currentFile.value = event.data.path
       }
     }
+
+    unpackWorking.value = true
+    showProgressPanel.value = true
 
     await pak_extract_all(options, onEvent)
   } catch (error) {
@@ -251,7 +256,33 @@ async function stopListenForDrop() {
   unlisten?.()
 }
 
-// // 处理文件拖拽功能
+function resetProgress() {
+  finishFileCount.value = 0
+  totalFileCount.value = 0
+  currentFile.value = ''
+}
+
+async function handleCloseProgress() {
+  if (unpackWorking.value) {
+    showConfirmTermination.value = true
+    return
+  }
+  resetProgress()
+  showProgressPanel.value = false
+}
+
+async function handleConfirmTermination() {
+  await pak_terminate_extraction()
+
+  unpackWorking.value = false
+  showConfirmTermination.value = false
+  resetProgress()
+  showProgressPanel.value = false
+  console.log('Termination confirmed')
+  ShowWarn('Extraction terminated.')
+}
+
+// 处理文件拖拽功能
 // watch(() => enableAddPak, (allowAdd) => {
 //   if (allowAdd) {
 //     startListenForDrop()
@@ -278,36 +309,6 @@ onUnmounted(async () => {
         <div class="tool-chunk">
           <FileNameTableSelector @change="onFileNameTableChange" :disabled="false">
           </FileNameTableSelector>
-        </div>
-        <div class="test-buttons">
-          <v-btn
-            class="text-none"
-            density="compact"
-            @click="showProgressPanel = !showProgressPanel"
-          >
-            Toggle Panel
-          </v-btn>
-          <v-btn
-            class="text-none"
-            density="compact"
-            @click="progressValue = Math.min(100, progressValue + 10)"
-          >
-            +10% Progress
-          </v-btn>
-          <v-btn
-            class="text-none"
-            density="compact"
-            @click="progressValue = Math.max(0, progressValue - 10)"
-          >
-            -10% Progress
-          </v-btn>
-          <v-btn
-            class="text-none"
-            density="compact"
-            @click="currentFile = 'test_file_' + Math.floor(Math.random() * 100) + '.dat'"
-          >
-            Random File
-          </v-btn>
         </div>
         <div class="tool-chunk">
           <el-text class="block-text">Pak Files</el-text>
@@ -347,7 +348,7 @@ onUnmounted(async () => {
             class="text-none"
             color="primary"
             prepend-icon="mdi-export"
-            @click="doExtract"
+            @click="doExtraction"
             :disabled="!enableExtract"
             >Extract</v-btn
           >
@@ -356,7 +357,9 @@ onUnmounted(async () => {
       <v-dialog v-model="showProgressPanel" persistent>
         <v-card>
           <v-card-text class="pa-8">
-            <div class="text-center text-h6 mb-4">Extracting Files</div>
+            <div class="text-center text-h6 mb-4">
+              Extracting Files... <span v-if="!unpackWorking">Done!</span>
+            </div>
             <v-progress-linear
               :color="progressValue >= 100 ? 'green' : 'primary'"
               height="12px"
@@ -365,19 +368,37 @@ onUnmounted(async () => {
               class="mb-2"
             ></v-progress-linear>
             <div class="text-body-1 mb-4">{{ finishFileCount }} / {{ totalFileCount }} files</div>
-            <div class="text-body-2">Extracting: {{ currentFile }}</div>
-            <v-btn
-              class="mt-4 text-none"
-              :color="progressValue >= 100 ? 'primary' : 'error'"
-              @click="showProgressPanel = false"
-            >
-              {{ progressValue >= 100 ? 'Close' : 'Terminate' }}
-            </v-btn>
+            <div class="text-body-2">Extracting:</div>
+            <div class="text-body-2">{{ currentFile }}</div>
           </v-card-text>
+          <div class="progress-actions">
+            <v-btn
+              class="ma-4 text-none"
+              :color="unpackWorking ? 'error' : 'primary'"
+              @click="handleCloseProgress"
+            >
+              {{ unpackWorking ? 'Terminate' : 'Close' }}
+            </v-btn>
+          </div>
         </v-card>
       </v-dialog>
     </div>
   </el-container>
+
+  <v-dialog v-model="showConfirmTermination" max-width="400" persistent>
+    <v-card class="pa-2">
+      <v-card-title class="text-h6">Confirm Termination</v-card-title>
+      <v-card-text
+        >Did you want to terminate the current extraction operation? <br />The extracted files will
+        be retained.</v-card-text
+      >
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn color="grey" text @click="showConfirmTermination = false">Cancel</v-btn>
+        <v-btn color="error" text @click="handleConfirmTermination">Confirm</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <style scoped lang="scss">
@@ -414,6 +435,7 @@ onUnmounted(async () => {
   flex-direction: column;
   height: 100%;
   width: 100%;
+  padding-bottom: 2rem;
 
   .tree-panel {
     flex-grow: 1;
@@ -429,16 +451,23 @@ onUnmounted(async () => {
   }
 }
 
+.progress-actions {
+  display: flex;
+  justify-content: right;
+  margin: 8px;
+}
+
 .tree-actions {
   margin-top: 20px;
 }
 
-.test-buttons {
-  display: flex;
-  flex-flow: column;
-  gap: 10px;
-  padding: 10px;
-  background-color: #f5f5f5;
-  border-top: 1px solid #ddd;
+.v-card-text {
+  .text-body-2 {
+    display: block;
+    height: 1.5em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 </style>

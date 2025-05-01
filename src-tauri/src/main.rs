@@ -3,6 +3,8 @@
 
 use std::sync::OnceLock;
 
+use pak::group::PakGroup;
+use service::{filelist::FileListService, pak::PakService};
 use tauri::{AppHandle, Manager};
 
 mod channel;
@@ -10,11 +12,10 @@ mod command;
 mod common;
 mod error;
 mod event;
-mod filename;
 mod logger;
 mod macros;
 mod pak;
-mod usecase;
+mod service;
 mod utility;
 
 static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
@@ -24,6 +25,7 @@ fn panic_hook(info: &std::panic::PanicHookInfo) {
     utility::message_box_error(&format!("panic occurred: {:#}", info));
     #[cfg(not(target_os = "windows"))]
     eprintln!("panic occurred: {:#}", info);
+    std::process::exit(1);
 }
 
 fn main() {
@@ -39,6 +41,8 @@ fn main() {
                 .unwrap();
             Ok(())
         })
+        .manage(PakService::new(PakGroup::new()))
+        .manage(FileListService::new())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             command::pak_clear_all,
@@ -50,6 +54,7 @@ fn main() {
             command::pak_read_file_tree,
             command::pak_read_file_tree_optimized,
             command::pak_extract_all,
+            command::pak_terminate_extraction,
             command::file_table_get_list,
             command::file_table_load,
         ])

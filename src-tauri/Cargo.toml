@@ -35,6 +35,7 @@ nohash = "0.2"
 rayon = "1.10"
 log = { version = "0.4.27", features = ["std"] }
 self_update = "0.42.0"
+parking_lot.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.59.0", features = ["Win32_UI_WindowsAndMessaging"] }

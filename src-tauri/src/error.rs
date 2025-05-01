@@ -23,4 +23,6 @@ pub enum Error {
     NoPaksLoaded,
     #[error("Invalid pak order: {0}")]
     InvalidOrder(String),
+    #[error("Unpack progress already running.")]
+    UnpackAlreadyRunning,
 }

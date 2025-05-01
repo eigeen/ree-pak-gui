@@ -12,7 +12,6 @@ use crate::common::{JsSafeHash, UniqueId};
 
 pub mod group;
 pub mod tree;
-mod unpack;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PakId(UniqueId);
@@ -30,7 +29,7 @@ pub struct PakInfo {
     pub path: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExtractOptions {
     pub output_path: String,
@@ -39,7 +38,7 @@ pub struct ExtractOptions {
     pub extract_files: Vec<ExtractFileInfo>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExtractFileInfo {
     pub hash: JsSafeHash,
@@ -47,10 +46,10 @@ pub struct ExtractFileInfo {
 }
 
 pub struct Pak<R> {
-    id: PakId,
-    path: String,
-    archive: PakArchive,
-    reader: Option<R>,
+    pub(crate) id: PakId,
+    pub(crate) path: String,
+    pub(crate) archive: PakArchive,
+    pub(crate) reader: Option<R>,
 }
 
 impl<R> Pak<R>
@@ -64,14 +63,6 @@ where
             archive,
             reader: Some(reader),
         }
-    }
-
-    pub fn id(&self) -> PakId {
-        self.id
-    }
-
-    pub fn path(&self) -> &str {
-        &self.path
     }
 
     pub fn create_tree(&self, name_table: &FileNameTable) -> FileTree {

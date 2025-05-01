@@ -1,26 +1,15 @@
 use std::{
     fs::File,
-    io::BufReader,
-    sync::{Arc, LazyLock, Mutex},
+    io::{BufRead, BufReader, Seek},
 };
 
 use ree_pak_core::filename::FileNameTable;
 
-use super::{ExtractOptions, Pak, PakId, PakInfo, tree::FileTree};
+use super::{Pak, PakId, PakInfo, tree::FileTree};
 
-use crate::{
-    channel::ProgressChannel,
-    error::{Error, Result},
-    pak::unpack,
-};
+use crate::error::{Error, Result};
 
-type BufReaderFile = BufReader<File>;
-type PakBufReaderFile = Pak<BufReaderFile>;
-
-static PAK_GROUP: LazyLock<Arc<Mutex<PakGroup<BufReader<File>>>>> =
-    LazyLock::new(|| Arc::new(Mutex::new(PakGroup::new())));
-
-type SharedPakGroup = Arc<Mutex<PakGroup<BufReader<File>>>>;
+type PakBufReaderFile = Pak<BufReader<File>>;
 
 /// Manages a group of paks.
 pub struct PakGroup<R> {
@@ -28,23 +17,19 @@ pub struct PakGroup<R> {
     file_name_table: Option<FileNameTable>,
 }
 
-impl PakGroup<BufReader<File>> {
-    pub fn instance() -> SharedPakGroup {
-        PAK_GROUP.clone()
-    }
-
-    pub fn new() -> Self {
-        Self {
-            paks: Vec::new(),
-            file_name_table: None,
-        }
-    }
-
+impl<R> PakGroup<R>
+where
+    R: Send + Sync + BufRead + Seek,
+{
     pub fn file_name_table(&self) -> Option<&FileNameTable> {
         self.file_name_table.as_ref()
     }
 
-    pub fn paks_mut(&mut self) -> &mut [PakBufReaderFile] {
+    pub fn paks(&self) -> &[Pak<R>] {
+        &self.paks
+    }
+
+    pub fn paks_mut(&mut self) -> &mut [Pak<R>] {
         &mut self.paks
     }
 
@@ -62,7 +47,7 @@ impl PakGroup<BufReader<File>> {
         self.paks.iter().map(|pak| pak.archive.entries().len() as u64).sum()
     }
 
-    pub fn add_pak(&mut self, pak: PakBufReaderFile) {
+    pub fn add_pak(&mut self, pak: Pak<R>) {
         if let Some(prev_pak) = self.get_pak_by_path(&pak.path) {
             // remove previous pak with same path
             let id: PakId = prev_pak.id;
@@ -71,19 +56,19 @@ impl PakGroup<BufReader<File>> {
         self.paks.push(pak);
     }
 
-    pub fn get_pak(&self, id: &PakId) -> Option<&PakBufReaderFile> {
+    pub fn get_pak(&self, id: &PakId) -> Option<&Pak<R>> {
         self.paks.iter().find(|pak| pak.id == *id)
     }
 
-    pub fn get_pak_mut(&mut self, id: &PakId) -> Option<&mut PakBufReaderFile> {
+    pub fn get_pak_mut(&mut self, id: &PakId) -> Option<&mut Pak<R>> {
         self.paks.iter_mut().find(|pak| pak.id == *id)
     }
 
-    pub fn get_pak_by_path(&self, path: &str) -> Option<&PakBufReaderFile> {
+    pub fn get_pak_by_path(&self, path: &str) -> Option<&Pak<R>> {
         self.paks.iter().find(|pak| pak.path == path)
     }
 
-    pub fn remove_pak(&mut self, id: &PakId) -> Option<PakBufReaderFile> {
+    pub fn remove_pak(&mut self, id: &PakId) -> Option<Pak<R>> {
         self.paks
             .iter()
             .position(|pak| pak.id == *id)
@@ -120,30 +105,13 @@ impl PakGroup<BufReader<File>> {
             Ok(tree)
         }
     }
+}
 
-    pub fn unpack_optional(&mut self, options: &ExtractOptions, progress: ProgressChannel) -> Result<()> {
-        if self.paks.is_empty() {
-            return Err(Error::NoPaksLoaded);
+impl PakGroup<BufReader<File>> {
+    pub fn new() -> Self {
+        Self {
+            paks: Vec::new(),
+            file_name_table: None,
         }
-        if self.file_name_table.is_none() {
-            return Err(Error::MissingFileList);
-        }
-
-        let file_count = if options.extract_all {
-            self.total_files() as u32
-        } else {
-            options.extract_files.len() as u32
-        };
-        progress.work_start(file_count);
-
-        for pak in self.paks.iter_mut() {
-            let file_name_table = self.file_name_table.as_ref().unwrap();
-            if let Err(e) = unpack::unpack_parallel_error_continue(pak, file_name_table, options, progress.clone()) {
-                eprintln!("Error unpacking pak: {}", e);
-            }
-        }
-        progress.work_finished();
-
-        Ok(())
     }
 }

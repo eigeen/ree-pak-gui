@@ -1,5 +1,9 @@
-use std::sync::{Arc, atomic::AtomicU32};
+use std::{
+    sync::{Arc, atomic::AtomicU32},
+    time::{Duration, Instant},
+};
 
+use parking_lot::Mutex;
 use serde::Serialize;
 use tauri::ipc::Channel;
 
@@ -13,16 +17,12 @@ pub enum WorkProgressEvent {
     /// Work start.
     #[serde(rename_all = "camelCase")]
     WorkStart { file_count: u32 },
-    /// File extraction start.
-    #[serde(rename_all = "camelCase")]
-    FileStart { path: String, hash: JsSafeHash },
     /// File extraction done.
     #[serde(rename_all = "camelCase")]
     FileDone {
+        path: String,
         hash: JsSafeHash,
         finish_count: u32,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        err_msg: Option<String>,
     },
     /// Work finished.
     WorkFinished,
@@ -31,14 +31,19 @@ pub enum WorkProgressEvent {
 #[derive(Clone)]
 pub struct ProgressChannel {
     channel: Channel<WorkProgressEvent>,
-    finished_count: Arc<AtomicU32>,
+    finish_count: Arc<AtomicU32>,
+    steady_tick: Duration,
+    last_tick: Arc<Mutex<Instant>>,
 }
 
 impl ProgressChannel {
     pub fn new(channel: Channel<WorkProgressEvent>) -> Self {
+        let steady_tick = Duration::from_millis(100);
         Self {
             channel,
-            finished_count: Arc::new(AtomicU32::new(0)),
+            finish_count: Arc::new(AtomicU32::new(0)),
+            steady_tick,
+            last_tick: Arc::new(Mutex::new(Instant::now() - steady_tick)),
         }
     }
 
@@ -48,21 +53,19 @@ impl ProgressChannel {
         }
     }
 
-    pub fn file_start(&self, path: String, hash: u64) {
-        if let Err(e) = self.channel.send(WorkProgressEvent::FileStart {
-            path,
-            hash: JsSafeHash::from_u64(hash),
-        }) {
-            log::error!("Failed to send file start event: {}", e);
-        }
-    }
+    pub fn file_done(&self, path: &str, hash: u64, _err_msg: Option<String>) {
+        let finish_count = self.finish_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
 
-    pub fn file_done(&self, hash: u64, err_msg: Option<String>) {
-        let finish_count = self.finished_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let mut last_tick = self.last_tick.lock();
+        if last_tick.elapsed() < self.steady_tick {
+            return;
+        }
+        *last_tick = Instant::now();
+
         if let Err(e) = self.channel.send(WorkProgressEvent::FileDone {
+            path: path.to_string(),
             hash: JsSafeHash::from_u64(hash),
             finish_count,
-            err_msg,
         }) {
             log::error!("Failed to send file done event: {}", e);
         }
