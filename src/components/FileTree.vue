@@ -204,6 +204,30 @@ function parseId(id: string): JsSafeHash {
   return id.split(',').map((str) => parseInt(str, 10)) as JsSafeHash
 }
 
+const extIconMap: Record<string, string> = {
+  msg: 'mdi-text-box',
+  user: 'mdi-code-braces',
+  tex: 'mdi-image',
+  chain: 'mdi-link-variant',
+  chain2: 'mdi-link-variant',
+  pfb: 'mdi-package-variant',
+  efx: 'mdi-auto-fix',
+  mesh: 'mdi-vector-polygon'
+}
+
+function getFileIcon(label: string): string {
+  const path = label.split('(')[0].trim()
+  const pathComponents = path.split('.')
+  if (pathComponents.length < 3) {
+    return 'mdi-file'
+  }
+  const ext = pathComponents[pathComponents.length - 2].toLowerCase()
+  if (extIconMap[ext]) {
+    return extIconMap[ext]
+  }
+  return 'mdi-file'
+}
+
 const treeProps = {
   value: 'id',
   label: 'label',
@@ -223,7 +247,17 @@ defineExpose({ getCheckedNodes })
       :height="treeHeight"
       v-loading="loading"
       show-checkbox
-    />
+    >
+      <template #default="{ node }">
+        <v-icon
+          v-if="node.isLeaf"
+          :icon="getFileIcon(node.label)"
+          class="prefix"
+          size="small"
+        ></v-icon>
+        <span>{{ node.label }}</span>
+      </template>
+    </el-tree-v2>
   </div>
 </template>
 
@@ -237,7 +271,10 @@ defineExpose({ getCheckedNodes })
 .tree {
   flex: 1;
   min-height: 0;
-  border: 1px solid var(--el-border-color);
-  border-radius: 2px;
+}
+
+.prefix {
+  color: rgb(51, 133, 255);
+  margin-right: 4px;
 }
 </style>

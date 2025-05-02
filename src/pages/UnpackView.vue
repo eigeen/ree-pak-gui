@@ -311,7 +311,7 @@ onUnmounted(async () => {
           </FileNameTableSelector>
         </v-card>
         <v-card class="pa-4 elevation-3 rounded-lg tool-chunk">
-          <div>Pak Files</div>
+          <div class="text-subtitle-1">Pak Files</div>
           <PakFiles
             :pak-list="pakData"
             :enable-add="enableAddPaks"
