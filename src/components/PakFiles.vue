@@ -1,5 +1,5 @@
 <template>
-  <v-card class="file-table">
+  <v-card class="elevation-0 file-table">
     <draggable
       v-model="orderedPakList"
       item-key="path"

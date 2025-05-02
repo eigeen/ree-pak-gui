@@ -306,12 +306,12 @@ onUnmounted(async () => {
   <el-container class="main-container">
     <el-aside class="aside-outer">
       <div class="aside-container">
-        <div class="tool-chunk">
+        <v-card class="pa-4 elevation-3 rounded-lg tool-chunk">
           <FileNameTableSelector @change="onFileNameTableChange" :disabled="false">
           </FileNameTableSelector>
-        </div>
-        <div class="tool-chunk">
-          <el-text class="block-text">Pak Files</el-text>
+        </v-card>
+        <v-card class="pa-4 elevation-3 rounded-lg tool-chunk">
+          <div>Pak Files</div>
           <PakFiles
             :pak-list="pakData"
             :enable-add="enableAddPaks"
@@ -320,8 +320,8 @@ onUnmounted(async () => {
             @order="handleOrder"
             @close-all="handleCloseAll"
           ></PakFiles>
-        </div>
-        <div class="tool-chunk">
+        </v-card>
+        <v-card class="pa-4 elevation-3 rounded-lg tool-chunk">
           <v-text-field
             v-model="filterTextInput"
             variant="outlined"
@@ -332,59 +332,62 @@ onUnmounted(async () => {
           <v-btn class="text-none" prepend-icon="mdi-filter-variant" @click="updateFilter"
             >Apply Filter</v-btn
           >
-        </div>
+        </v-card>
       </div>
     </el-aside>
-    <div v-loading="loading" class="main-content">
-      <div class="tree-panel">
-        <FileTree
-          class="file-tree"
-          ref="fileTreeComponent"
-          :data="treeData"
-          :filter-text="filterText"
-        ></FileTree>
-        <div class="tree-actions">
-          <v-btn
-            class="text-none"
-            color="primary"
-            prepend-icon="mdi-export"
-            @click="doExtraction"
-            :disabled="!enableExtract"
-            >Extract</v-btn
-          >
-        </div>
-      </div>
-      <v-dialog v-model="showProgressPanel" persistent>
-        <v-card>
-          <v-card-text class="pa-8">
-            <div class="text-center text-h6 mb-4">
-              Extracting Files... <span v-if="!unpackWorking">Done!</span>
-            </div>
-            <v-progress-linear
-              :color="progressValue >= 100 ? 'green' : 'primary'"
-              height="12px"
-              :model-value="progressValue"
-              rounded
-              class="mb-2"
-            ></v-progress-linear>
-            <div class="text-body-1 mb-4">{{ finishFileCount }} / {{ totalFileCount }} files</div>
-            <div class="text-body-2">Extracting:</div>
-            <div class="text-body-2">{{ currentFile }}</div>
-          </v-card-text>
-          <div class="progress-actions">
+
+    <div class="main-content">
+      <v-card class="pa-2 elevation-3 rounded-lg tree-card">
+        <div class="tree-panel">
+          <FileTree
+            class="file-tree"
+            ref="fileTreeComponent"
+            :data="treeData"
+            :filter-text="filterText"
+          ></FileTree>
+          <div class="tree-actions">
             <v-btn
-              class="ma-4 text-none"
-              :color="unpackWorking ? 'error' : 'primary'"
-              @click="handleCloseProgress"
+              class="text-none"
+              color="primary"
+              prepend-icon="mdi-export"
+              @click="doExtraction"
+              :disabled="!enableExtract"
+              >Extract</v-btn
             >
-              {{ unpackWorking ? 'Terminate' : 'Close' }}
-            </v-btn>
           </div>
-        </v-card>
-      </v-dialog>
+        </div>
+      </v-card>
     </div>
   </el-container>
 
+  <v-dialog v-model="showProgressPanel" persistent>
+    <v-card>
+      <v-card-text class="pa-8">
+        <div class="text-center text-h6 mb-4">
+          Extracting Files... <span v-if="!unpackWorking">Done!</span>
+        </div>
+        <v-progress-linear
+          :color="progressValue >= 100 ? 'green' : 'primary'"
+          height="12px"
+          :model-value="progressValue"
+          rounded
+          class="mb-2"
+        ></v-progress-linear>
+        <div class="text-body-1 mb-4">{{ finishFileCount }} / {{ totalFileCount }} files</div>
+        <div class="text-body-2">Extracting:</div>
+        <div class="text-body-2">{{ currentFile }}</div>
+      </v-card-text>
+      <div class="progress-actions">
+        <v-btn
+          class="ma-4 text-none"
+          :color="unpackWorking ? 'error' : 'primary'"
+          @click="handleCloseProgress"
+        >
+          {{ unpackWorking ? 'Terminate' : 'Close' }}
+        </v-btn>
+      </div>
+    </v-card>
+  </v-dialog>
   <v-dialog v-model="showConfirmTermination" max-width="400" persistent>
     <v-card class="pa-2">
       <v-card-title class="text-h6">Confirm Termination</v-card-title>
@@ -407,16 +410,17 @@ onUnmounted(async () => {
 }
 
 .aside-outer {
-  width: 240px;
+  width: 300px;
   padding: 1rem 0;
-  border-right: 1px solid var(--el-border-color);
+  // border-right: 1px solid var(--el-border-color);
 }
 
 .aside-container {
   display: flex;
   flex-direction: column;
-  row-gap: 1.5rem;
-  margin: 0 10px;
+  row-gap: 1rem;
+  // margin: 0 10px;
+  margin-right: 10px;
 }
 
 .block-text {
@@ -431,11 +435,16 @@ onUnmounted(async () => {
 }
 
 .main-content {
-  display: flex;
-  flex-direction: column;
   height: 100%;
   width: 100%;
-  padding-bottom: 2rem;
+  padding: 1rem 0.5rem;
+
+  .tree-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+  }
 
   .tree-panel {
     flex-grow: 1;
