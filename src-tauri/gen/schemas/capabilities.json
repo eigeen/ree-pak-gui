@@ -1,1 +1,1 @@
-{"migrated":{"identifier":"migrated","description":"permissions that were migrated from v1","local":true,"windows":["main"],"permissions":["core:default","dialog:allow-open","dialog:default","core:window:allow-set-ignore-cursor-events","core:window:allow-start-dragging"]}}
+{"migrated":{"identifier":"migrated","description":"permissions that were migrated from v1","local":true,"windows":["main"],"permissions":["core:default","dialog:allow-open","dialog:default"]}}
