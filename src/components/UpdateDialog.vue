@@ -49,6 +49,7 @@ onMounted(async () => {
   try {
     updateStore.updateVersion = await Update.check()
     console.log('UpdateVersion', updateStore.updateVersion)
+    ShowInfo('Update available. Click the button on the top right to download.')
   } catch (error) {
   } finally {
     updateStore.hasChecked = true

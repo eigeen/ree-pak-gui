@@ -1,9 +1,7 @@
 <template>
   <v-app>
+    <Menu></Menu>
     <v-main class="root">
-      <header>
-        <Menu></Menu>
-      </header>
       <div class="content">
         <router-view />
       </div>

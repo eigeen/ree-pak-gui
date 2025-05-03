@@ -4,6 +4,7 @@ export interface UpdateVersion {
   version: string
   channel: UpdateChannel
   pub_time: string
+  min_version?: string
   files: UpdateFile[]
 }
 

@@ -10,10 +10,6 @@ declare module 'vue' {
   export interface GlobalComponents {
     ElAside: typeof import('element-plus/es')['ElAside']
     ElContainer: typeof import('element-plus/es')['ElContainer']
-    ElMain: typeof import('element-plus/es')['ElMain']
-    ElMenu: typeof import('element-plus/es')['ElMenu']
-    ElMenuItem: typeof import('element-plus/es')['ElMenuItem']
-    ElText: typeof import('element-plus/es')['ElText']
     ElTreeV2: typeof import('element-plus/es')['ElTreeV2']
     FileNameTableSelector: typeof import('./src/components/FileNameTableSelector.vue')['default']
     FileTree: typeof import('./src/components/FileTree.vue')['default']

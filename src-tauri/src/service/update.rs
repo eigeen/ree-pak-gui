@@ -12,8 +12,8 @@ use std::time::Duration;
 use std::{env, fs};
 
 const METADATA_URL: &[&str] = &[
-    "https://raw.githubusercontent.com/eigeen/ree-pak-gui/refs/heads/main/update.json",
-    "https://gitee.com/eigeen/ree-pak-gui/raw/main/update.json",
+    "https://raw.githubusercontent.com/eigeen/ree-pak-gui-update/refs/heads/main/update.json",
+    "https://gitee.com/eigeen/ree-pak-gui-update/raw/main/update.json",
 ];
 const PLATFORM: &str = env::consts::OS;
 const ARCH: &str = env::consts::ARCH;
@@ -43,6 +43,9 @@ pub struct UpdateVersion {
     pub version: String,
     pub channel: UpdateChannel,
     pub pub_time: String,
+    /// Minimum version required to update to this version.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_version: Option<String>,
     pub files: Vec<UpdateFile>,
 }
 
@@ -212,7 +215,6 @@ impl UpdateService {
                 ));
                 continue;
             }
-
             // 写入文件
             let mut downloaded_file = File::create(&target_path).context("Failed to create downloading file")?;
             downloaded_file.write_all(&content).context("Failed to write file")?;
@@ -225,16 +227,12 @@ impl UpdateService {
         Err(anyhow::anyhow!("All servers failed to provide update file"))
     }
 
-    /// Apply update, after restart the program.
+    /// Apply update, wait for restart.
     pub fn perform_update(&self, update_file: impl AsRef<Path>) -> Result<()> {
         let update_file = update_file.as_ref();
-
-        // TODO: 解压文件
-        let new_binary = update_file;
         // replace update
-        self_replace::self_replace(new_binary).context("Failed to replace current binary")?;
+        self_replace::self_replace(update_file).context("Failed to replace current binary")?;
         let _ = fs::remove_file(update_file);
-        let _ = fs::remove_file(new_binary);
 
         Ok(())
     }
