@@ -2,10 +2,7 @@
   <v-app>
     <v-main class="root">
       <header>
-        <el-menu default-active="/unpack" mode="horizontal" class="menu" router>
-          <el-menu-item index="/unpack">Unpack</el-menu-item>
-          <el-menu-item index="/pack" disabled>Pack</el-menu-item>
-        </el-menu>
+        <Menu></Menu>
       </header>
       <div class="content">
         <router-view />
@@ -19,7 +16,7 @@ import { ref } from 'vue'
 import { RouterView } from 'vue-router'
 </script>
 
-<style>
+<style lang="scss">
 html {
   /* disable vuetify scrollbar */
   overflow-y: auto !important;
@@ -29,11 +26,23 @@ html::-webkit-scrollbar {
   display: none;
 }
 
+.el-menu--horizontal {
+  --el-menu-horizontal-height: 50px;
+}
+
 .root {
   display: flex;
   flex-direction: column;
   height: 100vh;
   background-color: #f5f5f5;
+}
+
+el-menu {
+  .right-group {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+  }
 }
 
 .content {

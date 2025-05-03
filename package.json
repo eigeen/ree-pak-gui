@@ -14,15 +14,16 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
+    "@fontsource/roboto": "*",
     "@tauri-apps/api": "^2.4.1",
     "@tauri-apps/plugin-dialog": "^2.2.1",
     "element-plus": "^2.7.8",
+    "pinia": "^3.0.2",
     "reset": "^0.1.0",
     "vue": "^3.4.29",
     "vue-router": "^4.3.3",
     "vuedraggable": "^4.1.0",
-    "vuetify": "^3.8.1",
-    "@fontsource/roboto": "*"
+    "vuetify": "^3.8.1"
   },
   "devDependencies": {
     "@mdi/font": "7.4.47",

@@ -12,6 +12,7 @@ use crate::{
     service::{
         filelist::{FileListInfo, FileListService},
         pak::PakService,
+        update::{self, UpdateService},
     },
     warp_result_elapsed,
 };
@@ -123,4 +124,37 @@ pub fn file_table_load(pak_service: tauri::State<PakServiceState>, path: &str) -
         },
         "file_table_load spent {} ms"
     )
+}
+
+/// Check for updates.
+///
+/// Returns the target version information if there is an update available, or None if not.
+#[tauri::command]
+pub async fn update_check() -> Result<update::UpdateVersion, String> {
+    let update_service = UpdateService::global();
+    let result = update_service.check_update().await;
+    match result {
+        Some(version) => Ok(version),
+        None => Err("No update available.".to_string()),
+    }
+}
+
+/// Download and perform update, will available after user manually restart.
+#[tauri::command]
+pub async fn update_perform(update_version: update::UpdateVersion) -> Result<(), String> {
+    let update_service = UpdateService::global();
+    // fetch update file
+    let update_file = update_service
+        .fetch_update_file(&update_version)
+        .await
+        .map_err(|e| e.to_string())?;
+    // perform update
+    update_service.perform_update(&update_file).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn open_site(url: String) -> Result<(), String> {
+    open::that(&url).map_err(|e| e.to_string())
 }

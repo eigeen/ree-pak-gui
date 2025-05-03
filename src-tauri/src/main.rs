@@ -57,6 +57,9 @@ fn main() {
             command::pak_terminate_extraction,
             command::file_table_get_list,
             command::file_table_load,
+            command::update_check,
+            command::update_perform,
+            command::open_site
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

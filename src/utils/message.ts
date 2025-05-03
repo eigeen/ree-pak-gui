@@ -5,7 +5,8 @@ export const ShowError = (message: any) => {
   ElMessage({
     showClose: true,
     message,
-    type: 'error'
+    type: 'error',
+    duration: 5000
   })
   console.error('[ERROR]', message)
 }
@@ -14,7 +15,8 @@ export const ShowWarn = (message: any) => {
   ElMessage({
     showClose: true,
     message,
-    type: 'warning'
+    type: 'warning',
+    duration: 5000
   })
   console.warn('[WARN]', message)
 }
@@ -23,7 +25,8 @@ export const ShowInfo = (message: any) => {
   ElMessage({
     showClose: true,
     message,
-    type: 'info'
+    type: 'success',
+    duration: 5000
   })
   console.info('[INFO]', message)
 }

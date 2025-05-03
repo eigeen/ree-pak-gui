@@ -23,7 +23,8 @@ export default {
           ElMessage({
             showClose: true,
             message: data.message,
-            type: 'error'
+            type: 'error',
+            duration: 5000
           })
           console.error('System error:', data.message)
         }
