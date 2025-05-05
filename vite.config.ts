@@ -25,18 +25,29 @@ export default defineConfig({
     }),
     // https://github.com/vuetifyjs/vuetify-loader/tree/master/packages/vite-plugin#readme
     Vuetify({
-      autoImport: true
+      autoImport: true,
+      styles: {
+        configFile: 'src/styles/settings.scss'
+      }
     }),
     Unfonts({
-      fontsource: {
+      custom: {
         families: [
           {
-            name: 'Roboto',
-            weights: [400, 700],
-            styles: ['normal'],
-            subset: 'latin-ext'
+            name: 'MiSans',
+            local: 'MiSans',
+            src: './src/assets/fonts/MiSans/*.woff2'
+          },
+          {
+            name: 'MiSans Latin',
+            local: 'MiSans Latin',
+            src: './src/assets/fonts/MiSans-Latin/*.ttf'
           }
-        ]
+        ],
+        display: 'swap',
+        preload: true,
+        prefetch: false,
+        injectTo: 'head-prepend'
       }
     })
   ],
