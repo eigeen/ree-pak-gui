@@ -18,6 +18,8 @@ declare module 'vue' {
     PakFiles: typeof import('./src/components/PakFiles.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    SettingsDrawer: typeof import('./src/components/SettingsDrawer.vue')['default']
+    SettingsSwitch: typeof import('./src/components/settings/SettingsSwitch.vue')['default']
     UpdateDialog: typeof import('./src/components/UpdateDialog.vue')['default']
   }
   export interface ComponentCustomProperties {

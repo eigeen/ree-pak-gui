@@ -1,16 +1,16 @@
 <template>
   <v-app>
-    <Menu></Menu>
     <v-main class="root">
+      <Menu></Menu>
       <div class="content">
         <router-view />
       </div>
     </v-main>
+    <SettingsDrawer></SettingsDrawer>
   </v-app>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 import { RouterView } from 'vue-router'
 </script>
 

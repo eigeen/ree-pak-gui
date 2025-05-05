@@ -1,5 +1,5 @@
 <template>
-  <v-app-bar app flat color="transparent" class="menu">
+  <v-toolbar class="menu">
     <!-- Left Group -->
     <div class="slogan">REE PAK Tools</div>
 
@@ -18,7 +18,7 @@
     </div>
 
     <UpdateDialog ref="updateDialog"></UpdateDialog>
-  </v-app-bar>
+  </v-toolbar>
 </template>
 
 <script setup lang="ts">
@@ -26,9 +26,10 @@ import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { openSite } from '@/api/tauri/utils'
 import { useUpdateStore } from '@/store/update'
-import { ShowWarn } from '@/utils'
+import { useSettingsStore } from '@/store/settings'
 
 const updateStore = useUpdateStore()
+const settingsStore = useSettingsStore()
 
 const route = useRoute()
 const activeRoute = ref(route.path)
@@ -46,12 +47,13 @@ const showUpdateDialog = () => {
 }
 
 const openSettings = () => {
-  ShowWarn("Settings is not implemented yet. Don't worry, we will implement it soon.")
+  settingsStore.showSettings = true
 }
 </script>
 
 <style scoped lang="scss">
 .menu {
+  background-color: transparent;
   padding: 0 16px;
 }
 
@@ -63,7 +65,6 @@ const openSettings = () => {
 .right-group {
   display: flex;
   align-items: center;
-  margin-right: 16px;
 }
 
 .red-dot {
