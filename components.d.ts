@@ -18,7 +18,10 @@ declare module 'vue' {
     PakFiles: typeof import('./src/components/PakFiles.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
-    SettingsDrawer: typeof import('./src/components/SettingsDrawer.vue')['default']
+    Settings: typeof import('./src/components/settings/Settings.vue')['default']
+    SettingsDrawer: typeof import('./src/components/settings/SettingsDrawer.vue')['default']
+    SettingsItem: typeof import('./src/components/settings/SettingsItem.vue')['default']
+    SettingsItemSwitch: typeof import('./src/components/settings/SettingsItemSwitch.vue')['default']
     SettingsSwitch: typeof import('./src/components/settings/SettingsSwitch.vue')['default']
     UpdateDialog: typeof import('./src/components/UpdateDialog.vue')['default']
   }

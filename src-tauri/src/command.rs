@@ -158,3 +158,9 @@ pub async fn update_perform(update_version: update::UpdateVersion) -> Result<(),
 pub fn open_site(url: String) -> Result<(), String> {
     open::that(&url).map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub fn get_exe_path() -> Result<String, String> {
+    let path = std::env::current_exe().map_err(|e| e.to_string())?;
+    Ok(path.to_string_lossy().to_string())
+}

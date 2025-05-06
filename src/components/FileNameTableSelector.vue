@@ -40,14 +40,6 @@ onMounted(async () => {
 </script>
 
 <template>
-  <!-- <el-select
-    placeholder="Select"
-    v-model="selectedValue"
-    @change="$emit('change', selectedValue)"
-    :disabled="disabled"
-  >
-    <el-option v-for="item in options" :key="item.value" :label="item.label" :value="item.value" />
-  </el-select> -->
   <v-autocomplete
     label="File Name Table"
     v-model="selectedValue"

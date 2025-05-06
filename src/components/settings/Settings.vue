@@ -9,11 +9,8 @@
     </v-toolbar>
 
     <div class="settings-list">
-        <div>1</div>
-        <div>2</div>
-        <div>3</div>
-        <SettingsSwitch></SettingsSwitch>
-        <v-divider></v-divider>
+      <SettingsItemSwitch title="imtitle" description="imdescription"></SettingsItemSwitch>
+      <v-divider></v-divider>
     </div>
   </v-navigation-drawer>
 </template>
@@ -28,6 +25,6 @@ const settingsStore = useSettingsStore()
 .settings-list {
   display: flex;
   flex-direction: column;
-  margin: 0 8px
+  margin: 0 8px;
 }
 </style>

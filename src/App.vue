@@ -6,12 +6,28 @@
         <router-view />
       </div>
     </v-main>
-    <SettingsDrawer></SettingsDrawer>
+    <Settings></Settings>
   </v-app>
 </template>
 
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { RouterView } from 'vue-router'
+import { useSettingsStore } from '@/store/settings'
+import { ShowError } from '@/utils'
+
+const settingsStore = useSettingsStore()
+
+onMounted(async () => {
+  // initialize settings
+  try {
+    if (!settingsStore.settings) {
+      await settingsStore.loadSettings()
+    }
+  } catch (error) {
+    ShowError(`Failed to load settings: ${error}`)
+  }
+})
 </script>
 
 <style lang="scss">

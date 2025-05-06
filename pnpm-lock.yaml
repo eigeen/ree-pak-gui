@@ -8,17 +8,14 @@ importers:
 
   .:
     dependencies:
-      '@element-plus/icons-vue':
-        specifier: ^2.3.1
-        version: 2.3.1(vue@3.5.13(typescript@5.8.3))
-      '@fontsource/roboto':
-        specifier: '*'
-        version: 5.2.5
       '@tauri-apps/api':
         specifier: ^2.4.1
         version: 2.4.1
       '@tauri-apps/plugin-dialog':
         specifier: ^2.2.1
+        version: 2.2.1
+      '@tauri-apps/plugin-fs':
+        specifier: ~2
         version: 2.2.1
       element-plus:
         specifier: ^2.7.8
@@ -420,9 +417,6 @@ packages:
   '@floating-ui/utils@0.2.9':
     resolution: {integrity: sha512-MDWhGtE+eHw5JW7lq4qhc5yRLS11ERl1c7Z6Xd0a58DozHES6EnNNwUWbMiG4J9Cgj053Bhk8zvlhFYKVhULwg==}
 
-  '@fontsource/roboto@5.2.5':
-    resolution: {integrity: sha512-70r2UZ0raqLn5W+sPeKhqlf8wGvUXFWlofaDlcbt/S3d06+17gXKr3VNqDODB0I1ASme3dGT5OJj9NABt7OTZQ==}
-
   '@humanwhocodes/config-array@0.13.0':
     resolution: {integrity: sha512-DZLEEqFWQFiyK6h5YIeynKx7JlvCYWL0cImfSRXZ9l4Sg2efkFGTuFf6vzXjK1cq6IYkU+Eg/JizXw+TD2vRNw==}
     engines: {node: '>=10.10.0'}
@@ -766,6 +760,9 @@ packages:
 
   '@tauri-apps/plugin-dialog@2.2.1':
     resolution: {integrity: sha512-wZmCouo4PgTosh/UoejPw9DPs6RllS5Pp3fuOV2JobCu36mR5AXU2MzU9NZiVaFi/5Zfc8RN0IhcZHnksJ1o8A==}
+
+  '@tauri-apps/plugin-fs@2.2.1':
+    resolution: {integrity: sha512-KdGzvvA4Eg0Dhw55MwczFbjxLxsTx0FvwwC/0StXlr6IxwPUxh5ziZQoaugkBFs8t+wfebdQrjBEzd8NmmDXNw==}
 
   '@tsconfig/node20@20.1.5':
     resolution: {integrity: sha512-Vm8e3WxDTqMGPU4GATF9keQAIy1Drd7bPwlgzKJnZtoOsTm1tduUTbDjg0W5qERvGuxPI2h9RbMufH0YdfBylA==}
@@ -2393,8 +2390,6 @@ snapshots:
 
   '@floating-ui/utils@0.2.9': {}
 
-  '@fontsource/roboto@5.2.5': {}
-
   '@humanwhocodes/config-array@0.13.0':
     dependencies:
       '@humanwhocodes/object-schema': 2.0.3
@@ -2621,6 +2616,10 @@ snapshots:
       '@tauri-apps/cli-win32-x64-msvc': 2.4.1
 
   '@tauri-apps/plugin-dialog@2.2.1':
+    dependencies:
+      '@tauri-apps/api': 2.4.1
+
+  '@tauri-apps/plugin-fs@2.2.1':
     dependencies:
       '@tauri-apps/api': 2.4.1
 

@@ -33,6 +33,7 @@ fn main() {
     logger::Logger::init();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             let _ = APP_HANDLE.set(app.handle().clone());
             let main_window = app.get_webview_window("main").unwrap();
@@ -59,7 +60,8 @@ fn main() {
             command::file_table_load,
             command::update_check,
             command::update_perform,
-            command::open_site
+            command::open_site,
+            command::get_exe_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

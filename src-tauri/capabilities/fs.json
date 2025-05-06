@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "fs",
+  "description": "file system access",
+  "local": true,
+  "windows": ["main"],
+  "permissions": [
+    {
+      "identifier": "fs:scope",
+      "allow": [{ "path": "**/*" }]
+    },
+    "fs:read-all",
+    "fs:write-all"
+  ]
+}
