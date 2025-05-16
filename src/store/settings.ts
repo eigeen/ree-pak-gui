@@ -3,9 +3,9 @@ import { ref, watch } from 'vue'
 import { exists, mkdir, readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import { join } from '@tauri-apps/api/path'
 import { getExePath } from '@/api/tauri/utils'
-import { parentPath } from '@/utils/path'
+import { getDataDir, parentPath } from '@/utils/path'
 
-const SETTINGS_FILE_PATH = 'ree-pak-tools/settings.json'
+const SETTINGS_FILE_NAME = 'settings.json'
 
 type Settings = {
   version: string
@@ -19,12 +19,11 @@ const defaultSettings: Settings = {
 export const useSettingsStore = defineStore('settings', () => {
   const showSettings = ref(false)
   const autoSave = ref(true)
-  const settings = ref<Settings | null>(null)
+  const settings = ref<Settings>(defaultSettings)
 
   async function getSettingsPath(): Promise<string> {
-    const exePath = await getExePath()
-    const exeDir = parentPath(exePath)
-    return await join(exeDir, SETTINGS_FILE_PATH)
+    const dataDir = await getDataDir()
+    return await join(dataDir, SETTINGS_FILE_NAME)
   }
 
   const loadSettings = async () => {

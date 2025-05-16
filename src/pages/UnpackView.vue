@@ -1,3 +1,106 @@
+<template>
+  <el-container class="main-container">
+    <el-aside class="aside-outer">
+      <div class="aside-container">
+        <v-card class="pa-4 elevation-3 rounded-lg tool-chunk">
+          <FileNameTableSelector @change="onFileNameTableChange" :disabled="false">
+          </FileNameTableSelector>
+        </v-card>
+        <v-card class="pa-4 elevation-3 rounded-lg tool-chunk">
+          <div class="text-subtitle-1">Pak Files</div>
+          <PakFiles
+            :pak-list="pakData"
+            :enable-add="enableAddPaks"
+            @open="handleOpen"
+            @close="handleClose"
+            @order="handleOrder"
+            @close-all="handleCloseAll"
+          ></PakFiles>
+        </v-card>
+        <v-card class="pa-4 elevation-3 rounded-lg tool-chunk">
+          <v-text-field
+            v-model="filterTextInput"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+            label="Filter keyword"
+          ></v-text-field>
+          <v-btn class="text-none" prepend-icon="mdi-filter-variant" @click="updateFilter"
+            >Apply Filter</v-btn
+          >
+        </v-card>
+      </div>
+    </el-aside>
+
+    <div class="main-content">
+      <v-card class="pa-2 elevation-3 rounded-lg tree-card">
+        <div class="tree-panel">
+          <FileTree
+            class="file-tree"
+            ref="fileTreeComponent"
+            :data="treeData"
+            :filter-text="filterText"
+          ></FileTree>
+          <div class="tree-actions">
+            <v-btn
+              class="text-none"
+              color="primary"
+              prepend-icon="mdi-export"
+              @click="doExtraction"
+              :disabled="!enableExtract"
+              >Extract</v-btn
+            >
+          </div>
+        </div>
+      </v-card>
+    </div>
+  </el-container>
+
+  <v-dialog v-model="showProgressPanel" persistent>
+    <v-card>
+      <v-card-text class="pa-8">
+        <div class="text-center text-h6 mb-4">
+          Extracting Files... <span v-if="!unpackWorking">Done!</span>
+        </div>
+        <v-progress-linear
+          :color="progressValue >= 100 ? 'green' : 'primary'"
+          height="12px"
+          :model-value="progressValue"
+          rounded
+          class="mb-2"
+        ></v-progress-linear>
+        <div class="text-body-1 mb-4">{{ finishFileCount }} / {{ totalFileCount }} files</div>
+        <div class="text-body-2">Extracting:</div>
+        <div class="text-body-2">{{ currentFile }}</div>
+      </v-card-text>
+      <div class="progress-actions">
+        <v-btn
+          class="ma-4 text-none"
+          :color="unpackWorking ? 'error' : 'primary'"
+          @click="handleCloseProgress"
+        >
+          {{ unpackWorking ? 'Terminate' : 'Close' }}
+        </v-btn>
+      </div>
+    </v-card>
+  </v-dialog>
+
+  <v-dialog v-model="showConfirmTermination" max-width="400" persistent>
+    <v-card class="pa-2">
+      <v-card-title class="text-h6">Confirm Termination</v-card-title>
+      <v-card-text
+        >Did you want to terminate the current extraction operation? <br />The extracted files will
+        be retained.</v-card-text
+      >
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn color="grey" text @click="showConfirmTermination = false">Cancel</v-btn>
+        <v-btn color="error" text @click="handleConfirmTermination">Confirm</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+</template>
+
 <script setup lang="ts">
 import {
   pak_close,
@@ -244,7 +347,7 @@ async function reloadData() {
 
 let unlisten: UnlistenFn
 
-async function startListenForDrop() {
+async function startListenToDrop() {
   unlisten = await getCurrentWebview().onDragDropEvent(async (event) => {
     if (event.payload.type === 'drop') {
       await dropInAddPaks(event.payload.paths)
@@ -252,7 +355,7 @@ async function startListenForDrop() {
   })
 }
 
-async function stopListenForDrop() {
+async function stopListenToDrop() {
   unlisten?.()
 }
 
@@ -285,124 +388,22 @@ async function handleConfirmTermination() {
 // 处理文件拖拽功能
 // watch(() => enableAddPak, (allowAdd) => {
 //   if (allowAdd) {
-//     startListenForDrop()
+//     startListenToDrop()
 //   } else {
-//     stopListenForDrop()
+//     stopListenToDrop()
 //   }
 // })
 
 onMounted(async () => {
-  await startListenForDrop()
+  await startListenToDrop()
   // 加载数据
   await reloadData()
 })
 
 onUnmounted(async () => {
-  await stopListenForDrop()
+  await stopListenToDrop()
 })
 </script>
-
-<template>
-  <el-container class="main-container">
-    <el-aside class="aside-outer">
-      <div class="aside-container">
-        <v-card class="pa-4 elevation-3 rounded-lg tool-chunk">
-          <FileNameTableSelector @change="onFileNameTableChange" :disabled="false">
-          </FileNameTableSelector>
-        </v-card>
-        <v-card class="pa-4 elevation-3 rounded-lg tool-chunk">
-          <div class="text-subtitle-1">Pak Files</div>
-          <PakFiles
-            :pak-list="pakData"
-            :enable-add="enableAddPaks"
-            @open="handleOpen"
-            @close="handleClose"
-            @order="handleOrder"
-            @close-all="handleCloseAll"
-          ></PakFiles>
-        </v-card>
-        <v-card class="pa-4 elevation-3 rounded-lg tool-chunk">
-          <v-text-field
-            v-model="filterTextInput"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            label="Filter keyword"
-          ></v-text-field>
-          <v-btn class="text-none" prepend-icon="mdi-filter-variant" @click="updateFilter"
-            >Apply Filter</v-btn
-          >
-        </v-card>
-      </div>
-    </el-aside>
-
-    <div class="main-content">
-      <v-card class="pa-2 elevation-3 rounded-lg tree-card">
-        <div class="tree-panel">
-          <FileTree
-            class="file-tree"
-            ref="fileTreeComponent"
-            :data="treeData"
-            :filter-text="filterText"
-          ></FileTree>
-          <div class="tree-actions">
-            <v-btn
-              class="text-none"
-              color="primary"
-              prepend-icon="mdi-export"
-              @click="doExtraction"
-              :disabled="!enableExtract"
-              >Extract</v-btn
-            >
-          </div>
-        </div>
-      </v-card>
-    </div>
-  </el-container>
-
-  <v-dialog v-model="showProgressPanel" persistent>
-    <v-card>
-      <v-card-text class="pa-8">
-        <div class="text-center text-h6 mb-4">
-          Extracting Files... <span v-if="!unpackWorking">Done!</span>
-        </div>
-        <v-progress-linear
-          :color="progressValue >= 100 ? 'green' : 'primary'"
-          height="12px"
-          :model-value="progressValue"
-          rounded
-          class="mb-2"
-        ></v-progress-linear>
-        <div class="text-body-1 mb-4">{{ finishFileCount }} / {{ totalFileCount }} files</div>
-        <div class="text-body-2">Extracting:</div>
-        <div class="text-body-2">{{ currentFile }}</div>
-      </v-card-text>
-      <div class="progress-actions">
-        <v-btn
-          class="ma-4 text-none"
-          :color="unpackWorking ? 'error' : 'primary'"
-          @click="handleCloseProgress"
-        >
-          {{ unpackWorking ? 'Terminate' : 'Close' }}
-        </v-btn>
-      </div>
-    </v-card>
-  </v-dialog>
-  <v-dialog v-model="showConfirmTermination" max-width="400" persistent>
-    <v-card class="pa-2">
-      <v-card-title class="text-h6">Confirm Termination</v-card-title>
-      <v-card-text
-        >Did you want to terminate the current extraction operation? <br />The extracted files will
-        be retained.</v-card-text
-      >
-      <v-card-actions>
-        <v-spacer></v-spacer>
-        <v-btn color="grey" text @click="showConfirmTermination = false">Cancel</v-btn>
-        <v-btn color="error" text @click="handleConfirmTermination">Confirm</v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
-</template>
 
 <style scoped lang="scss">
 .main-container {
