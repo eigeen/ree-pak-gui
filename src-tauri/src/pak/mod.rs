@@ -3,7 +3,10 @@ use std::{
     path::PathBuf,
 };
 
-use ree_pak_core::{filename::FileNameTable, pak::PakArchive};
+use ree_pak_core::{
+    filename::FileNameTable,
+    pak::{CompressionType, PakArchive},
+};
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use tree::{FileTree, FileTreeNode, NodeInfo};
@@ -73,7 +76,8 @@ where
                 hash: None,
                 uncompressed_size: 0,
                 compressed_size: 0,
-                belonging_to: None,
+                is_compressed: false,
+                belongs_to: None,
             },
             children: FxHashMap::default(),
         };
@@ -107,13 +111,15 @@ where
                             hash: None,
                             uncompressed_size: 0,
                             compressed_size: 0,
-                            belonging_to: if is_dir { None } else { Some(self.id) },
+                            is_compressed: false,
+                            belongs_to: if is_dir { None } else { Some(self.id) },
                         },
                         children: FxHashMap::default(),
                     });
                 if !is_dir {
                     child_node.info.uncompressed_size = entry.uncompressed_size();
                     child_node.info.compressed_size = entry.compressed_size();
+                    child_node.info.is_compressed = entry.compression_type() != CompressionType::NONE;
                     child_node.info.hash = Some(JsSafeHash::from_u64(entry.hash()));
                     total_uncompressed_size += entry.uncompressed_size();
                     total_compressed_size += entry.compressed_size();

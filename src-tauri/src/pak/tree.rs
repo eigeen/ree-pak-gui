@@ -30,9 +30,10 @@ pub struct NodeInfo {
     pub hash: Option<JsSafeHash>,
     pub uncompressed_size: u64,
     pub compressed_size: u64,
+    pub is_compressed: bool,
     /// Belonging to which pak.
     /// If node is a directory, it will be None.
-    pub belonging_to: Option<PakId>,
+    pub belongs_to: Option<PakId>,
 }
 
 impl FileTree {
@@ -76,7 +77,8 @@ impl FileTree {
                             hash: None,
                             uncompressed_size: 0,
                             compressed_size: 0,
-                            belonging_to: None,
+                            is_compressed: false,
+                            belongs_to: None,
                         },
                         children: FxHashMap::default(),
                     }
@@ -145,7 +147,7 @@ pub struct RenderTreeNode {
     /// 节点大小或目录所有子节点压缩前大小
     pub uncompressed_size: u64,
     /// 节点所属的 Pak
-    pub belonging_to: Option<PakId>,
+    pub belongs_to: Option<PakId>,
     /// 子节点
     pub children: Vec<RenderTreeNode>,
 }
@@ -182,7 +184,7 @@ fn convert_to_render_node(node: &FileTreeNode) -> RenderTreeNode {
         hash: info.hash,
         compressed_size: info.compressed_size,
         uncompressed_size: info.uncompressed_size,
-        belonging_to: info.belonging_to,
+        belongs_to: info.belongs_to,
         children: node.children.values().map(convert_to_render_node).collect(),
     }
 }
