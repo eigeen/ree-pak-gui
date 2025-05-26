@@ -11,7 +11,7 @@ export interface TreeData {
   // 子节点
   children: TreeData[]
   // 属于哪个包
-  belongingTo: string | undefined
+  belongsTo: string | undefined
 }
 
 export interface Props {
@@ -90,9 +90,9 @@ watch(
 
 // 从输入的树格式 RenderTreeNode 转换成显示用的 TreeData 格式
 function createTreeData(node: RenderTreeNode): TreeData {
-  let size
+  let size: number = 0
   if (node.uncompressedSize !== undefined) {
-    size = node.uncompressedSize
+    size = node.isCompressed ? node.uncompressedSize : node.compressedSize
   } else {
     size = 0
   }
@@ -108,7 +108,7 @@ function createTreeData(node: RenderTreeNode): TreeData {
     id: id,
     label: `${node.name} (${formatSize(size)})`,
     children: node.children?.map((child) => createTreeData(child)), // 递归处理子节点
-    belongingTo: node.belongingTo
+    belongsTo: node.belongsTo
   }
 
   return data
@@ -191,7 +191,7 @@ function getCheckedNodes(): ExtractFileInfo[] {
   for (const node of nodes) {
     result.push({
       hash: parseId(node.id),
-      belongsTo: node.belongingTo
+      belongsTo: node.belongsTo
     })
   }
 

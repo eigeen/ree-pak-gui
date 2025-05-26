@@ -11,7 +11,7 @@ declare module 'vue' {
     ElAside: typeof import('element-plus/es')['ElAside']
     ElContainer: typeof import('element-plus/es')['ElContainer']
     ElTreeV2: typeof import('element-plus/es')['ElTreeV2']
-    FileNameTableSelector: typeof import('./src/components/FileNameTableSelector.vue')['default']
+    FileNameTableSelector: typeof import('./src/components/fileNameTable/FileNameTableSelector.vue')['default']
     FileTree: typeof import('./src/components/FileTree.vue')['default']
     Menu: typeof import('./src/components/Menu.vue')['default']
     PakFileItem: typeof import('./src/components/PakFileItem.vue')['default']
@@ -19,10 +19,8 @@ declare module 'vue' {
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     Settings: typeof import('./src/components/settings/Settings.vue')['default']
-    SettingsDrawer: typeof import('./src/components/settings/SettingsDrawer.vue')['default']
     SettingsItem: typeof import('./src/components/settings/SettingsItem.vue')['default']
     SettingsItemSwitch: typeof import('./src/components/settings/SettingsItemSwitch.vue')['default']
-    SettingsSwitch: typeof import('./src/components/settings/SettingsSwitch.vue')['default']
     UpdateDialog: typeof import('./src/components/UpdateDialog.vue')['default']
   }
   export interface ComponentCustomProperties {

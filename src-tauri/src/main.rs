@@ -33,6 +33,7 @@ fn main() {
     logger::Logger::init();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             let _ = APP_HANDLE.set(app.handle().clone());

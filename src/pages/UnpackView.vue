@@ -113,7 +113,7 @@ import {
 import type { ExtractOptions, PakInfo, RenderTreeNode, WorkProgressEvent } from '@/api/tauri/pak'
 import PakFiles from '@/components/PakFiles.vue'
 import FileTree from '@/components/FileTree.vue'
-import FileNameTableSelector from '@/components/FileNameTableSelector.vue'
+import FileNameTableSelector from '@/components/fileNameTable/FileNameTableSelector.vue'
 import { computed, getCurrentInstance, onMounted, onUnmounted, ref, watch } from 'vue'
 // import { listen, TauriEvent as TauriEventName, type Event as TauriEvent } from '@tauri-apps/api/event'
 import { open as dialogOpen } from '@tauri-apps/plugin-dialog'

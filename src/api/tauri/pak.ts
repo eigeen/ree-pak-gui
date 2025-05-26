@@ -42,7 +42,8 @@ export interface RenderTreeNode {
   hash?: JsSafeHash
   compressedSize: number
   uncompressedSize: number
-  belongingTo?: PakId
+  isCompressed: boolean
+  belongsTo?: PakId
   children: RenderTreeNode[]
 }
 

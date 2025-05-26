@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
 use parking_lot::Mutex;
-use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
+use tauri_plugin_http::reqwest::Client;
 
 use std::fs::File;
 use std::io::Write;

@@ -16,6 +16,7 @@
     "@tauri-apps/api": "^2.4.1",
     "@tauri-apps/plugin-dialog": "^2.2.1",
     "@tauri-apps/plugin-fs": "~2",
+    "@tauri-apps/plugin-http": "~2",
     "element-plus": "^2.7.8",
     "pinia": "^3.0.2",
     "reset": "^0.1.0",

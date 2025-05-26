@@ -25,6 +25,6 @@ const settingsStore = useSettingsStore()
 .settings-list {
   display: flex;
   flex-direction: column;
-  margin: 0 8px;
+  margin: 0 12px;
 }
 </style>
