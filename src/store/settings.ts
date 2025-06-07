@@ -2,8 +2,8 @@ import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import { exists, mkdir, readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import { join } from '@tauri-apps/api/path'
-import { getExePath } from '@/api/tauri/utils'
-import { getDataDir, parentPath } from '@/utils/path'
+import { parentPath } from '@/utils/path'
+import { getLocalDir } from '@/lib/localDir'
 
 const SETTINGS_FILE_NAME = 'settings.json'
 
@@ -22,7 +22,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const settings = ref<Settings>(defaultSettings)
 
   async function getSettingsPath(): Promise<string> {
-    const dataDir = await getDataDir()
+    const dataDir = await getLocalDir()
     return await join(dataDir, SETTINGS_FILE_NAME)
   }
 

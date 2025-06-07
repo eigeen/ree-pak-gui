@@ -1,5 +1,3 @@
-import { fileURLToPath, URL } from 'node:url'
-
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueJsx from '@vitejs/plugin-vue-jsx'
@@ -11,6 +9,8 @@ import Unfonts from 'unplugin-fonts/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 // vuetify
 import Vuetify, { transformAssetUrls } from 'vite-plugin-vuetify'
+
+import { fileURLToPath, URL } from 'node:url'
 
 // https://vitejs.dev/config/
 export default defineConfig({

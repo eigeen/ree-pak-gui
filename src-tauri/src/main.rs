@@ -33,6 +33,8 @@ fn main() {
     logger::Logger::init();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
@@ -59,10 +61,9 @@ fn main() {
             command::pak_terminate_extraction,
             command::file_table_get_list,
             command::file_table_load,
-            command::update_check,
-            command::update_perform,
-            command::open_site,
-            command::get_exe_path
+            command::get_exe_path,
+            command::get_compile_info,
+            command::perform_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

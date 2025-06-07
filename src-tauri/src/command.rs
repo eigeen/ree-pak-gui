@@ -1,5 +1,6 @@
 use std::{fs::File, io::BufReader};
 
+use anyhow::Context as _;
 use ree_pak_core::filename::FileNameTable;
 use tauri::ipc::Channel;
 
@@ -12,7 +13,6 @@ use crate::{
     service::{
         filelist::{FileListInfo, FileListService},
         pak::PakService,
-        update::{self, UpdateService},
     },
     warp_result_elapsed,
 };
@@ -126,41 +126,42 @@ pub fn file_table_load(pak_service: tauri::State<PakServiceState>, path: &str) -
     )
 }
 
-/// Check for updates.
-///
-/// Returns the target version information if there is an update available, or None if not.
-#[tauri::command]
-pub async fn update_check() -> Result<update::UpdateVersion, String> {
-    let update_service = UpdateService::global();
-    let result = update_service.check_update().await;
-    match result {
-        Some(version) => Ok(version),
-        None => Err("No update available.".to_string()),
-    }
-}
-
-/// Download and perform update, will available after user manually restart.
-#[tauri::command]
-pub async fn update_perform(update_version: update::UpdateVersion) -> Result<(), String> {
-    let update_service = UpdateService::global();
-    // fetch update file
-    let update_file = update_service
-        .fetch_update_file(&update_version)
-        .await
-        .map_err(|e| e.to_string())?;
-    // perform update
-    update_service.perform_update(&update_file).map_err(|e| e.to_string())?;
-
-    Ok(())
-}
-
-#[tauri::command]
-pub fn open_site(url: String) -> Result<(), String> {
-    open::that(&url).map_err(|e| e.to_string())
-}
-
 #[tauri::command]
 pub fn get_exe_path() -> Result<String, String> {
     let path = std::env::current_exe().map_err(|e| e.to_string())?;
     Ok(path.to_string_lossy().to_string())
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompileInfo {
+    version: &'static str,
+    commit_time: &'static str,
+    commit_hash: &'static str,
+    platform: &'static str,
+    arch: &'static str,
+}
+
+#[tauri::command]
+pub fn get_compile_info() -> CompileInfo {
+    CompileInfo {
+        version: env!("CARGO_PKG_VERSION"),
+        commit_time: env!("GIT_COMMIT_TIME_RFC3339"),
+        commit_hash: env!("GIT_COMMIT_HASH"),
+        platform: std::env::consts::OS,
+        arch: std::env::consts::ARCH,
+    }
+}
+
+/// Replace current binary with the given file.
+///
+/// Will apply after restart.
+#[tauri::command]
+pub fn perform_update(file_path: String) -> Result<(), String> {
+    self_replace::self_replace(&file_path)
+        .context("Failed to replace current binary")
+        .map_err(|e| e.to_string())?;
+    let _ = std::fs::remove_file(&file_path);
+
+    Ok(())
 }

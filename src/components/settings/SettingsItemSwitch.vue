@@ -11,8 +11,6 @@
 </template>
 
 <script setup lang="ts">
-import SettingsItem from '@/components/settings/SettingsItem.vue'
-
 interface Props {
   title: string
   description: string

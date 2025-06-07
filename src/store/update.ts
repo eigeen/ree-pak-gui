@@ -1,4 +1,4 @@
-import type { UpdateVersion } from '@/api/tauri/update'
+import type { UpdateVersion } from '@/api/http/update'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 

@@ -3,8 +3,7 @@
     <el-aside class="aside-outer">
       <div class="aside-container">
         <v-card class="pa-4 elevation-3 rounded-lg tool-chunk">
-          <FileNameTableSelector @change="onFileNameTableChange" :disabled="false">
-          </FileNameTableSelector>
+          <FileNameTable @change="onFileNameTableChange"></FileNameTable>
         </v-card>
         <v-card class="pa-4 elevation-3 rounded-lg tool-chunk">
           <div class="text-subtitle-1">Pak Files</div>
@@ -113,8 +112,7 @@ import {
 import type { ExtractOptions, PakInfo, RenderTreeNode, WorkProgressEvent } from '@/api/tauri/pak'
 import PakFiles from '@/components/PakFiles.vue'
 import FileTree from '@/components/FileTree.vue'
-import FileNameTableSelector from '@/components/fileNameTable/FileNameTableSelector.vue'
-import { computed, getCurrentInstance, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 // import { listen, TauriEvent as TauriEventName, type Event as TauriEvent } from '@tauri-apps/api/event'
 import { open as dialogOpen } from '@tauri-apps/plugin-dialog'
 import { file_table_load } from '@/api/tauri/filelist'

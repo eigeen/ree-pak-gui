@@ -7,15 +7,8 @@ interface Option {
   value: string
 }
 
-interface Props {
-  disabled: boolean
-}
-
 const emit = defineEmits(['change'])
 
-withDefaults(defineProps<Props>(), {
-  disabled: false
-})
 const selectedValue = ref<string | null>(null)
 const options = ref<Option[]>([])
 const hintData = ref<string | null>(null)
@@ -43,7 +36,6 @@ onMounted(async () => {
   <v-autocomplete
     label="File Name Table"
     v-model="selectedValue"
-    :disabled="disabled"
     :items="options"
     item-title="label"
     item-value="value"

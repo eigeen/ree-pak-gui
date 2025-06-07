@@ -41,9 +41,10 @@ tempfile = "3.19"
 semver = "1.0"
 chrono = "0.4"
 sha2 = "0.10"
-open = "5.3"
 tauri-plugin-fs = "2"
 tauri-plugin-http = { version = "2", features = ["json"] }
+tauri-plugin-opener = "2"
+tauri-plugin-process = "2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.61", features = ["Win32_UI_WindowsAndMessaging"] }

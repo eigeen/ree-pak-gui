@@ -13,7 +13,7 @@
       <div v-if="updateStore.updateVersion" class="red-dot">
         <v-btn icon="mdi-update" @click="showUpdateDialog"></v-btn>
       </div>
-      <v-btn icon="mdi-github" @click="openSite('https://github.com/eigeen/ree-pak-rs')"> </v-btn>
+      <v-btn icon="mdi-github" @click="openUrl('https://github.com/eigeen/ree-pak-rs')"> </v-btn>
       <v-btn icon="mdi-cog" @click="openSettings"></v-btn>
     </div>
 
@@ -24,9 +24,9 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { openSite } from '@/api/tauri/utils'
 import { useUpdateStore } from '@/store/update'
 import { useSettingsStore } from '@/store/settings'
+import { openUrl } from '@tauri-apps/plugin-opener'
 
 const updateStore = useUpdateStore()
 const settingsStore = useSettingsStore()

@@ -8,9 +8,3 @@ export function parentPath(path: string): string {
   const lastSlashIndex = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'))
   return path.substring(0, lastSlashIndex)
 }
-
-export async function getDataDir(): Promise<string> {
-  const exePath = await getExePath()
-  const exeDir = parentPath(exePath)
-  return await join(exeDir, DATA_PATH)
-}
