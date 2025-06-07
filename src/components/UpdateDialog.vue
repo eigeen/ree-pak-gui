@@ -87,6 +87,7 @@ onMounted(async () => {
       if (updateStore.updateVersion) {
         ShowInfo('Update available. Click the button on the top right to download.')
       }
+      console.debug('Update check complete.')
     } catch (err) {
       ShowError(`Failed to check for updates: ${err}`)
     }

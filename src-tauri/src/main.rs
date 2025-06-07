@@ -64,6 +64,7 @@ fn main() {
             command::get_exe_path,
             command::get_compile_info,
             command::perform_update,
+            command::zip_extract_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

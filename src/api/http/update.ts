@@ -42,7 +42,7 @@ export class UpdateAPI {
 
     for (const url of METADATA_URLS) {
       try {
-        const response = await fetch(url, { method: 'GET' })
+        const response = await fetch(url, { method: 'GET', connectTimeout: 15000 })
         if (response.status === 200) {
           return (await response.json()) as UpdateMetadata
         } else {
@@ -57,7 +57,7 @@ export class UpdateAPI {
     }
 
     if (lastError) {
-      throw new Error(`Failed to fetch update metadata from all sources: ${lastError.message}`)
+      throw new Error(`Failed to fetch update metadata from all sources: ${lastError}`)
     }
     throw new Error('Failed to fetch update metadata from all sources')
   }

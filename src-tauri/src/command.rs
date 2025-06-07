@@ -14,7 +14,7 @@ use crate::{
         filelist::{FileListInfo, FileListService},
         pak::PakService,
     },
-    warp_result_elapsed,
+    utility, warp_result_elapsed,
 };
 
 type PakServiceState = PakService<BufReader<File>>;
@@ -162,6 +162,14 @@ pub fn perform_update(file_path: String) -> Result<(), String> {
         .context("Failed to replace current binary")
         .map_err(|e| e.to_string())?;
     let _ = std::fs::remove_file(&file_path);
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn zip_extract_file(file_path: String, output_path: Option<String>) -> Result<(), String> {
+    let output_path = output_path.unwrap_or_else(|| ".".to_string());
+    utility::zip_extract_all(file_path, output_path).map_err(|e| e.to_string())?;
 
     Ok(())
 }

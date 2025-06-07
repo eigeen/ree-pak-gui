@@ -120,6 +120,7 @@ import { getCurrentWebview } from '@tauri-apps/api/webview'
 import type { UnlistenFn } from '@tauri-apps/api/event'
 import { Channel } from '@tauri-apps/api/core'
 import { ShowError, ShowWarn } from '@/utils'
+import { getCurrentWindow, ProgressBarStatus } from '@tauri-apps/api/window'
 
 // 过滤器输入（原始输入）
 const filterTextInput = ref('')
@@ -297,19 +298,32 @@ async function doExtraction() {
       extractFiles: fileTreeComponent.value?.getCheckedNodes() || []
     }
     // console.log('Extract options', options)
+    const window = getCurrentWindow()
     const onEvent = new Channel<WorkProgressEvent>()
     onEvent.onmessage = (event) => {
       if (event.event === 'workStart') {
         totalFileCount.value = event.data.fileCount
         finishFileCount.value = 0
+        window.setProgressBar({
+          status: ProgressBarStatus.Normal,
+          progress: 0
+        })
       } else if (event.event === 'workFinished') {
         unpackWorking.value = false
         if (finishFileCount.value !== totalFileCount.value) {
           finishFileCount.value = totalFileCount.value
         }
+        window.setProgressBar({
+          status: ProgressBarStatus.None,
+          progress: 0
+        })
       } else if (event.event === 'fileDone') {
         finishFileCount.value = event.data.finishCount
         currentFile.value = event.data.path
+        window.setProgressBar({
+          status: ProgressBarStatus.Normal,
+          progress: Math.floor(progressValue.value)
+        })
       }
     }
 

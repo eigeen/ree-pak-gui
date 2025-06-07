@@ -19,3 +19,7 @@ export function getCompileInfo(): Promise<CompileInfo> {
 export function performUpdate(filePath: string): Promise<void> {
   return invoke('perform_update', { filePath })
 }
+
+export function zipExtractFile(filePath: string, outputPath?: string): Promise<void> {
+  return invoke('zip_extract_file', { filePath, outputPath })
+}

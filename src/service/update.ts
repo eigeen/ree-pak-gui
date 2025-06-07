@@ -1,12 +1,11 @@
 import { UpdateAPI } from '@/api/http/update'
 import type { UpdateMetadata, UpdateVersion, UpdateFile } from '@/api/http/update'
-import { getCompileInfo, performUpdate, type CompileInfo } from '@/api/tauri/utils'
+import { getCompileInfo, performUpdate, zipExtractFile, type CompileInfo } from '@/api/tauri/utils'
 import { fetchWithSpeedCheck } from '@/lib/http/download'
 import { getTempDir } from '@/lib/localDir'
 
 import { join } from '@tauri-apps/api/path'
-import { getCurrentWindow, ProgressBarStatus } from '@tauri-apps/api/window'
-import { writeFile } from '@tauri-apps/plugin-fs'
+import { exists, writeFile } from '@tauri-apps/plugin-fs'
 import { relaunch } from '@tauri-apps/plugin-process'
 import semver from 'semver'
 
@@ -132,14 +131,14 @@ export class UpdateService {
 
     // 下载并校验文件
     let { platform, arch } = await getCompileInfo()
-    let target_file: UpdateFile | undefined = undefined
+    let targetFile: UpdateFile | undefined = undefined
     for (const file of this.targetVersion.files) {
       if (file.name.includes(platform) && file.name.includes(arch)) {
-        target_file = file
+        targetFile = file
         break
       }
     }
-    if (!target_file) {
+    if (!targetFile) {
       throw new Error(
         'No matching file found from update metadata for current platform and architecture.'
       )
@@ -147,23 +146,41 @@ export class UpdateService {
 
     // 下载文件
     let lastError: any = null
-    for (const url of target_file.urls) {
+    for (const url of targetFile.urls) {
       try {
         // download file
         const blob = await fetchWithSpeedCheck(url, {}, onEvent)
+
         // 检查Hash
         const arrayBuffer = await blob.arrayBuffer()
         const hash = await crypto.subtle.digest('SHA-256', arrayBuffer)
         const downloadedSha256 = Array.from(new Uint8Array(hash), (byte) =>
           byte.toString(16).padStart(2, '0')
         ).join('')
-        if (downloadedSha256 !== target_file.sha256) {
+        if (downloadedSha256 !== targetFile.sha256) {
           throw new Error('Checksum mismatch. Download failed.')
         }
 
-        // 写入指定目录，等待Performation
-        this.updateFilePath = await join(await getTempDir(true), target_file.name)
-        await writeFile(this.updateFilePath, new Uint8Array(arrayBuffer))
+        // 写入指定目录
+        const tempDir = await getTempDir(true)
+        const downloadPath = await join(tempDir, targetFile.name)
+        await writeFile(downloadPath, new Uint8Array(arrayBuffer))
+
+        // 检查是否需要解压
+        if (targetFile.name.endsWith('.zip')) {
+          await zipExtractFile(downloadPath, tempDir)
+          // 检查是否正确输出文件
+          // TODO: supports non-exe extension
+          const extractedPath = await join(tempDir, targetFile.name.replace('.zip', '.exe'))
+          if (!(await exists(extractedPath))) {
+            throw new Error(
+              `Extracted file not found after zip extraction: expected ${extractedPath}`
+            )
+          }
+          this.updateFilePath = extractedPath
+        } else {
+          this.updateFilePath = downloadPath
+        }
         break
       } catch (err: any) {
         lastError = err

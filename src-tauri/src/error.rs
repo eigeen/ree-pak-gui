@@ -25,4 +25,7 @@ pub enum Error {
     InvalidOrder(String),
     #[error("Unpack progress already running.")]
     UnpackAlreadyRunning,
+
+    #[error("Zip error: {0}")]
+    Zip(#[from] zip::result::ZipError),
 }

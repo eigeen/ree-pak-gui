@@ -10,7 +10,7 @@
       "allow": [
         { "url": "https://*.github.com" },
         { "url": "https://raw.githubusercontent.com" },
-        { "url": "https://*.gitee.com" },
+        { "url": "https://gitee.com" },
         { "url": "https://*.eigeen.com" }
       ],
       "deny": []
