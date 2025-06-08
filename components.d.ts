@@ -14,6 +14,7 @@ declare module 'vue' {
     FileNameTable: typeof import('./src/components/FileNameTable/FileNameTable.vue')['default']
     FileNameTableSelector: typeof import('./src/components/FileNameTable/FileNameTableSelector.vue')['default']
     FileTree: typeof import('./src/components/FileTree.vue')['default']
+    HoverBubble: typeof import('./src/components/HoverBubble.vue')['default']
     Menu: typeof import('./src/components/Menu.vue')['default']
     PakFileItem: typeof import('./src/components/PakFileItem.vue')['default']
     PakFiles: typeof import('./src/components/PakFiles.vue')['default']

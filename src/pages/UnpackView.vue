@@ -24,6 +24,13 @@
             hide-details
             label="Filter keyword"
           ></v-text-field>
+          <v-checkbox
+            v-model="filterUseRegex"
+            label="Regex"
+            density="compact"
+            color="primary"
+            hide-details
+          ></v-checkbox>
           <v-btn class="text-none" prepend-icon="mdi-filter-variant" @click="updateFilter"
             >Apply Filter</v-btn
           >
@@ -39,6 +46,7 @@
             ref="fileTreeComponent"
             :data="treeData"
             :filter-text="filterText"
+            :regex-mode="filterUseRegex"
           ></FileTree>
           <div class="tree-actions">
             <v-btn
@@ -130,6 +138,7 @@ const workStore = useWorkStore()
 const filterTextInput = ref('')
 // 过滤器输入（已处理）
 const filterText = ref('')
+const filterUseRegex = ref(false)
 // 已加载的pak
 const pakData = ref<PakInfo[]>([])
 const initialLoaded = ref(false)
@@ -188,9 +197,7 @@ watch(
 // 更新过滤器
 const updateFilter = () => {
   const input = filterTextInput.value.trim()
-  if (input !== filterText.value) {
-    filterText.value = filterTextInput.value
-  }
+  filterText.value = input
 }
 
 // function convertNode(fileTreeNode: FileTreeNode): TreeData {

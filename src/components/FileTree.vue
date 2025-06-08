@@ -17,6 +17,7 @@ export interface TreeData {
 export interface Props {
   data: RenderTreeNode | null
   filterText?: string
+  regexMode?: boolean
 }
 
 const props = defineProps<Props>()
@@ -66,9 +67,11 @@ watch(
   () => props.filterText,
   (filterText) => {
     const filter = filterText ? filterText : ''
+    const regexMode = props.regexMode ?? false
     console.log('applying filter', filter)
 
-    filteredData.value = filterTreeData(deepCopy(cachedTreeData.value), filter)
+    let filterObj = regexMode ? new RegExp(filter, 'i') : filter.toLowerCase()
+    filteredData.value = filterTreeData(deepCopy(cachedTreeData.value), filterObj)
   }
 )
 
@@ -156,16 +159,19 @@ function deepCopy(data: TreeData[]): TreeData[] {
 // }
 
 // 通过关键词过滤树的叶子结点，返回新的树
-function filterTreeData(data: TreeData[], text: string): TreeData[] {
-  const lowerCaseText = text.toLowerCase()
-
+function filterTreeData(data: TreeData[], filter: string | RegExp): TreeData[] {
   return data
     .map((node) => {
       // 过滤子节点
-      const filteredChildren = filterTreeData(node.children, text)
+      const filteredChildren = filterTreeData(node.children, filter)
 
       // 判断当前节点是否包含关键词
-      const isMatch = node.label.toLowerCase().includes(lowerCaseText)
+      let isMatch = false
+      if (typeof filter === 'string') {
+        isMatch = node.label.toLowerCase().includes(filter)
+      } else if (filter instanceof RegExp) {
+        isMatch = filter.test(node.label)
+      }
 
       // 如果当前节点匹配或有匹配的子节点，则保留该节点
       if (isMatch || filteredChildren.length > 0) {
