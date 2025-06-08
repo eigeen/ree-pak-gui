@@ -18,20 +18,24 @@
         </v-card>
         <v-card class="pa-4 elevation-3 rounded-lg tool-chunk">
           <v-text-field
-            v-model="filterTextInput"
+            v-model="workStore.unpack.filterText"
             variant="outlined"
             density="comfortable"
             hide-details
             label="Filter keyword"
           ></v-text-field>
           <v-checkbox
-            v-model="filterUseRegex"
+            v-model="workStore.unpack.filterUseRegex"
             label="Regex"
             density="compact"
             color="primary"
             hide-details
           ></v-checkbox>
-          <v-btn class="text-none" prepend-icon="mdi-filter-variant" @click="updateFilter"
+          <v-btn
+            class="text-none"
+            prepend-icon="mdi-filter-variant"
+            :disabled="workStore.unpack.filterText === filterTextApply"
+            @click="updateFilter"
             >Apply Filter</v-btn
           >
         </v-card>
@@ -60,8 +64,8 @@
             class="file-tree"
             ref="fileTreeComponent"
             :data="treeData"
-            :filter-text="filterText"
-            :regex-mode="filterUseRegex"
+            :filter-text="filterTextApply"
+            :regex-mode="workStore.unpack.filterUseRegex"
           ></FileTree>
           <div class="tree-actions">
             <v-btn
@@ -149,11 +153,8 @@ import { useWorkStore } from '@/store/work'
 
 const workStore = useWorkStore()
 
-// 过滤器输入（原始输入）
-const filterTextInput = ref('')
-// 过滤器输入（已处理）
-const filterText = ref('')
-const filterUseRegex = ref(false)
+// 过滤器输入（应用输入）
+const filterTextApply = ref('')
 // 已加载的pak
 const pakData = ref<PakInfo[]>([])
 const initialLoaded = ref(false)
@@ -195,8 +196,6 @@ const enableExtract = computed(() => treeData.value !== null)
 watch(pakData, async () => {
   console.debug('pakData changed', pakData.value)
   treeData.value = null
-  filterText.value = ''
-  filterTextInput.value = ''
   // sync to work store
   workStore.unpack.paks = pakData.value.map((pak) => pak.path)
 })
@@ -214,8 +213,8 @@ watch(
 
 // 更新过滤器
 const updateFilter = () => {
-  const input = filterTextInput.value.trim()
-  filterText.value = input
+  workStore.unpack.filterText = workStore.unpack.filterText.trim()
+  filterTextApply.value = workStore.unpack.filterText
 }
 
 // function convertNode(fileTreeNode: FileTreeNode): TreeData {

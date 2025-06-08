@@ -16,14 +16,18 @@ interface WorkRecord {
 interface UnpackWork {
   fileList: string
   paks: string[]
+  filterText: string
+  filterUseRegex: boolean
 }
 
-const FILE_NAME = 'work.json'
+const FILE_NAME = 'workspace.json'
 
 export const useWorkStore = defineStore('work', () => {
   const unpack = ref<UnpackWork>({
     fileList: '',
-    paks: []
+    paks: [],
+    filterText: '',
+    filterUseRegex: false
   })
 
   const workRecord = computed(() => {
