@@ -29,6 +29,8 @@ const containerRef = ref<HTMLElement>()
 const treeHeight = ref(200)
 // 是否正在加载
 const loading = ref(false)
+// 是否显示覆盖层
+const showOverlay = ref(true)
 // 缓存的已转换的 TreeData
 const cachedTreeData = ref<TreeData[]>([])
 // 已过滤的数据
@@ -62,20 +64,13 @@ onUnmounted(() => {
   clearTimeout(lazyUpdateTimeout)
 })
 
-// 监听过滤器文本，应用过滤器
+// 监听过滤器数据，应用过滤器
 watch(
-  () => props.filterText,
-  (filterText) => {
-    const filter = filterText ? filterText : ''
-    const regexMode = props.regexMode ?? false
-    console.log('applying filter', filter)
-
-    let filterObj = regexMode ? new RegExp(filter, 'i') : filter.toLowerCase()
-    filteredData.value = filterTreeData(deepCopy(cachedTreeData.value), filterObj)
-  }
+  () => [props.filterText, props.regexMode],
+  () => doFilterTree()
 )
 
-// 监听输入数据，输入变化时重新生成树
+// 监听输入数据，输入变化时准备重新生成树
 watch(
   () => props.data,
   (data) => {
@@ -87,9 +82,22 @@ watch(
 
     const treeData = createTreeData(data)
     cachedTreeData.value = [treeData]
-    filteredData.value = cachedTreeData.value
+    if (props.filterText) {
+      doFilterTree()
+    } else {
+      filteredData.value = [treeData]
+    }
   }
 )
+
+function doFilterTree() {
+  const filter = props.filterText ? props.filterText : ''
+  const regexMode = props.regexMode ?? false
+  console.log('applying filter', filter)
+
+  let filterObj = regexMode ? new RegExp(filter, 'i') : filter.toLowerCase()
+  filteredData.value = filterTreeData(deepCopy(cachedTreeData.value), filterObj)
+}
 
 // 从输入的树格式 RenderTreeNode 转换成显示用的 TreeData 格式
 function createTreeData(node: RenderTreeNode): TreeData {
@@ -251,7 +259,6 @@ defineExpose({ getCheckedNodes })
       :props="treeProps"
       :data="filteredData"
       :height="treeHeight"
-      v-loading="loading"
       show-checkbox
     >
       <template #default="{ node }">

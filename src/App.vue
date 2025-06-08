@@ -14,11 +14,9 @@
 import { onMounted } from 'vue'
 import { RouterView } from 'vue-router'
 import { useSettingsStore } from '@/store/settings'
-import { useWorkStore } from '@/store/work'
 import { ShowError, ShowWarn } from '@/utils/message'
 
 const settingsStore = useSettingsStore()
-const workStore = useWorkStore()
 
 onMounted(async () => {
   // initialize settings

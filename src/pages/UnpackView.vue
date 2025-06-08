@@ -40,6 +40,21 @@
 
     <div class="main-content">
       <v-card class="pa-2 elevation-3 rounded-lg tree-card">
+        <!-- 渲染确认覆盖层 -->
+        <div v-if="showOverlay" class="overlay" @click.stop>
+          <div class="overlay-content">
+            <v-btn
+              :disabled="loadingTree"
+              :loading="loadingTree"
+              class="load-btn text-none"
+              color="primary"
+              @click="doRender"
+            >
+              <v-icon icon="mdi-refresh" class="mr-2"></v-icon>
+              Load File Tree
+            </v-btn>
+          </div>
+        </div>
         <div class="tree-panel">
           <FileTree
             class="file-tree"
@@ -142,10 +157,12 @@ const filterUseRegex = ref(false)
 // 已加载的pak
 const pakData = ref<PakInfo[]>([])
 const initialLoaded = ref(false)
-// 树视图加载状态
-const loading = ref(false)
 // 树视图数据
 const treeData = ref<RenderTreeNode | null>(null)
+// show overlay
+const showOverlay = ref(false)
+// is tree loading
+const loadingTree = ref(false)
 // const fileNameTablePath = ref('')
 // 解包进度条
 const unpackWorking = ref(false)
@@ -189,7 +206,8 @@ watch(
   () => [pakData.value, workStore.unpack.fileList],
   async () => {
     if (workStore.unpack.fileList && pakData.value.length > 0) {
-      await doRender()
+      showOverlay.value = true
+      loadingTree.value = false
     }
   }
 )
@@ -256,15 +274,18 @@ async function handleClose(index: number) {
 
 // 点击 Render 按钮后的事件回调
 async function doRender() {
+  loadingTree.value = true
   try {
     // 载入文件名列表
     await file_table_load(workStore.unpack.fileList)
-
     // 渲染树
     const result = await pak_read_file_tree_optimized()
     treeData.value = result
+    showOverlay.value = false
   } catch (error) {
     ShowError(error)
+  } finally {
+    loadingTree.value = false
   }
 }
 
@@ -300,13 +321,11 @@ async function doExtraction() {
       selected = selected[0]
     }
 
-    loading.value = true
-
     const options: ExtractOptions = {
       outputPath: selected as string,
       override: true,
       extractAll: false,
-      extractFiles: fileTreeComponent.value?.getCheckedNodes() || []
+      extractFiles: fileTreeComponent.value?.getCheckedNodes() ?? []
     }
     // console.log('Extract options', options)
     const window = getCurrentWindow()
@@ -344,8 +363,6 @@ async function doExtraction() {
     await pak_extract_all(options, onEvent)
   } catch (error) {
     ShowError(error)
-  } finally {
-    loading.value = false
   }
 }
 
@@ -535,5 +552,27 @@ onUnmounted(async () => {
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+}
+
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(192, 192, 192, 0.5);
+  backdrop-filter: blur(2px);
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.overlay-content {
+  padding: 24px;
+}
+
+.load-btn {
+  min-width: 160px;
 }
 </style>

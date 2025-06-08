@@ -14,7 +14,7 @@
         <v-btn icon="mdi-update" @click="showUpdateDialog"></v-btn>
       </div>
       <v-btn icon="mdi-github" @click="openUrl('https://github.com/eigeen/ree-pak-rs')"> </v-btn>
-      <v-btn icon="mdi-cog" @click="openSettings"></v-btn>
+      <!-- <v-btn icon="mdi-cog" @click="openSettings"></v-btn> -->
     </div>
 
     <UpdateDialog ref="updateDialog"></UpdateDialog>
