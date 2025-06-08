@@ -1,13 +1,9 @@
 <template>
-  <FileNameTableSelector @change="onFileNameTableChange"></FileNameTableSelector>
+  <FileNameTableSelector v-model="selectedValue"></FileNameTableSelector>
 </template>
 
 <script setup lang="ts">
-const emit = defineEmits(['change'])
-
-function onFileNameTableChange(filePath: string) {
-  emit('change', filePath)
-}
+const selectedValue = defineModel<string>()
 </script>
 
 <style scoped></style>

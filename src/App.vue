@@ -14,11 +14,11 @@
 import { onMounted } from 'vue'
 import { RouterView } from 'vue-router'
 import { useSettingsStore } from '@/store/settings'
-import { useRecentStore } from './store/recent'
+import { useWorkStore } from '@/store/work'
 import { ShowError, ShowWarn } from '@/utils/message'
 
 const settingsStore = useSettingsStore()
-const projectStore = useRecentStore()
+const workStore = useWorkStore()
 
 onMounted(async () => {
   // initialize settings
@@ -30,15 +30,6 @@ onMounted(async () => {
     ShowError(`Failed to load settings: ${error}`)
     ShowWarn("Will use default settings")
   }
-  // load projects
-  try {
-    await projectStore.loadProjects()
-  } catch (error) {
-    // failure is ok
-    console.log(`Failed to load projects: ${error}`)
-  }
-  // get updates
-  
 })
 </script>
 

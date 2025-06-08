@@ -3,7 +3,7 @@
     <el-aside class="aside-outer">
       <div class="aside-container">
         <v-card class="pa-4 elevation-3 rounded-lg tool-chunk">
-          <FileNameTable @change="onFileNameTableChange"></FileNameTable>
+          <FileNameTable v-model="workStore.unpack.fileList"></FileNameTable>
         </v-card>
         <v-card class="pa-4 elevation-3 rounded-lg tool-chunk">
           <div class="text-subtitle-1">Pak Files</div>
@@ -101,6 +101,14 @@
 </template>
 
 <script setup lang="ts">
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { open as dialogOpen } from '@tauri-apps/plugin-dialog'
+import { getCurrentWebview } from '@tauri-apps/api/webview'
+import type { UnlistenFn } from '@tauri-apps/api/event'
+import { Channel } from '@tauri-apps/api/core'
+import { getCurrentWindow, ProgressBarStatus } from '@tauri-apps/api/window'
+import { exists } from '@tauri-apps/plugin-fs'
+
 import {
   pak_close,
   pak_extract_all,
@@ -112,15 +120,11 @@ import {
 import type { ExtractOptions, PakInfo, RenderTreeNode, WorkProgressEvent } from '@/api/tauri/pak'
 import PakFiles from '@/components/PakFiles.vue'
 import FileTree from '@/components/FileTree.vue'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-// import { listen, TauriEvent as TauriEventName, type Event as TauriEvent } from '@tauri-apps/api/event'
-import { open as dialogOpen } from '@tauri-apps/plugin-dialog'
 import { file_table_load } from '@/api/tauri/filelist'
-import { getCurrentWebview } from '@tauri-apps/api/webview'
-import type { UnlistenFn } from '@tauri-apps/api/event'
-import { Channel } from '@tauri-apps/api/core'
 import { ShowError, ShowWarn } from '@/utils/message'
-import { getCurrentWindow, ProgressBarStatus } from '@tauri-apps/api/window'
+import { useWorkStore } from '@/store/work'
+
+const workStore = useWorkStore()
 
 // 过滤器输入（原始输入）
 const filterTextInput = ref('')
@@ -128,11 +132,12 @@ const filterTextInput = ref('')
 const filterText = ref('')
 // 已加载的pak
 const pakData = ref<PakInfo[]>([])
+const initialLoaded = ref(false)
 // 树视图加载状态
 const loading = ref(false)
 // 树视图数据
 const treeData = ref<RenderTreeNode | null>(null)
-const fileNameTablePath = ref('')
+// const fileNameTablePath = ref('')
 // 解包进度条
 const unpackWorking = ref(false)
 const showProgressPanel = ref(false)
@@ -145,7 +150,7 @@ const progressValue = computed(() =>
 const showConfirmTermination = ref(false)
 // 是否允许添加Pak文件
 const enableAddPaks = computed(() => {
-  return fileNameTablePath.value !== ''
+  return workStore.unpack.fileList !== ''
 })
 
 const fileTreeComponent = ref<InstanceType<typeof FileTree>>()
@@ -165,13 +170,16 @@ watch(pakData, async () => {
   console.debug('pakData changed', pakData.value)
   treeData.value = null
   filterText.value = ''
+  filterTextInput.value = ''
+  // sync to work store
+  workStore.unpack.paks = pakData.value.map((pak) => pak.path)
 })
 
 // auto render tree
 watch(
-  () => [pakData.value, fileNameTablePath.value],
+  () => [pakData.value, workStore.unpack.fileList],
   async () => {
-    if (fileNameTablePath.value && pakData.value.length > 0) {
+    if (workStore.unpack.fileList && pakData.value.length > 0) {
       await doRender()
     }
   }
@@ -194,10 +202,6 @@ const updateFilter = () => {
 //     children,
 //   };
 // }
-
-function onFileNameTableChange(filePath: string) {
-  fileNameTablePath.value = filePath
-}
 
 async function handleOpen() {
   try {
@@ -247,7 +251,7 @@ async function handleClose(index: number) {
 async function doRender() {
   try {
     // 载入文件名列表
-    await file_table_load(fileNameTablePath.value)
+    await file_table_load(workStore.unpack.fileList)
 
     // 渲染树
     const result = await pak_read_file_tree_optimized()
@@ -406,8 +410,43 @@ async function handleConfirmTermination() {
 //   }
 // })
 
+async function loadWorkRecords() {
+  await workStore.loadWorkRecords()
+  if (initialLoaded.value) {
+    return
+  }
+
+  // initial load
+  if (pakData.value.length === 0 && workStore.unpack.paks.length > 0) {
+    // load paks
+    // check if all paks are exist
+    const existsList = await Promise.all(
+      workStore.unpack.paks.map(async (path) => {
+        return await exists(path)
+      })
+    )
+    const allExists = existsList.every((exist) => exist)
+
+    if (allExists) {
+      // all paks are exist, load them
+      for (const path of workStore.unpack.paks) {
+        await pak_open(path)
+      }
+    }
+  }
+
+  initialLoaded.value = true
+}
+
 onMounted(async () => {
   await startListenToDrop()
+  // 加载工作记录
+  try {
+    await loadWorkRecords()
+  } catch (error) {
+    // ignore error
+    console.error(error)
+  }
   // 加载数据
   await reloadData()
 })
