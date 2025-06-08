@@ -9,6 +9,7 @@
       "identifier": "fs:scope",
       "allow": [{ "path": "**/*" }]
     },
+    "fs:allow-read-file",
     "fs:allow-read-text-file",
     "fs:allow-exists",
     "fs:allow-read-dir",

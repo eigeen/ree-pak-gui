@@ -34,7 +34,7 @@
 <script lang="ts" setup>
 import { UpdateService } from '@/service/update'
 import { useUpdateStore } from '@/store/update'
-import { ShowError, ShowInfo } from '@/utils'
+import { ShowError, ShowInfo } from '@/utils/message'
 import { getCurrentWindow, ProgressBarStatus } from '@tauri-apps/api/window'
 import { onMounted, ref } from 'vue'
 

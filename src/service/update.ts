@@ -3,9 +3,10 @@ import type { UpdateMetadata, UpdateVersion, UpdateFile } from '@/api/http/updat
 import { getCompileInfo, performUpdate, zipExtractFile, type CompileInfo } from '@/api/tauri/utils'
 import { fetchWithSpeedCheck } from '@/lib/http/download'
 import { getTempDir } from '@/lib/localDir'
+import { sha256Hex } from '@/utils/hash'
 
 import { join } from '@tauri-apps/api/path'
-import { exists, writeFile } from '@tauri-apps/plugin-fs'
+import { exists, readFile, writeFile } from '@tauri-apps/plugin-fs'
 import { relaunch } from '@tauri-apps/plugin-process'
 import semver from 'semver'
 
@@ -129,7 +130,7 @@ export class UpdateService {
       throw new Error('Update metadata not available. Fetch update metadata first.')
     }
 
-    // 下载并校验文件
+    // 准备下载信息
     let { platform, arch } = await getCompileInfo()
     let targetFile: UpdateFile | undefined = undefined
     for (const file of this.targetVersion.files) {
@@ -144,51 +145,59 @@ export class UpdateService {
       )
     }
 
-    // 下载文件
-    let lastError: any = null
-    for (const url of targetFile.urls) {
-      try {
-        // download file
-        const blob = await fetchWithSpeedCheck(url, {}, onEvent)
-
-        // 检查Hash
-        const arrayBuffer = await blob.arrayBuffer()
-        const hash = await crypto.subtle.digest('SHA-256', arrayBuffer)
-        const downloadedSha256 = Array.from(new Uint8Array(hash), (byte) =>
-          byte.toString(16).padStart(2, '0')
-        ).join('')
-        if (downloadedSha256 !== targetFile.sha256) {
-          throw new Error('Checksum mismatch. Download failed.')
-        }
-
-        // 写入指定目录
-        const tempDir = await getTempDir(true)
-        const downloadPath = await join(tempDir, targetFile.name)
-        await writeFile(downloadPath, new Uint8Array(arrayBuffer))
-
-        // 检查是否需要解压
-        if (targetFile.name.endsWith('.zip')) {
-          await zipExtractFile(downloadPath, tempDir)
-          // 检查是否正确输出文件
-          // TODO: supports non-exe extension
-          const extractedPath = await join(tempDir, targetFile.name.replace('.zip', '.exe'))
-          if (!(await exists(extractedPath))) {
-            throw new Error(
-              `Extracted file not found after zip extraction: expected ${extractedPath}`
-            )
-          }
-          this.updateFilePath = extractedPath
-        } else {
-          this.updateFilePath = downloadPath
-        }
-        break
-      } catch (err: any) {
-        lastError = err
+    let newArchivePath: string | null = null
+    // 检查文件是否已存在下载目录
+    const tempDir = await getTempDir(true)
+    const downloadPath = await join(tempDir, targetFile.name)
+    if (await exists(downloadPath)) {
+      // 检查Hash
+      const array = await readFile(downloadPath)
+      const downloadedSha256 = await sha256Hex(array)
+      if (downloadedSha256 === targetFile.sha256) {
+        newArchivePath = downloadPath
       }
     }
 
-    if (lastError) {
+    // 如果文件不存在则下载文件
+    let lastError: any = null
+    if (!newArchivePath) {
+      for (const url of targetFile.urls) {
+        try {
+          // download file
+          const blob = await fetchWithSpeedCheck(url, {}, onEvent)
+
+          // 检查Hash
+          const arrayBuffer = await blob.arrayBuffer()
+          const downloadedSha256 = await sha256Hex(arrayBuffer)
+          if (downloadedSha256 !== targetFile.sha256) {
+            throw new Error('Checksum mismatch. Download failed.')
+          }
+
+          // 写入指定目录
+          await writeFile(downloadPath, new Uint8Array(arrayBuffer))
+          newArchivePath = downloadPath
+          break
+        } catch (err: any) {
+          lastError = err
+        }
+      }
+    }
+    if (lastError || !newArchivePath) {
       throw new Error(`Failed to download update file from all sources: ${lastError}`)
+    }
+
+    // 检查是否需要解压
+    if (targetFile.name.endsWith('.zip')) {
+      await zipExtractFile(newArchivePath, tempDir)
+      // 检查是否正确输出文件
+      // TODO: supports non-exe extension
+      const extractedPath = await join(tempDir, targetFile.name.replace('.zip', '.exe'))
+      if (!(await exists(extractedPath))) {
+        throw new Error(`Extracted file not found after zip extraction: expected ${extractedPath}`)
+      }
+      this.updateFilePath = extractedPath
+    } else {
+      this.updateFilePath = newArchivePath
     }
   }
 

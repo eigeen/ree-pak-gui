@@ -15,7 +15,7 @@ import { onMounted } from 'vue'
 import { RouterView } from 'vue-router'
 import { useSettingsStore } from '@/store/settings'
 import { useRecentStore } from './store/recent'
-import { ShowError, ShowWarn } from '@/utils'
+import { ShowError, ShowWarn } from '@/utils/message'
 
 const settingsStore = useSettingsStore()
 const projectStore = useRecentStore()
