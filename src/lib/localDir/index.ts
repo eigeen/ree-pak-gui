@@ -1,5 +1,5 @@
 import { getExePath } from '@/api/tauri/utils'
-import { parentPath } from '@/utils/path'
+import { getParentPath } from '@/utils/path'
 import { join } from '@tauri-apps/api/path'
 import { exists, mkdir } from '@tauri-apps/plugin-fs'
 
@@ -7,7 +7,11 @@ const LOCAL_DIR_NAME = 'ree-pak-tools'
 
 export async function getLocalDir(create: boolean = true): Promise<string> {
   const exePath = await getExePath()
-  const exeDir = parentPath(exePath)
+  const exeDir = getParentPath(exePath)
+  if (!exeDir) {
+    throw new Error('Failed to get exe directory')
+  }
+
   const dirPath = await join(exeDir, LOCAL_DIR_NAME)
   if (create && !(await exists(dirPath))) {
     await mkdir(dirPath, { recursive: true })

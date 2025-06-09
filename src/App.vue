@@ -1,6 +1,6 @@
 <template>
   <v-app>
-    <v-main class="root">
+    <v-main class="app-root">
       <Menu></Menu>
       <div class="content">
         <router-view />
@@ -45,7 +45,7 @@ html::-webkit-scrollbar {
   --el-menu-horizontal-height: 50px;
 }
 
-.root {
+.app-root {
   display: flex;
   flex-direction: column;
   height: 100vh;

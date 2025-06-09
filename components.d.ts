@@ -15,6 +15,7 @@ declare module 'vue' {
     FileNameTableSelector: typeof import('./src/components/FileNameTable/FileNameTableSelector.vue')['default']
     FileTree: typeof import('./src/components/FileTree.vue')['default']
     HoverBubble: typeof import('./src/components/HoverBubble.vue')['default']
+    HoverIconButton: typeof import('./src/components/FileNameTable/HoverIconButton.vue')['default']
     Menu: typeof import('./src/components/Menu.vue')['default']
     PakFileItem: typeof import('./src/components/PakFileItem.vue')['default']
     PakFiles: typeof import('./src/components/PakFiles.vue')['default']
@@ -23,6 +24,7 @@ declare module 'vue' {
     Settings: typeof import('./src/components/Settings/Settings.vue')['default']
     SettingsItem: typeof import('./src/components/Settings/SettingsItem.vue')['default']
     SettingsItemSwitch: typeof import('./src/components/Settings/SettingsItemSwitch.vue')['default']
+    SplitPanel: typeof import('./src/components/SplitPanel.vue')['default']
     UpdateDialog: typeof import('./src/components/UpdateDialog.vue')['default']
   }
   export interface ComponentCustomProperties {

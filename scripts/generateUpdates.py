@@ -4,6 +4,7 @@ import shutil
 import json
 import re
 import hashlib
+import zipfile
 
 # Get .py file path
 script_path = os.path.dirname(os.path.realpath(__file__))
@@ -42,16 +43,24 @@ file_path = os.path.join(working_dir, "..", "target", "release", "ree-pak-rs.exe
 file_size = os.path.getsize(file_path)
 file_hash = hashlib.sha256(open(file_path, "rb").read()).hexdigest()
 
-# upx compress for nightly channel
-upx_file_path = file_path.replace(".exe", ".upx.exe")
-shutil.copyfile(file_path, upx_file_path)
-subprocess.check_call(["upx", "-9", upx_file_path])
+# # upx compress for nightly channel
+# upx_file_path = file_path.replace(".exe", ".upx.exe")
+# shutil.copyfile(file_path, upx_file_path)
+# subprocess.check_call(["upx", "-9", upx_file_path])
 
-upx_file_size = os.path.getsize(upx_file_path)
-upx_file_hash = hashlib.sha256(open(upx_file_path, "rb").read()).hexdigest()
+# upx_file_size = os.path.getsize(upx_file_path)
+# upx_file_hash = hashlib.sha256(open(upx_file_path, "rb").read()).hexdigest()
+
+# zip compress
+zip_file_path = file_path.replace(".exe", ".zip")
+with zipfile.ZipFile(zip_file_path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
+    zipf.write(file_path, arcname=os.path.basename(file_path))
+
+zip_file_size = os.path.getsize(zip_file_path)
+zip_file_hash = hashlib.sha256(open(zip_file_path, "rb").read()).hexdigest()
 
 nightly_file_name = (
-    f"ree-pak-gui_{version}_windows_x86_64_nightly_{commit_hash_short}.exe"
+    f"ree-pak-gui_{version}_windows_x86_64_nightly_{commit_hash_short}.zip"
 )
 
 update_versions = {
@@ -63,8 +72,8 @@ update_versions = {
             "files": [
                 {
                     "name": nightly_file_name,
-                    "size": upx_file_size,
-                    "sha256": upx_file_hash,
+                    "size": zip_file_size,
+                    "sha256": zip_file_hash,
                     "urls": [
                         f"https://os1.eigeen.com/ree-pak-gui/{nightly_file_name}",
                     ],
@@ -124,7 +133,7 @@ with open(os.path.join(working_dir, "scripts", "update.json"), "w") as f:
 target_dir = os.path.join(working_dir, "..", "target", "release")
 if os.path.exists(target_dir):
     for version in update_versions["versions"]:
-        f_from = upx_file_path if version["channel"] == "nightly" else file_path
+        f_from = zip_file_path if version["channel"] == "nightly" else file_path
         for file in version["files"]:
             shutil.copyfile(
                 f_from,

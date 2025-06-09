@@ -3,6 +3,7 @@
     <el-aside class="aside-outer">
       <div class="aside-container">
         <v-card class="pa-4 elevation-3 rounded-lg tool-chunk">
+          <div class="text-subtitle-1">File List</div>
           <FileNameTable v-model="workStore.unpack.fileList"></FileNameTable>
         </v-card>
         <v-card class="pa-4 elevation-3 rounded-lg tool-chunk">

@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import { exists, mkdir, readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import { join } from '@tauri-apps/api/path'
-import { parentPath } from '@/utils/path'
+import { getParentPath } from '@/utils/path'
 import { getLocalDir } from '@/lib/localDir'
 
 const SETTINGS_FILE_NAME = 'settings.json'
@@ -54,7 +54,11 @@ export const useSettingsStore = defineStore('settings', () => {
       return
     }
     const settingsPath = await getSettingsPath()
-    const settingsDir = parentPath(settingsPath)
+    const settingsDir = getParentPath(settingsPath)
+    if (!settingsDir) {
+      throw new Error('Failed to get settings directory')
+    }
+
     if (!(await exists(settingsDir))) {
       await mkdir(settingsDir, { recursive: true })
     }
