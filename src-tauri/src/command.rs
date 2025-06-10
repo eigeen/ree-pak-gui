@@ -10,10 +10,7 @@ use crate::{
         ExtractOptions, PakId, PakInfo,
         tree::{FileTree, RenderTreeNode, RenderTreeOptions},
     },
-    service::{
-        filelist::{FileListInfo, FileListService},
-        pak::PakService,
-    },
+    service::pak::PakService,
     utility, warp_result_elapsed,
 };
 
@@ -106,12 +103,6 @@ pub fn pak_terminate_extraction(pak_service: tauri::State<PakServiceState>) -> R
     pak_service.terminate_unpack();
     log::warn!("Extraction process terminated.");
     Ok(())
-}
-
-/// List all .list files in the file table directory.
-#[tauri::command]
-pub fn file_table_get_list(file_list_service: tauri::State<FileListService>) -> Result<Vec<FileListInfo>, String> {
-    file_list_service.get_file_lists().map_err(|e| e.to_string())
 }
 
 #[tauri::command]

@@ -12,8 +12,6 @@ pub enum Error {
     #[error("File IO error: path = {path}, source = {source}")]
     FileIO { path: String, source: std::io::Error },
 
-    #[error("File list not found: {0}")]
-    FileListNotFound(String),
     #[error("Missing file list. Please load a file list first.")]
     MissingFileList,
 

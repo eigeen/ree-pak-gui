@@ -4,7 +4,7 @@
 use std::sync::OnceLock;
 
 use pak::group::PakGroup;
-use service::{filelist::FileListService, pak::PakService};
+use service::pak::PakService;
 use tauri::{AppHandle, Manager};
 
 mod channel;
@@ -46,7 +46,6 @@ fn main() {
             Ok(())
         })
         .manage(PakService::new(PakGroup::new()))
-        .manage(FileListService::new())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             command::pak_clear_all,
@@ -59,7 +58,6 @@ fn main() {
             command::pak_read_file_tree_optimized,
             command::pak_extract_all,
             command::pak_terminate_extraction,
-            command::file_table_get_list,
             command::file_table_load,
             command::get_exe_path,
             command::get_compile_info,
