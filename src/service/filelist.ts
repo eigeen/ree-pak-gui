@@ -6,65 +6,37 @@
  */
 
 import { FileListAPI, type FileListInfo } from '@/api/http/filelist'
+import { zipExtractFile } from '@/api/tauri/utils'
 import { fetchWithSpeedCheck } from '@/lib/http/download'
-import { getFileListDir } from '@/lib/localDir'
+import { getFileListDir, getTempDir } from '@/lib/localDir'
+import { NameListFile } from '@/lib/NameListFile'
+import { useFileListStore } from '@/store/filelist'
 import { getFileStem } from '@/utils/path'
 import { join } from '@tauri-apps/api/path'
-import { exists, mkdir, readDir, writeFile } from '@tauri-apps/plugin-fs'
-
-export type SourceType = 'local' | 'remote'
-
-export interface FileListSource {
-  identifier: string
-  sourceType: SourceType
-  filePath: string
-}
-
-// interface FileListMetadata {
-//   file_name: string
-//   tags: string[]
-//   description: string
-// }
+import { exists, mkdir, readDir, remove, writeFile, writeTextFile } from '@tauri-apps/plugin-fs'
+import { reactive, type Reactive } from 'vue'
 
 export class FileListService {
-  private localSource: { [identifier: string]: FileListSource } = {}
-  private remoteManifest: { [fileName: string]: FileListInfo } = {}
+  private static instance: FileListService | null = null
+  private static readonly NOTIFY_FILE_NAME = '_DONT_EDIT_FILES'
+
+  private store
   private remoteServers: string[] = []
 
-  /**
-   * Get mixed sources of local and remote sources.
-   * Local sources will override remote sources with the same identifier.
-   */
-  public getAllSource(): FileListSource[] {
-    const sourcesMap: { [identifier: string]: FileListSource } = {}
-    for (const identifier in this.localSource) {
-      sourcesMap[identifier] = this.localSource[identifier]
-    }
-    for (const fileName in this.remoteManifest) {
-      const source = this.remoteManifest[fileName]
-      const identifier = getFileStem(source.file_name)
-      if (identifier in sourcesMap) {
-        console.warn(
-          `Duplicate identifier ${identifier} found in local and remote sources, using local source.`
-        )
-        continue
-      }
-      sourcesMap[identifier] = {
-        identifier,
-        sourceType: 'remote',
-        filePath: fileName
-      }
-    }
+  private constructor() {
+    this.store = useFileListStore()
+  }
 
-    // order by identifier
-    const sources = Object.values(sourcesMap)
-    sources.sort((a, b) => a.identifier.localeCompare(b.identifier))
-
-    return sources
+  public static getInstance(): FileListService {
+    if (!FileListService.instance) {
+      FileListService.instance = new FileListService()
+    }
+    return FileListService.instance
   }
 
   public async refreshLocalSource(): Promise<void> {
-    const sources: { [identifier: string]: FileListSource } = {}
+    // local manual sources
+    const sources: { [identifier: string]: Reactive<NameListFile> } = {}
 
     const fileListDir = await getFileListDir(true)
     for (const file of await readDir(fileListDir)) {
@@ -77,14 +49,35 @@ export class FileListService {
         continue
       }
 
-      sources[identifier] = {
-        identifier,
-        sourceType: 'local',
-        filePath
-      }
+      const listfile = reactive(new NameListFile(identifier, 'local', filePath))
+      await listfile.loadMetadata()
+      sources[identifier] = listfile
     }
+    this.store.localFile = sources
 
-    this.localSource = sources
+    // local downloaded sources
+    const dlSources: { [identifier: string]: Reactive<NameListFile> } = {}
+
+    const downloadedDir = await this.getDownloadedDir()
+    for (const file of await readDir(downloadedDir)) {
+      if (!file.isFile) continue
+      if (file.name === FileListService.NOTIFY_FILE_NAME) continue
+
+      const filePath = await join(downloadedDir, file.name)
+      const identifier = getFileStem(file.name)
+      if (!identifier) {
+        console.warn(`Invalid file name as identifier: ${file.name}, skipping.`)
+        continue
+      }
+
+      const listfile = reactive(new NameListFile(identifier, 'remote', filePath))
+      await listfile.loadMetadata()
+      dlSources[identifier] = listfile
+    }
+    this.store.downloadedFile = dlSources
+
+    console.debug('refreshed local source', this.store.localFile, this.store.downloadedFile)
+    await this.touchNotifyFile()
   }
 
   public async fetchRemoteSource(): Promise<void> {
@@ -96,16 +89,16 @@ export class FileListService {
       sources[source.file_name] = source
     }
 
-    this.remoteManifest = sources
+    this.store.remoteManifest = sources
     this.remoteServers = manifest.base_urls
   }
 
   public async downloadRemoteFile(fileName: string): Promise<void> {
-    if (!this.remoteManifest[fileName]) {
+    if (!this.store.remoteManifest[fileName]) {
       throw new Error(`File not found in remote source: ${fileName}`)
     }
 
-    const info = this.remoteManifest[fileName]
+    const info = this.store.remoteManifest[fileName]
 
     let lastError: any = null
     let blob: Blob | null = null
@@ -126,12 +119,63 @@ export class FileListService {
       throw new Error('Failed to download file list from all sources: no response')
     }
 
-    const targetDir = await this.getRemoteFileListDir()
+    // check if need to unzip
+    const ext = info.file_name.split('.').pop()
+    if (ext === 'zip') {
+      // save to temp dir
+      const tempDir = await getTempDir(true)
+      const tempPath = await join(tempDir, info.file_name)
+      await writeFile(tempPath, new Uint8Array(await blob.arrayBuffer()))
+      // unzip file
+      const targetDir = await this.getDownloadedDir()
+      await zipExtractFile(tempPath, targetDir)
+      // check extracted file exists
+      const extractedFile = await join(targetDir, info.file_name.replace('.zip', ''))
+      if (!exists(extractedFile)) {
+        throw new Error('Failed to extract file list from downloaded zip file')
+      }
+      return
+    }
+
+    // directly save
+    const targetDir = await this.getDownloadedDir()
     const targetPath = await join(targetDir, info.file_name)
     await writeFile(targetPath, new Uint8Array(await blob.arrayBuffer()))
   }
 
-  private async getRemoteFileListDir(): Promise<string> {
+  public async removeDownloaded(identifier: string): Promise<void> {
+    const file = this.store.downloadedFile[identifier]
+    if (!file) {
+      throw new Error(`File not found in downloaded source: ${identifier}`)
+    }
+
+    const filePath = file.source.filePath
+    if (!(await exists(filePath))) {
+      throw new Error(`File not found in downloaded directory: ${filePath}`)
+    }
+
+    console.log('Removing file:', filePath)
+    await remove(filePath)
+    delete this.store.downloadedFile[identifier]
+  }
+
+  public async removeLocal(identifier: string): Promise<void> {
+    const file = this.store.localFile[identifier]
+    if (!file) {
+      throw new Error(`File not found in local source: ${identifier}`)
+    }
+
+    const filePath = file.source.filePath
+    if (!(await exists(filePath))) {
+      throw new Error(`File not found in local directory: ${filePath}`)
+    }
+
+    console.log('Removing file:', filePath)
+    await remove(filePath)
+    delete this.store.localFile[identifier]
+  }
+
+  private async getDownloadedDir(): Promise<string> {
     const filelistDir = await getFileListDir(false)
     const remoteDir = await join(filelistDir, 'remote')
     if (!(await exists(remoteDir))) {
@@ -139,5 +183,12 @@ export class FileListService {
     }
 
     return remoteDir
+  }
+
+  private async touchNotifyFile(): Promise<void> {
+    const path = await join(await this.getDownloadedDir(), FileListService.NOTIFY_FILE_NAME)
+    if (!(await exists(path))) {
+      await writeTextFile(path, '')
+    }
   }
 }

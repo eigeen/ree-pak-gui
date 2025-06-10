@@ -8,7 +8,6 @@
   ],
   "permissions": [
     "core:default",
-    "opener:default",
     "process:default",
     "core:window:default",
     "core:window:allow-set-progress-bar"
