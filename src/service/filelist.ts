@@ -105,10 +105,12 @@ export class FileListService {
     for (const baseUrl of this.remoteServers) {
       try {
         const url = `${baseUrl}/${info.file_name}`
+        console.debug(`Trying to download file list from ${url}`)
         blob = await fetchWithSpeedCheck(url, { connectTimeout: 5000 })
         break
       } catch (err) {
         lastError = err
+        blob = null
         continue
       }
     }

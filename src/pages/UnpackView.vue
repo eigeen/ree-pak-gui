@@ -281,7 +281,7 @@ async function doRender() {
     const filelistSrv = FileListService.getInstance()
     const file = filelistSrv.getFileByIdent(workStore.unpack.fileList)
     if (!file) {
-      throw new Error('Name list file not found: ${workStore.unpack.fileList}')
+      throw new Error(`Name list file not found: ${workStore.unpack.fileList}`)
     }
 
     await file_table_load(file.source.filePath)

@@ -42,7 +42,7 @@ semver = "1.0"
 chrono = "0.4"
 sha2 = "0.10"
 tauri-plugin-fs = "2"
-tauri-plugin-http = { version = "2", features = ["json"] }
+tauri-plugin-http = { version = "2", features = ["json", "brotli", "gzip"] }
 tauri-plugin-opener = "2"
 tauri-plugin-process = "2"
 zip = { version = "4.0", default-features = false, features = ["deflate"] }
