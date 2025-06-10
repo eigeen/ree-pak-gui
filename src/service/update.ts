@@ -190,8 +190,7 @@ export class UpdateService {
     if (targetFile.name.endsWith('.zip')) {
       await zipExtractFile(newArchivePath, tempDir)
       // 检查是否正确输出文件
-      // TODO: supports non-exe extension
-      const extractedPath = await join(tempDir, targetFile.name.replace('.zip', '.exe'))
+      const extractedPath = await join(tempDir, targetFile.name.replace('.zip', ''))
       if (!(await exists(extractedPath))) {
         throw new Error(`Extracted file not found after zip extraction: expected ${extractedPath}`)
       }
