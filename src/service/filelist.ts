@@ -58,7 +58,7 @@ export class FileListService {
     // local downloaded sources
     const dlSources: { [identifier: string]: Reactive<NameListFile> } = {}
 
-    const downloadedDir = await this.getDownloadedDir()
+    const downloadedDir = await FileListService.getDownloadedDir()
     for (const file of await readDir(downloadedDir)) {
       if (!file.isFile) continue
       if (file.name === FileListService.NOTIFY_FILE_NAME) continue
@@ -77,7 +77,7 @@ export class FileListService {
     this.store.downloadedFile = dlSources
 
     console.debug('refreshed local source', this.store.localFile, this.store.downloadedFile)
-    await this.touchNotifyFile()
+    await FileListService.touchNotifyFile()
   }
 
   public async fetchRemoteSource(): Promise<void> {
@@ -127,7 +127,7 @@ export class FileListService {
       const tempPath = await join(tempDir, info.file_name)
       await writeFile(tempPath, new Uint8Array(await blob.arrayBuffer()))
       // unzip file
-      const targetDir = await this.getDownloadedDir()
+      const targetDir = await FileListService.getDownloadedDir()
       await zipExtractFile(tempPath, targetDir)
       // check extracted file exists
       const extractedFile = await join(targetDir, info.file_name.replace('.zip', ''))
@@ -138,7 +138,7 @@ export class FileListService {
     }
 
     // directly save
-    const targetDir = await this.getDownloadedDir()
+    const targetDir = await FileListService.getDownloadedDir()
     const targetPath = await join(targetDir, info.file_name)
     await writeFile(targetPath, new Uint8Array(await blob.arrayBuffer()))
   }
@@ -175,7 +175,15 @@ export class FileListService {
     delete this.store.localFile[identifier]
   }
 
-  private async getDownloadedDir(): Promise<string> {
+  public getFileByIdent(identifier: string): Reactive<NameListFile> | null {
+    const file = this.store.localFile[identifier] || this.store.downloadedFile[identifier]
+    if (!file) {
+      return null
+    }
+    return file
+  }
+
+  public static async getDownloadedDir(): Promise<string> {
     const filelistDir = await getFileListDir(false)
     const remoteDir = await join(filelistDir, 'remote')
     if (!(await exists(remoteDir))) {
@@ -185,8 +193,11 @@ export class FileListService {
     return remoteDir
   }
 
-  private async touchNotifyFile(): Promise<void> {
-    const path = await join(await this.getDownloadedDir(), FileListService.NOTIFY_FILE_NAME)
+  private static async touchNotifyFile(): Promise<void> {
+    const path = await join(
+      await FileListService.getDownloadedDir(),
+      FileListService.NOTIFY_FILE_NAME
+    )
     if (!(await exists(path))) {
       await writeTextFile(path, '')
     }

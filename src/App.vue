@@ -32,9 +32,10 @@ onMounted(async () => {
 </script>
 
 <style lang="scss">
-html {
+html, body {
   /* disable vuetify scrollbar */
   overflow-y: auto !important;
+  background-color: #f5f5f5;
 }
 
 html::-webkit-scrollbar {
@@ -48,7 +49,7 @@ html::-webkit-scrollbar {
 .app-root {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  min-height: 100vh;
   background-color: #f5f5f5;
 }
 

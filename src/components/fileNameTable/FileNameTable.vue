@@ -64,6 +64,11 @@ const localSources = computed<FileListSource[]>(() => {
 
   return sources
 })
+const comboItems = computed(() =>
+  localSources.value.map((item) => {
+    return { label: item.identifier, value: item.identifier }
+  })
+)
 
 const downloadableItems = ref<RemoteFileListItem[]>([])
 
@@ -220,7 +225,7 @@ onMounted(async () => {
       </v-btn>
     </div>
 
-    <FileNameTableSelector v-model="selectedValue"></FileNameTableSelector>
+    <FileNameTableSelector v-model="selectedValue" :items="comboItems"></FileNameTableSelector>
   </div>
 
   <v-dialog v-model="showMenu" width="auto">
