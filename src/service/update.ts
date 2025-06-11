@@ -10,6 +10,8 @@ import { exists, readFile, writeFile } from '@tauri-apps/plugin-fs'
 import { relaunch } from '@tauri-apps/plugin-process'
 import semver from 'semver'
 
+const CHANNEL = 'release'
+
 export class UpdateService {
   private static instance: UpdateService | null = null
 
@@ -50,7 +52,7 @@ export class UpdateService {
     this.updateMetadata = await this.updateApi.fetchUpdateMetadata()
     console.info('Fetched update metadata:', this.updateMetadata)
     // 先检查version，如果为最新版本，再检查pub_time
-    const validVersions = this.updateMetadata.versions.filter((v) => v.channel === 'release')
+    const validVersions = this.updateMetadata.versions.filter((v) => v.channel === CHANNEL)
     if (!validVersions) {
       return null
     }

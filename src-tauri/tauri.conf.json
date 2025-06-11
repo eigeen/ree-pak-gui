@@ -52,7 +52,7 @@
         "fullscreen": false,
         "height": 768,
         "resizable": true,
-        "title": "REE Pak GUI",
+        "title": "REE Pak Tool",
         "width": 1024,
         "useHttpsScheme": true,
         "dragDropEnabled": true

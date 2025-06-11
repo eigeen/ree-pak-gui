@@ -1,7 +1,7 @@
 <template>
   <v-toolbar class="menu">
     <!-- Left Group -->
-    <div class="slogan">REE PAK Tools</div>
+    <div class="slogan">REE Pak Tool</div>
 
     <v-btn-toggle class="mx-auto" mandatory density="compact" v-model="activeRoute" color="primary">
       <v-btn class="text-none" value="/unpack" text :to="{ name: 'UnpackView' }">Unpack</v-btn>
