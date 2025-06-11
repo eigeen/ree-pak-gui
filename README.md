@@ -1,39 +1,18 @@
-# ree-pak-frontend
+# REE Pak Tool (GUI Application)
 
-This template should help get you started developing with Vue 3 in Vite.
+## Donwload
 
-## Recommended IDE Setup
+https://github.com/eigeen/ree-pak-gui/releases
 
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+## Introduction
 
-## Type Support for `.vue` Imports in TS
+![v0.3.0_unpack_view](docs/img/v0.3.0_unpack_view.jpg)
+![v0.3.0_manage_file_list](docs/img/v0.3.0_manage_file_list.jpg)
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
+## User Manual
 
-## Customize configuration
+In progress.
 
-See [Vite Configuration Reference](https://vitejs.dev/config/).
+## Changelog
 
-## Project Setup
-
-```sh
-pnpm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
-pnpm run dev
-```
-
-### Type-Check, Compile and Minify for Production
-
-```sh
-pnpm run build
-```
-
-### Lint with [ESLint](https://eslint.org/)
-
-```sh
-pnpm run lint
-```
+[CHANGELOG](CHANGELOG.md)
