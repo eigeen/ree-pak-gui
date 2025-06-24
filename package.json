@@ -24,6 +24,7 @@
     "reset": "^0.1.0",
     "semver": "^7.7.2",
     "vue": "^3.4.29",
+    "vue-i18n": "11",
     "vue-router": "^4.3.3",
     "vuedraggable": "^4.1.0",
     "vuetify": "^3.8.1"

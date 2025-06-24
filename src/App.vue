@@ -42,10 +42,6 @@ html::-webkit-scrollbar {
   display: none;
 }
 
-.el-menu--horizontal {
-  --el-menu-horizontal-height: 50px;
-}
-
 .app-root {
   display: flex;
   flex-direction: column;

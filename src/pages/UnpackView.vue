@@ -3,11 +3,11 @@
     <el-aside class="aside-outer">
       <div class="aside-container">
         <v-card class="pa-4 elevation-3 rounded-lg tool-chunk">
-          <div class="text-subtitle-1">File List</div>
+          <div class="text-subtitle-1">{{ $t('unpack.fileList') }}</div>
           <FileNameTable v-model="workStore.unpack.fileList"></FileNameTable>
         </v-card>
         <v-card class="pa-4 elevation-3 rounded-lg tool-chunk">
-          <div class="text-subtitle-1">Pak Files</div>
+          <div class="text-subtitle-1">{{ $t('unpack.pakFiles') }}</div>
           <PakFiles
             :pak-list="pakData"
             :enable-add="enableAddPaks"
@@ -23,11 +23,11 @@
             variant="outlined"
             density="comfortable"
             hide-details
-            label="Filter keyword"
+            :label="$t('unpack.filterKeyword')"
           ></v-text-field>
           <v-checkbox
             v-model="workStore.unpack.filterUseRegex"
-            label="Regex"
+            :label="$t('unpack.regex')"
             density="compact"
             color="primary"
             hide-details
@@ -37,7 +37,7 @@
             prepend-icon="mdi-filter-variant"
             :disabled="workStore.unpack.filterText === filterTextApply"
             @click="updateFilter"
-            >Apply Filter</v-btn
+            >{{ $t('unpack.applyFilter') }}</v-btn
           >
         </v-card>
       </div>
@@ -56,7 +56,7 @@
               @click="doRender"
             >
               <v-icon icon="mdi-refresh" class="mr-2"></v-icon>
-              Load File Tree
+              {{ $t('unpack.loadFileTree') }}
             </v-btn>
           </div>
         </div>
@@ -75,7 +75,7 @@
               prepend-icon="mdi-export"
               @click="doExtraction"
               :disabled="!enableExtract"
-              >Extract</v-btn
+              >{{ $t('unpack.extract') }}</v-btn
             >
           </div>
         </div>
@@ -87,7 +87,7 @@
     <v-card>
       <v-card-text class="pa-8">
         <div class="text-center text-h6 mb-4">
-          Extracting Files... <span v-if="!unpackWorking">Done!</span>
+          {{ $t('unpack.extractingFiles') }} <span v-if="!unpackWorking">{{ $t('unpack.done') }}</span>
         </div>
         <v-progress-linear
           :color="progressValue >= 100 ? 'green' : 'primary'"
@@ -96,8 +96,8 @@
           rounded
           class="mb-2"
         ></v-progress-linear>
-        <div class="text-body-1 mb-4">{{ finishFileCount }} / {{ totalFileCount }} files</div>
-        <div class="text-body-2">Extracting:</div>
+        <div class="text-body-1 mb-4">{{ finishFileCount }} / {{ totalFileCount }} {{ $t('unpack.files') }}</div>
+        <div class="text-body-2">{{ $t('unpack.extracting') }}</div>
         <div class="text-body-2">{{ currentFile }}</div>
       </v-card-text>
       <div class="progress-actions">
@@ -106,7 +106,7 @@
           :color="unpackWorking ? 'error' : 'primary'"
           @click="handleCloseProgress"
         >
-          {{ unpackWorking ? 'Terminate' : 'Close' }}
+          {{ unpackWorking ? $t('unpack.terminate') : $t('unpack.close') }}
         </v-btn>
       </div>
     </v-card>
@@ -114,15 +114,14 @@
 
   <v-dialog v-model="showConfirmTermination" max-width="400" persistent>
     <v-card class="pa-2">
-      <v-card-title class="text-h6">Confirm Termination</v-card-title>
+      <v-card-title class="text-h6">{{ $t('unpack.confirmTermination') }}</v-card-title>
       <v-card-text
-        >Did you want to terminate the current extraction operation? <br />The extracted files will
-        be retained.</v-card-text
-      >
+        >{{ $t('unpack.confirmTerminationText') }}
+      </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn color="grey" text @click="showConfirmTermination = false">Cancel</v-btn>
-        <v-btn color="error" text @click="handleConfirmTermination">Confirm</v-btn>
+        <v-btn color="grey" text @click="showConfirmTermination = false">{{ $t('unpack.cancel') }}</v-btn>
+        <v-btn color="error" text @click="handleConfirmTermination">{{ $t('unpack.confirm') }}</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -136,6 +135,7 @@ import type { UnlistenFn } from '@tauri-apps/api/event'
 import { Channel } from '@tauri-apps/api/core'
 import { getCurrentWindow, ProgressBarStatus } from '@tauri-apps/api/window'
 import { exists } from '@tauri-apps/plugin-fs'
+import { useI18n } from 'vue-i18n'
 
 import {
   pak_close,
@@ -153,6 +153,7 @@ import { ShowError, ShowWarn } from '@/utils/message'
 import { useWorkStore } from '@/store/work'
 import { FileListService } from '@/service/filelist'
 
+const { t } = useI18n()
 const workStore = useWorkStore()
 
 // 过滤器输入（应用输入）
@@ -253,7 +254,8 @@ async function handleOpen() {
     }
     await reloadData()
   } catch (error) {
-    ShowError(error)
+    ShowError(t('global.failedLoadSettings', { error: String(error) }))
+    ShowWarn(t('global.useDefaultSettings'))
   }
 }
 
@@ -429,7 +431,7 @@ async function handleConfirmTermination() {
   resetProgress()
   showProgressPanel.value = false
   console.log('Termination confirmed')
-  ShowWarn('Extraction terminated.')
+  ShowWarn(t('global.extractionTerminated'))
 }
 
 // 处理文件拖拽功能

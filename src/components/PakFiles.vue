@@ -26,11 +26,11 @@
         @click="$emit('open')"
         :disabled="!enableAdd"
       >
-        Open Paks
+        {{ $t('pakFiles.openPaks') }}
       </v-btn>
-      <v-tooltip activator="parent" location="top" :disabled="enableAdd"
-        >Select a File Name Table first.</v-tooltip
-      >
+      <v-tooltip activator="parent" location="top" :disabled="enableAdd">
+        {{ $t('pakFiles.selectFileNameTable') }}
+      </v-tooltip>
     </div>
     <div>
       <v-btn
@@ -42,9 +42,9 @@
         @click="$emit('closeAll')"
       >
       </v-btn>
-      <v-tooltip activator="parent" location="top" :disabled="pakList.length === 0"
-        >Close all paks</v-tooltip
-      >
+      <v-tooltip activator="parent" location="top" :disabled="pakList.length === 0">
+        {{ $t('pakFiles.closeAllPaks') }}
+      </v-tooltip>
     </div>
   </div>
 </template>
