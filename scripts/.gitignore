@@ -1,2 +1,5 @@
-*.json
 filelist/
+
+update.json
+update_db.json
+filelist_manifest.json

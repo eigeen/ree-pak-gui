@@ -62,7 +62,7 @@ export class UpdateService {
       if (!acc) {
         return cur
       }
-      if (semver.lt(cur.version, acc.version)) {
+      if (semver.gt(cur.version, acc.version)) {
         return cur
       }
       return acc
@@ -71,6 +71,7 @@ export class UpdateService {
       console.info('No available updates')
       return null
     }
+    console.info('Latest version:', latestVerInfo)
 
     const latestSemver = semver.valid(latestVerInfo.version)
     if (!latestSemver) {
@@ -178,6 +179,7 @@ export class UpdateService {
           // 写入指定目录
           await writeFile(downloadPath, new Uint8Array(arrayBuffer))
           newArchivePath = downloadPath
+          lastError = null
           break
         } catch (err: any) {
           lastError = err

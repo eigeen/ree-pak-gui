@@ -27,9 +27,10 @@ def get_commit_info():
 
 
 def create_zip_file(file_path, zip_name):
-    """创建指定名称的zip压缩包"""
+    """创建指定名称的zip压缩包，压缩包内的文件名与压缩包名（去掉 .zip 后缀）一致"""
+    inner_name = os.path.splitext(os.path.basename(zip_name))[0]  # 去掉 .zip 后缀
     with zipfile.ZipFile(zip_name, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
-        zipf.write(file_path, arcname=os.path.basename(file_path))
+        zipf.write(file_path, arcname=inner_name)
     return zip_name
 
 
@@ -107,7 +108,7 @@ def generate_update_info():
             break
 
     if should_update:
-        update_db.append(new_version)
+        update_db.insert(0, new_version)
 
     # 保存更新后的数据库
     save_update_db(update_db)

@@ -8,6 +8,7 @@
     {
       "identifier": "http:default",
       "allow": [
+        { "url": "https://github.com" },
         { "url": "https://*.github.com" },
         { "url": "https://raw.githubusercontent.com" },
         { "url": "https://gitee.com" },
