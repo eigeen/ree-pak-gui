@@ -8,6 +8,7 @@ import { getFileStem } from '@/utils/path'
 import { openPath } from '@tauri-apps/plugin-opener'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 
 type RemoteItemStatus =
   | 'downloadable'
@@ -24,7 +25,6 @@ interface RemoteFileListItem {
   status: RemoteItemStatus
 }
 
-const { t } = useI18n()
 const filelistStore = useFileListStore()
 
 const selectedValue = defineModel<string>()
@@ -232,7 +232,7 @@ onMounted(async () => {
   <div class="root">
     <div class="full-width">
       <v-btn class="full-width text-none" prepend-icon="mdi-wrench" @click="showMenu = true">
-        {{ $t('fileNameTable.manageFileList') }}
+        {{ t('fileNameTable.manageFileList') }}
       </v-btn>
     </div>
 
@@ -243,13 +243,13 @@ onMounted(async () => {
     <v-card class="manage-dialog">
       <v-card-text>
         <div class="header-bar">
-          <h6 class="text-h6">{{ $t('fileNameTable.manageFileList') }}</h6>
+          <h6 class="text-h6">{{ t('fileNameTable.manageFileList') }}</h6>
           <v-btn icon="mdi-close" flat density="comfortable" @click="showMenu = false"></v-btn>
         </div>
 
         <div class="btn-row">
           <v-btn class="text-none" prepend-icon="mdi-folder-open" @click="handleOpenLocalDir">
-            {{ $t('fileNameTable.openLocalDir') }}
+            {{ t('fileNameTable.openLocalDir') }}
           </v-btn>
           <v-btn
             class="text-none"
@@ -257,14 +257,14 @@ onMounted(async () => {
             :loading="fetchingRemote"
             @click="handleFetchRemote"
           >
-            {{ $t('fileNameTable.fetchRemote') }}
+            {{ t('fileNameTable.fetchRemote') }}
           </v-btn>
         </div>
 
         <SplitPanel v-model:leftWidth="leftPanelWidth" v-model:rightWidth="rightPanelWidth">
           <template #left>
             <div class="table-container">
-              <h6 class="text-h6 ml-2 mt-2 mr-2">{{ $t('fileNameTable.local') }}</h6>
+              <h6 class="text-h6 ml-2 mt-2 mr-2">{{ t('fileNameTable.local') }}</h6>
               <v-data-table
                 class="local-list"
                 v-model="localListSelected"
@@ -283,10 +283,10 @@ onMounted(async () => {
                 <template v-slot:bottom>
                   <div class="button-group">
                     <v-btn class="text-none" prepend-icon="mdi-refresh" @click="handleRefreshLocal">
-                      {{ $t('fileNameTable.refresh') }}
+                      {{ t('fileNameTable.refresh') }}
                     </v-btn>
                     <v-btn class="text-none" prepend-icon="mdi-delete" @click="handleDeleteLocal">
-                      {{ $t('fileNameTable.delete') }}
+                      {{ t('fileNameTable.delete') }}
                     </v-btn>
                   </div>
                 </template>
@@ -296,7 +296,7 @@ onMounted(async () => {
           <template #right>
             <div class="right-panel-content">
               <div class="cloud-list">
-                <h6 class="text-h6 mb-4">{{ $t('fileNameTable.downloadable') }}</h6>
+                <h6 class="text-h6 mb-4">{{ t('fileNameTable.downloadable') }}</h6>
                 <v-list density="compact">
                   <v-list-item
                     v-for="item in downloadableItems"
@@ -331,8 +331,8 @@ onMounted(async () => {
                           <v-icon v-bind="props" icon="mdi-alert-circle" color="warning"> </v-icon>
                         </template>
                         <div>
-                          <span>{{ $t('fileNameTable.conflictDownloadTip1') }}</span> <br />
-                          <span>{{ $t('fileNameTable.conflictDownloadTip2') }}</span>
+                          <span>{{ t('fileNameTable.conflictDownloadTip1') }}</span> <br />
+                          <span>{{ t('fileNameTable.conflictDownloadTip2') }}</span>
                         </div>
                       </v-tooltip>
                     </template>

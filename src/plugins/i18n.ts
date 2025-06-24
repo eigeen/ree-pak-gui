@@ -15,6 +15,7 @@ function detectLocale() {
 }
 
 export default createI18n({
+  legacy: false,
   locale: detectLocale(),
   fallbackLocale: 'en',
   messages: {

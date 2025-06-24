@@ -1,11 +1,11 @@
 <template>
   <v-toolbar class="menu">
     <!-- Left Group -->
-    <div class="slogan">{{ $t('menu.slogan') }}</div>
+    <div class="slogan">{{ t('menu.slogan') }}</div>
 
     <v-btn-toggle class="mx-auto" mandatory density="compact" v-model="activeRoute" color="primary">
-      <v-btn class="text-none" value="/unpack" text :to="{ name: 'UnpackView' }">{{ $t('menu.unpack') }}</v-btn>
-      <v-btn class="text-none" text disabled>{{ $t('menu.repack') }}</v-btn>
+      <v-btn class="text-none" value="/unpack" text :to="{ name: 'UnpackView' }">{{ t('menu.unpack') }}</v-btn>
+      <v-btn class="text-none" text disabled>{{ t('menu.repack') }}</v-btn>
     </v-btn-toggle>
 
     <!-- Right Group -->
@@ -27,7 +27,9 @@ import { useRoute } from 'vue-router'
 import { useUpdateStore } from '@/store/update'
 import { useSettingsStore } from '@/store/settings'
 import { openUrl } from '@tauri-apps/plugin-opener'
+import { useI18n } from 'vue-i18n'
 
+const { t } = useI18n()
 const updateStore = useUpdateStore()
 const settingsStore = useSettingsStore()
 

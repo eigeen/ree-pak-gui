@@ -26,10 +26,10 @@
         @click="$emit('open')"
         :disabled="!enableAdd"
       >
-        {{ $t('pakFiles.openPaks') }}
+        {{ t('pakFiles.openPaks') }}
       </v-btn>
       <v-tooltip activator="parent" location="top" :disabled="enableAdd">
-        {{ $t('pakFiles.selectFileNameTable') }}
+        {{ t('pakFiles.selectFileNameTable') }}
       </v-tooltip>
     </div>
     <div>
@@ -43,7 +43,7 @@
       >
       </v-btn>
       <v-tooltip activator="parent" location="top" :disabled="pakList.length === 0">
-        {{ $t('pakFiles.closeAllPaks') }}
+        {{ t('pakFiles.closeAllPaks') }}
       </v-tooltip>
     </div>
   </div>
@@ -54,6 +54,8 @@ import { pak_order, type PakId, type PakInfo } from '@/api/tauri/pak'
 import PakFileItem from '@/components/PakFileItem.vue'
 import { ref, watch } from 'vue'
 import draggable from 'vuedraggable'
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 
 export interface Props {
   // 文件列表
