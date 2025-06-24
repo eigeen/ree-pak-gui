@@ -131,7 +131,7 @@ async function handleUpdateItem(item: RemoteFileListItem) {
     const srv = FileListService.getInstance()
     await srv.downloadRemoteFile(item.fileName)
   } catch (err) {
-    ShowError(t('global.failedCheckUpdate', { error: String(err) }))
+    ShowError(t('fileNameTable.failedDownloadRemote', { error: String(err) }))
     item.status = oldStatus
   }
   console.log('Update finished:', item.identifier)
@@ -148,7 +148,7 @@ async function handleDownload(item: RemoteFileListItem) {
     const srv = FileListService.getInstance()
     await srv.downloadRemoteFile(item.fileName)
   } catch (err) {
-    ShowError(t('global.failedCheckUpdate', { error: String(err) }))
+    ShowError(t('fileNameTable.failedDownloadRemote', { error: String(err) }))
     item.status = oldStatus
   }
   console.log('Download finished:', item.identifier)
@@ -175,7 +175,7 @@ async function handleFetchRemote() {
   try {
     await filelistStore.fetchRemoteSource()
   } catch (err) {
-    ShowError(t('global.nameListFileNotFound', { file: workStore.unpack.fileList }))
+    ShowError(t('fileNameTable.failedFetchRemote', { error: String(err) }))
   } finally {
     fetchingRemote.value = false
   }
@@ -201,10 +201,10 @@ async function handleDeleteLocal() {
       }
     }
   } catch (err) {
-    ShowError(t('global.selectedFilesDeleted'))
+    ShowError(err)
     return
   }
-  ShowInfo('Selected files deleted.')
+  ShowInfo(t('fileNameTable.selectedFilesDeleted'))
 }
 
 watch(showMenu, async (val) => {
@@ -331,8 +331,8 @@ onMounted(async () => {
                           <v-icon v-bind="props" icon="mdi-alert-circle" color="warning"> </v-icon>
                         </template>
                         <div>
-                          <span>{{ $t('global.conflictDownloadTip1') }}</span> <br />
-                          <span>{{ $t('global.conflictDownloadTip2') }}</span>
+                          <span>{{ $t('fileNameTable.conflictDownloadTip1') }}</span> <br />
+                          <span>{{ $t('fileNameTable.conflictDownloadTip2') }}</span>
                         </div>
                       </v-tooltip>
                     </template>
