@@ -107,10 +107,12 @@ export class FileListService {
         const url = `${baseUrl}/${info.file_name}`
         console.debug(`Trying to download file list from ${url}`)
         blob = await fetchWithSpeedCheck(url, { connectTimeout: 5000 })
+        lastError = null
         break
       } catch (err) {
         lastError = err
         blob = null
+        console.error('Download failed for', baseUrl, err)
         continue
       }
     }

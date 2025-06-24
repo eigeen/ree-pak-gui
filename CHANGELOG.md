@@ -10,6 +10,10 @@
 
 - Auto fetch remote filelist data when open Filelsit Manage UI at first time.
 
+### Fixes
+
+- Fixed: filelist download always failure when using fallback url.
+
 ## v0.3.0
 
 ### Features
