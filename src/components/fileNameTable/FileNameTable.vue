@@ -34,6 +34,8 @@ const leftPanelWidth = ref(6)
 const rightPanelWidth = ref(4)
 const fetchingRemote = ref(false)
 const localListSelected = ref<string[]>([])
+// fetch remote file list at first time
+const hasFetchedRemote = ref(false)
 
 /**
  * Mixed sources of local and remote sources.
@@ -204,6 +206,13 @@ async function handleDeleteLocal() {
   }
   ShowInfo('Selected files deleted.')
 }
+
+watch(showMenu, async (val) => {
+  if (val && !hasFetchedRemote.value) {
+    hasFetchedRemote.value = true
+    await handleFetchRemote()
+  }
+})
 
 onMounted(async () => {
   try {

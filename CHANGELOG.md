@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.3.1
+
+### Features
+
+- I18n support, now supports English and Chinese.
+
+### Improvements
+
+- Auto fetch remote filelist data when open Filelsit Manage UI at first time.
+
 ## v0.3.0
 
 ### Features

@@ -89,12 +89,12 @@ export class UpdateService {
     const currVersion = toSemVer(this.compileInfo.version)
     const latestVersion = toSemVer(latestSemver)
 
-    if (currVersion > latestVersion) {
+    if (semver.gt(currVersion, latestVersion)) {
       console.info('Current version is same or newer than latest version')
       return null
     }
     // 如果版本一致，进行发布时间对比
-    if (currVersion === latestVersion) {
+    if (semver.eq(currVersion, latestVersion)) {
       // 发布时间检查
       const currCommitTime = new Date(this.compileInfo.commitTime)
       const latestPubTime = new Date(latestVerInfo.pub_time)
@@ -107,13 +107,13 @@ export class UpdateService {
       }
       return null
     }
-    if (currVersion < latestVersion) {
+    if (semver.lt(currVersion, latestVersion)) {
       console.info(`New version available: ${latestVerInfo.version}`)
       this.targetVersion = latestVerInfo
       return latestVerInfo
     }
 
-    console.warn('Unreachable')
+    console.warn('Unreachable', currVersion)
     return null
   }
 
