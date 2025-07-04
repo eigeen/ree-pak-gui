@@ -397,6 +397,7 @@ async function reloadData() {
 let unlisten: UnlistenFn
 
 async function startListenToDrop() {
+  console.debug('start listen to drop')
   unlisten = await getCurrentWebview().onDragDropEvent(async (event) => {
     if (event.payload.type === 'drop') {
       await dropInAddPaks(event.payload.paths)
@@ -405,6 +406,7 @@ async function startListenToDrop() {
 }
 
 async function stopListenToDrop() {
+  console.debug('stop listen to drop')
   unlisten?.()
 }
 
@@ -435,13 +437,13 @@ async function handleConfirmTermination() {
 }
 
 // 处理文件拖拽功能
-// watch(() => enableAddPak, (allowAdd) => {
-//   if (allowAdd) {
-//     startListenToDrop()
-//   } else {
-//     stopListenToDrop()
-//   }
-// })
+watch(() => enableAddPaks, (allowAdd) => {
+  if (allowAdd) {
+    startListenToDrop()
+  } else {
+    stopListenToDrop()
+  }
+})
 
 async function loadWorkRecords() {
   await workStore.loadWorkRecords()
