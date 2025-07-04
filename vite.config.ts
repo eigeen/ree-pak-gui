@@ -5,6 +5,7 @@ import vueJsx from '@vitejs/plugin-vue-jsx'
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import Unfonts from 'unplugin-fonts/vite'
+import tailwindcss from '@tailwindcss/vite'
 // element-plus
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 // vuetify
@@ -49,7 +50,8 @@ export default defineConfig({
         prefetch: false,
         injectTo: 'head-prepend'
       }
-    })
+    }),
+    tailwindcss()
   ],
   resolve: {
     alias: {

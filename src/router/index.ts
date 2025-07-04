@@ -11,6 +11,11 @@ const router = createRouter({
       path: "/unpack",
       name: "UnpackView",
       component: () => import("@/pages/UnpackView.vue")
+    },
+    {
+      path: "/pack",
+      name: "PackView", 
+      component: () => import("@/pages/PackView.vue")
     }
   ]
 })
