@@ -1,12 +1,17 @@
 <template>
   <v-toolbar class="menu">
     <!-- Left Group -->
-    <div class="slogan">{{ t('menu.slogan') }}</div>
+    <div class="left-group">
+      <div class="slogan">{{ t('menu.slogan') }}</div>
+    </div>
 
-    <v-btn-toggle class="mx-auto" mandatory density="compact" v-model="activeRoute" color="primary">
-      <v-btn class="text-none" value="/unpack" text :to="{ name: 'UnpackView' }">{{ t('menu.unpack') }}</v-btn>
-      <v-btn class="text-none" text disabled>{{ t('menu.repack') }}</v-btn>
-    </v-btn-toggle>
+    <!-- Center Group -->
+    <div class="center-group">
+      <v-btn-toggle mandatory density="compact" v-model="activeRoute" color="primary">
+        <v-btn class="text-none" value="/unpack" text :to="{ name: 'UnpackView' }">{{ t('menu.unpack') }}</v-btn>
+        <v-btn class="text-none" value="/pack" text :to="{ name: 'PackView' }">{{ t('menu.repack') }}</v-btn>
+      </v-btn-toggle>
+    </div>
 
     <!-- Right Group -->
     <div class="right-group">
@@ -57,16 +62,31 @@ const openSettings = () => {
 .menu {
   background-color: transparent;
   padding: 0 16px;
+  display: flex;
+  align-items: center;
+}
+
+.left-group {
+  flex: 1;
+  display: flex;
+  justify-content: flex-start;
 }
 
 .slogan {
-  margin-right: 24px;
   font-weight: bold;
 }
 
+.center-group {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+}
+
 .right-group {
+  flex: 1;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
 }
 
 .red-dot {
