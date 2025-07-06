@@ -20,6 +20,21 @@ interface UnpackWork {
   filterUseRegex: boolean
 }
 
+type PackWork = {
+  exportConfig: {
+    mode: 'individual' | 'single'
+    autoDetectRoot: boolean
+    exportDirectory: string
+    fastMode: boolean
+  }
+  inputFiles: FileItem[]
+}
+
+export interface FileItem {
+  path: string
+  isPak: boolean
+}
+
 const FILE_NAME = 'workspace.json'
 
 export const useWorkStore = defineStore('work', () => {
@@ -30,9 +45,20 @@ export const useWorkStore = defineStore('work', () => {
     filterUseRegex: false
   })
 
+  const pack = ref<PackWork>({
+    exportConfig: {
+      mode: 'individual',
+      autoDetectRoot: true,
+      exportDirectory: '',
+      fastMode: false
+    },
+    inputFiles: []
+  })
+
   const workRecord = computed(() => {
     return {
-      unpack: unpack.value
+      unpack: unpack.value,
+      pack: pack.value
     }
   })
 
@@ -44,6 +70,7 @@ export const useWorkStore = defineStore('work', () => {
     const work = JSON.parse(content)
     if (work.unpack) {
       unpack.value = work.unpack
+      pack.value = work.pack
     }
   }
 
@@ -63,5 +90,5 @@ export const useWorkStore = defineStore('work', () => {
     { deep: true }
   )
 
-  return { unpack, loadWorkRecords, saveFile }
+  return { unpack, pack, loadWorkRecords, saveFile }
 })

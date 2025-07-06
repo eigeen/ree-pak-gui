@@ -15,8 +15,10 @@ import { onMounted } from 'vue'
 import { RouterView } from 'vue-router'
 import { useSettingsStore } from '@/store/settings'
 import { ShowError, ShowWarn } from '@/utils/message'
+import { useWorkStore } from './store/work'
 
 const settingsStore = useSettingsStore()
+const workStore = useWorkStore()
 
 onMounted(async () => {
   // initialize settings
@@ -27,6 +29,14 @@ onMounted(async () => {
   } catch (error) {
     ShowError(`Failed to load settings: ${error}`)
     ShowWarn("Will use default settings")
+  }
+
+  // load workspace records
+  try {
+    await workStore.loadWorkRecords()
+  } catch (error) {
+    // ignore error
+    console.error(error)
   }
 })
 </script>

@@ -60,7 +60,18 @@
             </v-btn>
           </div>
         </div>
-        <div class="tree-panel">
+
+        <!-- empty content hint -->
+        <div
+          v-if="pakData.length === 0"
+          class="flex flex-col items-center justify-center h-full text-center"
+        >
+          <v-icon icon="mdi-file-outline" size="64" color="grey-lighten-1" class="mb-4"></v-icon>
+          <p class="text-grey-lighten-1 text-h6">尚未添加文件</p>
+          <p class="text-grey-lighten-1 text-body-2">点击左侧按钮或拖拽文件到此处添加</p>
+        </div>
+        <!-- file tree -->
+        <div v-else class="tree-panel">
           <FileTree
             class="file-tree"
             ref="fileTreeComponent"
@@ -87,7 +98,8 @@
     <v-card>
       <v-card-text class="pa-8">
         <div class="text-center text-h6 mb-4">
-          {{ t('unpack.extractingFiles') }} <span v-if="!unpackWorking">{{ t('unpack.done') }}</span>
+          {{ t('unpack.extractingFiles') }}
+          <span v-if="!unpackWorking">{{ t('unpack.done') }}</span>
         </div>
         <v-progress-linear
           :color="progressValue >= 100 ? 'green' : 'primary'"
@@ -96,7 +108,9 @@
           rounded
           class="mb-2"
         ></v-progress-linear>
-        <div class="text-body-1 mb-4">{{ finishFileCount }} / {{ totalFileCount }} {{ t('unpack.files') }}</div>
+        <div class="text-body-1 mb-4">
+          {{ finishFileCount }} / {{ totalFileCount }} {{ t('unpack.files') }}
+        </div>
         <div class="text-body-2">{{ t('unpack.extracting') }}</div>
         <div class="text-body-2">{{ currentFile }}</div>
       </v-card-text>
@@ -115,13 +129,15 @@
   <v-dialog v-model="showConfirmTermination" max-width="400" persistent>
     <v-card class="pa-2">
       <v-card-title class="text-h6">{{ t('unpack.confirmTermination') }}</v-card-title>
-      <v-card-text
-        >{{ t('unpack.confirmTerminationText') }}
-      </v-card-text>
+      <v-card-text>{{ t('unpack.confirmTerminationText') }} </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn color="grey" text @click="showConfirmTermination = false">{{ t('unpack.cancel') }}</v-btn>
-        <v-btn color="error" text @click="handleConfirmTermination">{{ t('unpack.confirm') }}</v-btn>
+        <v-btn color="grey" text @click="showConfirmTermination = false">{{
+          t('unpack.cancel')
+        }}</v-btn>
+        <v-btn color="error" text @click="handleConfirmTermination">{{
+          t('unpack.confirm')
+        }}</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -437,13 +453,16 @@ async function handleConfirmTermination() {
 }
 
 // 处理文件拖拽功能
-watch(() => enableAddPaks, (allowAdd) => {
-  if (allowAdd) {
-    startListenToDrop()
-  } else {
-    stopListenToDrop()
+watch(
+  () => enableAddPaks,
+  (allowAdd) => {
+    if (allowAdd) {
+      startListenToDrop()
+    } else {
+      stopListenToDrop()
+    }
   }
-})
+)
 
 async function loadWorkRecords() {
   await workStore.loadWorkRecords()
@@ -475,13 +494,6 @@ async function loadWorkRecords() {
 
 onMounted(async () => {
   await startListenToDrop()
-  // 加载工作记录
-  try {
-    await loadWorkRecords()
-  } catch (error) {
-    // ignore error
-    console.error(error)
-  }
   // 加载数据
   await reloadData()
 })

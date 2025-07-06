@@ -1,27 +1,25 @@
 <template>
-  <div class="hover-bubble">
-    <v-icon icon="mdi-help-circle" size="16" color="#1976d2" />
+  <div
+    class="inline-flex items-center justify-center relative transition-opacity duration-200"
+    :style="{ opacity: opacity }"
+  >
+    <v-icon icon="mdi-help-circle" :size="size" :color="color" />
     <v-tooltip activator="parent" location="top">
       <slot />
     </v-tooltip>
   </div>
 </template>
 
-<script setup lang="ts"></script>
-
-<style scoped lang="scss">
-.hover-bubble {
-  display: inline-flex;
-  align-items: center;
-  position: relative;
-  border-radius: 50%;
-  // background-color: #1976d2;
-  height: 16px;
-  width: 16px;
-
-  // transition: background-color 0.2s;
-  // &:hover {
-  //   background-color: #1565c0;
-  // }
+<script setup lang="ts">
+interface Props {
+  color?: string
+  size?: string | number
+  opacity?: number
 }
-</style>
+
+withDefaults(defineProps<Props>(), {
+  color: undefined,
+  size: '16',
+  opacity: 0.8
+})
+</script>
