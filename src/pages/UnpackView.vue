@@ -162,7 +162,7 @@ import {
   pak_read_file_tree_optimized,
   pak_terminate_extraction
 } from '@/api/tauri/pak'
-import type { ExtractOptions, PakInfo, RenderTreeNode, WorkProgressEvent } from '@/api/tauri/pak'
+import type { ExtractOptions, PakInfo, RenderTreeNode, UnpackProgressEvent } from '@/api/tauri/pak'
 import PakFiles from '@/components/PakFiles.vue'
 import FileTree from '@/components/FileTree.vue'
 import { file_table_load } from '@/api/tauri/filelist'
@@ -354,10 +354,10 @@ async function doExtraction() {
     }
     // console.log('Extract options', options)
     const window = getCurrentWindow()
-    const onEvent = new Channel<WorkProgressEvent>()
+    const onEvent = new Channel<UnpackProgressEvent>()
     onEvent.onmessage = (event) => {
       if (event.event === 'workStart') {
-        totalFileCount.value = event.data.fileCount
+        totalFileCount.value = event.data.count
         finishFileCount.value = 0
         window.setProgressBar({
           status: ProgressBarStatus.Normal,

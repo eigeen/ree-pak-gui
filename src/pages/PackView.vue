@@ -5,37 +5,64 @@ import type { UnlistenFn } from '@tauri-apps/api/event'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { exists, stat } from '@tauri-apps/plugin-fs'
-import FileConflict, { type ConflictFile } from '@/components/FileConflict.vue'
+import FileConflict from '@/components/FileConflict.vue'
+import HoverBubble from '@/components/HoverBubble.vue'
 import { useWorkStore, type FileItem } from '@/store/work'
+import {
+  Packer,
+  type ConflictFile,
+  type ExportConfig,
+  type ExportResult,
+  type PackProgress
+} from '@/lib/packer'
 
 const workStore = useWorkStore()
 
 const { exportConfig, inputFiles } = toRefs(workStore.pack)
+
+// 创建Packer实例
+const packer = new Packer(
+  (progress: PackProgress) => {
+    // 进度更新回调
+    exportWorking.value = progress.working
+    currentFile.value = progress.currentFile
+    totalFileCount.value = progress.totalFileCount
+    finishFileCount.value = progress.finishFileCount
+    progressValue.value = progress.progressValue
+  },
+  (result: ExportResult) => {
+    // 结果更新回调
+    exportResult.value = result
+  }
+)
 
 // 导出进度
 const exportWorking = ref(false)
 const currentFile = ref('')
 const totalFileCount = ref(0)
 const finishFileCount = ref(0)
-const progressValue = computed(() =>
-  totalFileCount.value === 0 ? 0 : (finishFileCount.value / totalFileCount.value) * 100
-)
+const progressValue = ref(0)
 
 // 导出结果
-const exportResult = ref({
+const exportResult = ref<ExportResult>({
   success: false,
-  files: [] as string[],
+  files: [],
   error: ''
 })
 
 // 冲突处理
 const conflictDialogVisible = ref(false)
 const conflictFiles = ref<ConflictFile[]>([])
-const conflictResolutions = ref<{ [relativePath: string]: number }>({})
 
 // 计算属性
 const enableExport = computed(() => {
-  return inputFiles.value.length > 0 && exportConfig.value.exportDirectory !== ''
+  if (inputFiles.value.length === 0) return false
+
+  if (exportConfig.value.mode === 'single' && !exportConfig.value.exportDirectory) {
+    return false
+  }
+
+  return true
 })
 
 // Add files or folders
@@ -52,16 +79,16 @@ const addFiles = async (paths: string[]) => {
       const st = await stat(path)
       addList.push({
         path,
-        isPak: st.isFile && path.endsWith('.pak')
+        isFile: st.isFile
       })
-
-      // fast mode
-      if (exportConfig.value.fastMode) {
-        await handleExport()
-      }
     }
 
     inputFiles.value.push(...addList)
+
+    // fast mode
+    if (exportConfig.value.fastMode) {
+      await handleExport()
+    }
   } catch (e) {
     ShowError(e)
   }
@@ -101,44 +128,17 @@ const handleRemoveFile = (index: number) => {
 
 // 处理导出
 const handleExport = async () => {
-  console.debug('handleExport', {
-    files: inputFiles.value,
-    mode: exportConfig.value.mode,
-    autoDetectRoot: exportConfig.value.autoDetectRoot,
-    exportDirectory: exportConfig.value.exportDirectory
-  })
+  await packer.handleExport(inputFiles.value, exportConfig.value)
+}
 
-  // 重置导出状态
-  exportResult.value = {
-    success: false,
-    files: [],
-    error: ''
-  }
-
-  // 模拟检测文件冲突
-  const conflicts = simulateConflictDetection()
-
-  if (conflicts.length > 0) {
-    // 发现冲突，显示冲突处理对话框
-    conflictFiles.value = conflicts
-    conflictDialogVisible.value = true
-  } else {
-    // 没有冲突，直接导出
-    await proceedWithExport()
-  }
+// 终止导出操作
+const handleTerminateExport = async () => {
+  await packer.terminateExport()
 }
 
 // 处理重置导出状态
 const handleResetExport = () => {
-  exportWorking.value = false
-  exportResult.value = {
-    success: false,
-    files: [],
-    error: ''
-  }
-  totalFileCount.value = 0
-  finishFileCount.value = 0
-  currentFile.value = ''
+  packer.resetExport()
 }
 
 const dropInAddFiles = async (paths: string[]) => {
@@ -153,87 +153,17 @@ const handleConflictResolve = () => {
     resolutions[conflict.relativePath] = conflict.selectedSource
   })
 
-  conflictResolutions.value = resolutions
+  packer.setConflictResolutions(resolutions)
   conflictDialogVisible.value = false
 
   // 继续导出过程
-  proceedWithExport()
+  packer.proceedWithMergeExport(inputFiles.value, exportConfig.value)
 }
 
 const handleConflictCancel = () => {
   conflictDialogVisible.value = false
   // 重置导出状态
   handleResetExport()
-}
-
-const proceedWithExport = async () => {
-  console.debug('继续导出过程，冲突解决方案:', conflictResolutions.value)
-
-  // 这里实现实际的导出逻辑
-  // 使用 conflictResolutions.value 来决定选择哪个文件源
-
-  // 模拟导出过程
-  exportWorking.value = true
-  totalFileCount.value = inputFiles.value.length
-  finishFileCount.value = 0
-
-  // 模拟进度更新
-  const interval = setInterval(() => {
-    finishFileCount.value++
-    currentFile.value = `processing_${finishFileCount.value}.pak`
-
-    if (finishFileCount.value >= totalFileCount.value) {
-      clearInterval(interval)
-      exportWorking.value = false
-      exportResult.value = {
-        success: true,
-        files: ['output1.pak', 'output2.pak'],
-        error: ''
-      }
-    }
-  }, 500)
-}
-
-const simulateConflictDetection = () => {
-  // 模拟检测到文件冲突
-  const mockConflicts: ConflictFile[] = [
-    {
-      relativePath:
-        '/natives/STM/streaming/Art/Model/Character/ch03/002/001/2/textures/ch03_002_0012_ALBD.tex',
-      size: 1048576,
-      modifiedDate: new Date('2024-01-20T14:45:00'),
-      sources: [
-        {
-          sourcePath:
-            'C:/mod1/natives/STM/streaming/Art/Model/Character/ch03/002/001/2/textures/ch03_002_0012_ALBD.tex'
-        },
-        {
-          sourcePath:
-            'C:/mod2/natives/STM/streaming/Art/Model/Character/ch03/002/001/2/textures/ch03_002_0012_ALBD.tex'
-        }
-      ],
-      selectedSource: 1
-    },
-    {
-      relativePath: '/natives/STM/streaming/Art/Model/Character/ch01/001/texture.tex',
-      size: 524288,
-      modifiedDate: new Date('2024-02-01T11:30:00'),
-      sources: [
-        {
-          sourcePath: 'C:/mod1/natives/STM/streaming/Art/Model/Character/ch01/001/texture.tex'
-        },
-        {
-          sourcePath: 'C:/mod3/natives/STM/streaming/Art/Model/Character/ch01/001/texture.tex'
-        },
-        {
-          sourcePath: 'C:/mod4/natives/STM/streaming/Art/Model/Character/ch01/001/texture.tex'
-        }
-      ],
-      selectedSource: 2
-    }
-  ]
-
-  return mockConflicts
 }
 
 let unlisten: UnlistenFn | undefined
@@ -288,17 +218,6 @@ onUnmounted(() => {
           </v-tooltip>
           <v-btn class="text-none" prepend-icon="mdi-close-box-multiple" @click="handleCloseAll">
             移除全部
-          </v-btn>
-          <v-btn
-            class="text-none"
-            color="warning"
-            prepend-icon="mdi-alert-circle"
-            @click="() => {
-              conflictDialogVisible = true
-              conflictFiles = simulateConflictDetection()
-            }"
-          >
-            测试冲突
           </v-btn>
         </div>
 
@@ -408,6 +327,7 @@ onUnmounted(() => {
 
         <!-- 导出按钮 -->
         <v-btn
+          v-if="!exportWorking"
           class="text-none"
           color="primary"
           prepend-icon="mdi-export"
@@ -416,6 +336,18 @@ onUnmounted(() => {
           block
         >
           导出
+        </v-btn>
+
+        <!-- 取消导出按钮 -->
+        <v-btn
+          v-if="exportWorking"
+          class="text-none"
+          color="warning"
+          prepend-icon="mdi-stop"
+          @click="handleTerminateExport"
+          block
+        >
+          取消导出
         </v-btn>
 
         <!-- 导出报告信息 -->
@@ -443,7 +375,7 @@ onUnmounted(() => {
             v-if="exportResult.success && !exportWorking"
             class="mt-4 pa-2 bg-green-50 border border-green-200 rounded"
           >
-            <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center justify-between">
               <div class="text-body-2 text-green-700 font-medium">导出成功</div>
               <v-btn
                 icon="mdi-close"
@@ -464,9 +396,9 @@ onUnmounted(() => {
 
           <div
             v-else-if="exportResult.error && !exportWorking"
-            class="mt-4 p-3 bg-red-50 border border-red-200 rounded"
+            class="mt-4 pa-2 bg-red-50 border border-red-200 rounded"
           >
-            <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center justify-between">
               <div class="text-body-2 text-red-700 font-medium">导出失败</div>
               <v-btn
                 icon="mdi-close"

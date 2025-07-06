@@ -59,25 +59,40 @@ export interface ExtractFileInfo {
   belongsTo: PakId
 }
 
-export type WorkProgressEvent =
+type WorkProgressEventImpl<T> =
   | {
       event: 'workStart'
       data: {
-        fileCount: number
+        count: number
       }
     }
   | {
       event: 'workFinished'
-      data: null
     }
   | {
       event: 'fileDone'
+      data: T
+    }
+  | {
+      event: 'error'
       data: {
-        path: string
-        hash: JsSafeHash
-        finishCount: number
+        error: string
       }
     }
+
+type UnpackProgressData = {
+  path: string
+  hash: JsSafeHash
+  finishCount: number
+}
+
+type PackProgressData = {
+  path: string
+  finishCount: number
+}
+
+export type UnpackProgressEvent = WorkProgressEventImpl<UnpackProgressData>
+export type PackProgressEvent = WorkProgressEventImpl<PackProgressData>
 
 export function pak_clear_all(): Promise<void> {
   return invoke('pak_clear_all')
@@ -105,7 +120,7 @@ export function pak_get_info(id: PakId): Promise<PakInfo> {
 
 export function pak_extract_all(
   options: ExtractOptions,
-  onEvent: Channel<WorkProgressEvent>
+  onEvent: Channel<UnpackProgressEvent>
 ): Promise<void> {
   return invoke('pak_extract_all', { options, onEvent })
 }
@@ -120,4 +135,52 @@ export function pak_read_file_tree(): Promise<FileTree> {
 
 export function pak_read_file_tree_optimized(options?: RenderTreeOptions): Promise<RenderTreeNode> {
   return invoke('pak_read_file_tree_optimized', { options })
+}
+
+// Pack related APIs
+
+export interface PakHeaderInfo {
+  header: PakHeader
+  entries: PakEntry[]
+}
+
+export interface PakHeader {
+  magic: string
+  majorVersion: number
+  minorVersion: number
+  feature: number
+  totalFiles: number
+  hash: string
+  unkU32Sig: string
+}
+
+export interface PakEntry {
+  hashNameLower: number
+  hashNameUpper: number
+  offset: number
+  compressedSize: number
+  uncompressedSize: number
+  compressionType: number
+  encryptionType: string
+  checksum: number
+  unkAttr: number
+}
+
+// Get pak file header information
+export function pak_get_header(pakPath: string): Promise<PakHeaderInfo> {
+  return invoke('pak_get_header', { pakPath })
+}
+
+// Pack files/folders
+export function pak_pack(
+  sources: string[],
+  output: string,
+  onEvent: Channel<PackProgressEvent>
+): Promise<void> {
+  return invoke('pak_pack', { sources, output, onEvent })
+}
+
+// Terminate pack operation
+export function pak_terminate_pack(): Promise<void> {
+  return invoke('pak_terminate_pack')
 }

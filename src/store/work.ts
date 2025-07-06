@@ -32,7 +32,7 @@ type PackWork = {
 
 export interface FileItem {
   path: string
-  isPak: boolean
+  isFile: boolean
 }
 
 const FILE_NAME = 'workspace.json'

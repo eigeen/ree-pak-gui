@@ -23,3 +23,11 @@ export function performUpdate(filePath: string): Promise<void> {
 export function zipExtractFile(filePath: string, outputPath?: string): Promise<void> {
   return invoke('zip_extract_file', { filePath, outputPath })
 }
+
+export function murmur32(buffer: Uint8Array): Promise<number> {
+  return invoke('murmur32', { buffer })
+}
+
+export function murmur32_utf16(str: string): Promise<number> {
+  return invoke('murmur32_utf16', { str })
+}

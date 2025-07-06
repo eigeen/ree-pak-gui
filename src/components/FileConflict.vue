@@ -1,18 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-
-// 定义接口
-export interface FileSource {
-  sourcePath: string
-}
-
-export interface ConflictFile {
-  relativePath: string
-  size?: number
-  modifiedDate?: Date
-  sources: FileSource[]
-  selectedSource: number // -1: 移除文件, 0+: 对应源文件索引
-}
+import type { ConflictFile } from '@/lib/packer'
 
 const conflicts = defineModel<ConflictFile[]>('conflicts')
 

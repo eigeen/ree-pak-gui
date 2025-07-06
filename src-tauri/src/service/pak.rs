@@ -1,7 +1,7 @@
 use std::{
     collections::HashSet,
     fs::{File, OpenOptions},
-    io::{BufRead, BufReader, Read, Seek, Write},
+    io::{BufRead, BufReader, BufWriter, Read, Seek, Write},
     path::{Path, PathBuf},
     sync::{
         Arc,
@@ -10,16 +10,20 @@ use std::{
     thread::{self, JoinHandle},
 };
 
+use indexmap::IndexMap;
 use nohash::BuildNoHashHasher;
 use parking_lot::Mutex;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use ree_pak_core::{
-    filename::FileNameTable,
+    filename::{FileNameExt, FileNameTable},
+    pak::PakArchive,
     read::{archive::PakArchiveReader, entry::PakEntryReader},
+    write::{FileOptions, PakWriter},
 };
+use walkdir::WalkDir;
 
 use crate::{
-    channel::ProgressChannel,
+    channel::{PackProgressChannel, UnpackProgressChannel},
     error::{Error, Result},
     pak::{
         ExtractOptions, Pak, PakId, PakInfo,
@@ -28,9 +32,11 @@ use crate::{
     },
 };
 
+pub type PakHeaderInfo = PakArchive;
+
 pub struct PakService<R> {
     pak_group: Arc<Mutex<PakGroup<R>>>,
-    unpack_thread: Mutex<Option<JoinHandle<()>>>,
+    work_thread: Mutex<Option<JoinHandle<()>>>,
     should_terminate: Arc<AtomicBool>,
 }
 
@@ -61,7 +67,7 @@ where
     pub fn new(pak_group: PakGroup<R>) -> Self {
         Self {
             pak_group: Arc::new(Mutex::new(pak_group)),
-            unpack_thread: Mutex::new(None),
+            work_thread: Mutex::new(None),
             should_terminate: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -70,8 +76,8 @@ where
         self.pak_group.clone()
     }
 
-    pub fn terminate_unpack(&self) {
-        if let Some(handle) = self.unpack_thread.lock().take() {
+    pub fn terminate_work(&self) {
+        if let Some(handle) = self.work_thread.lock().take() {
             self.should_terminate.store(true, Ordering::Relaxed);
             let _ = handle.join();
             self.should_terminate.store(false, Ordering::Relaxed);
@@ -139,8 +145,8 @@ where
     ///
     /// - No paks or no file list is loaded.
     /// - Unpack already running.
-    pub fn unpack_optional(&self, options: &ExtractOptions, progress: ProgressChannel) -> Result<()> {
-        if let Some(handle) = &*self.unpack_thread.lock() {
+    pub fn unpack_optional(&self, options: &ExtractOptions, progress: UnpackProgressChannel) -> Result<()> {
+        if let Some(handle) = &*self.work_thread.lock() {
             if !handle.is_finished() {
                 return Err(Error::UnpackAlreadyRunning);
             }
@@ -164,7 +170,7 @@ where
         let should_terminate = self.should_terminate.clone();
         let pak_group = self.pak_group.clone();
         let options1 = options.clone();
-        *self.unpack_thread.lock() = Some(thread::spawn(move || {
+        *self.work_thread.lock() = Some(thread::spawn(move || {
             let mut _pak_group = pak_group.lock();
             let file_name_table = _pak_group.file_name_table().unwrap().clone();
             let paks = _pak_group.paks_mut();
@@ -192,13 +198,169 @@ where
     pub fn set_file_name_table(&self, table: FileNameTable) {
         self.pak_group.lock().set_file_name_table(table);
     }
+
+    pub fn pack(&self, sources: &[impl AsRef<str>], output: &str, progress: PackProgressChannel) -> Result<()> {
+        if let Some(handle) = &*self.work_thread.lock() {
+            if !handle.is_finished() {
+                return Err(Error::PackAlreadyRunning);
+            }
+        }
+
+        let output_path = PathBuf::from(output);
+        if output_path.exists() {
+            return Err(Error::FileIO {
+                path: output_path.display().to_string(),
+                source: std::io::Error::new(std::io::ErrorKind::AlreadyExists, "Output file already exists"),
+            });
+        }
+
+        let should_terminate = self.should_terminate.clone();
+        let sources = sources.iter().map(|s| s.as_ref().to_string()).collect::<Vec<_>>();
+        let progress1 = progress.clone();
+        *self.work_thread.lock() = Some(thread::spawn(move || {
+            let main_fn = move || -> Result<()> {
+                log::debug!("Packing sources: {:?}", sources);
+
+                // collect all files
+                let mut file_manifests: IndexMap<u64, FileManifest> = IndexMap::new();
+                for source in sources {
+                    if should_terminate.load(Ordering::Relaxed) {
+                        break;
+                    }
+
+                    let source_path = Path::new(&source);
+                    if !source_path.exists() {
+                        return Err(Error::FileIO {
+                            path: source_path.display().to_string(),
+                            source: std::io::Error::new(std::io::ErrorKind::NotFound, "File not found"),
+                        });
+                    }
+
+                    let root_path = source_path.to_path_buf();
+
+                    if source_path.is_file() {
+                        // if is file, check its a pak
+                        let mut magic = [0; 4];
+                        let mut file = File::open(source_path)?;
+                        file.read_exact(&mut magic)?;
+                        if magic != *b"AKPK" {
+                            return Err(Error::FileIO {
+                                path: source_path.display().to_string(),
+                                source: std::io::Error::new(std::io::ErrorKind::InvalidData, "Not a pak file"),
+                            });
+                        }
+
+                        // collect files
+                        let header = PakService::get_header(source_path)?;
+                        for entry in header.entries() {
+                            file_manifests.insert(
+                                entry.hash(),
+                                FileManifest {
+                                    real_path: None,
+                                    from_pak: Some(source_path.to_path_buf()),
+                                },
+                            );
+                        }
+                    } else {
+                        WalkDir::new(source_path)
+                            .into_iter()
+                            .filter(|entry| entry.as_ref().unwrap().metadata().is_ok_and(|m| m.is_file()))
+                            .try_for_each(|entry| -> Result<()> {
+                                let entry = entry.map_err(|e| Error::FileIO {
+                                    path: root_path.display().to_string(),
+                                    source: std::io::Error::new(std::io::ErrorKind::Other, e.to_string()),
+                                })?;
+                                let path = entry.path();
+                                let relative_path = get_relative_path(&root_path, path)?;
+                                let hash = relative_path.hash_mixed();
+
+                                file_manifests.insert(
+                                    hash,
+                                    FileManifest {
+                                        real_path: Some(path.to_path_buf()),
+                                        from_pak: None,
+                                    },
+                                );
+                                Ok(())
+                            })?;
+                    }
+                }
+
+                // create output pak file
+                let output_writer = BufWriter::new(File::create(&output_path)?);
+                let mut pak_writer = PakWriter::new(output_writer, file_manifests.len() as u64);
+                progress1.work_start(file_manifests.len() as u32);
+
+                // write loose files
+                for (&hash, manifest) in &file_manifests {
+                    let Some(real_path) = &manifest.real_path else { continue };
+                    let mut reader = BufReader::new(File::open(real_path)?);
+                    pak_writer.start_file_hash(hash, FileOptions::default())?;
+                    std::io::copy(&mut reader, &mut pak_writer)?;
+                    progress1.file_done(real_path.to_str().unwrap());
+                }
+                // write pak files. group by from_pak,
+                // and write each pak file
+                let pak_files = file_manifests
+                    .iter()
+                    .filter_map(|(_, manifest)| manifest.from_pak.clone())
+                    .collect::<Vec<_>>();
+                for pak_file in pak_files {
+                    let mut reader = BufReader::new(File::open(&pak_file)?);
+                    let archive = ree_pak_core::read::read_archive(&mut reader)?;
+                    let mut pak_reader = PakArchiveReader::new(reader, &archive);
+                    for entry in archive.entries() {
+                        if !file_manifests.contains_key(&entry.hash()) {
+                            continue;
+                        }
+
+                        let mut reader = pak_reader.owned_entry_reader(entry.clone())?;
+                        pak_writer.start_file_hash(entry.hash(), FileOptions::default())?;
+                        std::io::copy(&mut reader, &mut pak_writer)?;
+                        progress1.file_done(&format!("{}:{:16X}", pak_file.display(), entry.hash()));
+                    }
+                }
+
+                pak_writer.finish()?;
+                Ok(())
+            };
+
+            if let Err(e) = main_fn() {
+                progress.error(e.to_string());
+            } else {
+                progress.work_finished();
+            }
+        }));
+
+        Ok(())
+    }
+}
+
+impl PakService<()> {
+    pub fn get_header(path: impl AsRef<Path>) -> Result<PakHeaderInfo> {
+        let path = path.as_ref();
+        // open pak file
+        let file = std::fs::File::open(path).map_err(|e| Error::FileIO {
+            path: path.to_string_lossy().to_string(),
+            source: e,
+        })?;
+        let mut reader = std::io::BufReader::new(file);
+        let archive = ree_pak_core::read::read_archive(&mut reader)?;
+
+        Ok(archive)
+    }
+}
+
+struct FileManifest {
+    real_path: Option<PathBuf>,
+    from_pak: Option<PathBuf>,
 }
 
 fn unpack_parallel_error_continue<R>(
     pak: &mut Pak<R>,
     file_name_table: &FileNameTable,
     options: &ExtractOptions,
-    progress: ProgressChannel,
+    progress: UnpackProgressChannel,
     should_terminate: Arc<AtomicBool>,
 ) -> anyhow::Result<()>
 where
@@ -301,4 +463,23 @@ where
     }
 
     Ok(())
+}
+
+fn get_relative_path(root_path: &Path, file_path: &Path) -> Result<String> {
+    let root_path = root_path.canonicalize()?;
+    let file_path = file_path.canonicalize()?;
+    let root_str = root_path.to_string_lossy();
+    let file_str = file_path.to_string_lossy();
+
+    let relative_path = file_str
+        .strip_prefix(root_str.as_ref())
+        .unwrap_or_else(|| file_str.as_ref());
+    if Path::new(relative_path).is_absolute() {
+        return Err(Error::FileIO {
+            path: file_path.display().to_string(),
+            source: std::io::Error::new(std::io::ErrorKind::InvalidData, "File path is absolute after strip"),
+        });
+    }
+
+    Ok(relative_path.replace("\\", "/"))
 }

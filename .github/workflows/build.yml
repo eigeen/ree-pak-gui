@@ -77,7 +77,7 @@ jobs:
       id: version
       working-directory: ree-pak-gui/src-tauri
       run: |
-        $version = (Get-Content Cargo.toml | Select-String "version = " | Select-Object -First 1).ToString().Split('"')[1]
+        $version = (Get-Content ree-pak-gui/Cargo.toml | Select-String "version = " | Select-Object -First 1).ToString().Split('"')[1]
         echo "VERSION=$version" >> $env:GITHUB_OUTPUT
 
     # - name: Print Folder Tree

@@ -58,11 +58,16 @@ fn main() {
             command::pak_read_file_tree_optimized,
             command::pak_extract_all,
             command::pak_terminate_extraction,
+            command::pak_get_header,
+            command::pak_pack,
+            command::pak_terminate_pack,
             command::file_table_load,
             command::get_exe_path,
             command::get_compile_info,
             command::perform_update,
-            command::zip_extract_file
+            command::zip_extract_file,
+            command::murmur32,
+            command::murmur32_utf16,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

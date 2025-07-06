@@ -23,6 +23,10 @@ pub enum Error {
     InvalidOrder(String),
     #[error("Unpack progress already running.")]
     UnpackAlreadyRunning,
+    #[error("Pack progress already running.")]
+    PackAlreadyRunning,
+    #[error("Pak writer error: {0}")]
+    PackWriter(#[from] ree_pak_core::write::PakWriteError),
 
     #[error("Zip error: {0}")]
     Zip(#[from] zip::result::ZipError),
