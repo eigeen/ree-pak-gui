@@ -1,0 +1,96 @@
+name: Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout parent repository with submodules
+      uses: actions/checkout@v4
+      with:
+        repository: eigeen/ree-pak-rs
+        submodules: recursive
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 10
+        run_install: false
+
+    - name: Get pnpm store directory
+      id: pnpm-cache
+      shell: bash
+      run: |
+        echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+    - name: Setup pnpm cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable
+        components: rustfmt, clippy
+
+    - name: Setup Rust cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: |
+          .
+          ree-pak-gui/src-tauri
+        cache-on-failure: true
+
+    - name: Install frontend dependencies
+      working-directory: ree-pak-gui
+      run: pnpm install --frozen-lockfile
+
+    - name: Install Tauri CLI
+      run: |
+        pnpm install -g @tauri-apps/cli@latest
+
+    - name: Build application (exe only)
+      working-directory: ree-pak-gui
+      run: |
+        pnpm tauri build --verbose
+      env:
+        TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+        TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+
+    - name: Get version info
+      id: version
+      working-directory: ree-pak-gui/src-tauri
+      run: |
+        $version = (Get-Content Cargo.toml | Select-String "version = " | Select-Object -First 1).ToString().Split('"')[1]
+        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+
+    # - name: Print Folder Tree
+    #   uses: jaywcjlove/github-action-folder-tree@main
+    #   with:
+    #     exclude: "node_modules|dist|.git|.husky"
+    #     path: ./
+
+    - name: Upload versioned executable
+      uses: actions/upload-artifact@v4
+      with:
+        name: ree-pak-rs-v${{ steps.version.outputs.VERSION }}-windows
+        path: |
+          target/release/ree-pak-rs.exe
+        if-no-files-found: error
+        retention-days: 30
