@@ -11,11 +11,27 @@ jobs:
     runs-on: windows-latest
     
     steps:
-    - name: Checkout parent repository with submodules
+    - name: Checkout parent repository (without submodules)
       uses: actions/checkout@v4
       with:
         repository: eigeen/ree-pak-rs
         submodules: recursive
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Remove existing submodule directory
+      shell: bash
+      run: |
+        if [ -d "ree-pak-gui" ]; then
+          echo "Removing existing ree-pak-gui directory..."
+          rm -rf ree-pak-gui
+        fi
+
+    - name: Checkout submodule (latest branch)
+      uses: actions/checkout@v4
+      with:
+        repository: eigeen/ree-pak-gui
+        path: ree-pak-gui
+        ref: main
         token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Setup Node.js
@@ -77,7 +93,7 @@ jobs:
       id: version
       working-directory: ree-pak-gui/src-tauri
       run: |
-        $version = (Get-Content ree-pak-gui/Cargo.toml | Select-String "version = " | Select-Object -First 1).ToString().Split('"')[1]
+        $version = (Get-Content Cargo.toml | Select-String "version = " | Select-Object -First 1).ToString().Split('"')[1]
         echo "VERSION=$version" >> $env:GITHUB_OUTPUT
 
     # - name: Print Folder Tree
