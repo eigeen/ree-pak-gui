@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.4.0
+
+### New Feature
+
+Packer support.
+
+Pack directory to a single .pak file is now supported.
+
 ## v0.3.1
 
 ### Features
