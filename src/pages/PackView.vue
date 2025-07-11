@@ -216,7 +216,7 @@ onUnmounted(() => {
           >
             {{ t('pack.addFolder') }}
           </v-btn>
-          <v-tooltip :text="t('pack.addPakTooltip')" location="top">
+          <!-- <v-tooltip :text="t('pack.addPakTooltip')" location="top">
             <template #activator="{ props }">
               <v-btn
                 v-bind="props"
@@ -228,7 +228,7 @@ onUnmounted(() => {
                 {{ t('pack.addPak') }}
               </v-btn>
             </template>
-          </v-tooltip>
+          </v-tooltip> -->
           <v-btn class="text-none" prepend-icon="mdi-close-box-multiple" @click="handleCloseAll">
             {{ t('pack.removeAll') }}
           </v-btn>
