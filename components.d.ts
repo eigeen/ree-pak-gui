@@ -12,7 +12,6 @@ declare module 'vue' {
     ElContainer: typeof import('element-plus/es')['ElContainer']
     ElTreeV2: typeof import('element-plus/es')['ElTreeV2']
     FileConflict: typeof import('./src/components/FileConflict.vue')['default']
-    FileConflictDialog: typeof import('./src/components/FileConflictDialog.vue')['default']
     FileNameTable: typeof import('./src/components/FileNameTable/FileNameTable.vue')['default']
     FileNameTableSelector: typeof import('./src/components/FileNameTable/FileNameTableSelector.vue')['default']
     FileTree: typeof import('./src/components/FileTree.vue')['default']
