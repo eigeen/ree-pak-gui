@@ -70,6 +70,8 @@ export const useWorkStore = defineStore('work', () => {
     const work = JSON.parse(content)
     if (work.unpack) {
       unpack.value = work.unpack
+    }
+    if (work.pack) {
       pack.value = work.pack
     }
   }
