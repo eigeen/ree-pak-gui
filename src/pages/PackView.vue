@@ -16,19 +16,22 @@ import {
   type PackProgress
 } from '@/lib/packer'
 
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
+
 const workStore = useWorkStore()
 
 const { exportConfig, inputFiles } = toRefs(workStore.pack)
 
 // 创建Packer实例
 const packer = new Packer(
-  (progress: PackProgress) => {
+  (p: PackProgress) => {
     // 进度更新回调
-    exportWorking.value = progress.working
-    currentFile.value = progress.currentFile
-    totalFileCount.value = progress.totalFileCount
-    finishFileCount.value = progress.finishFileCount
-    progressValue.value = progress.progressValue
+    if (p.totalFileCount === p.finishFileCount) {
+      // 导出完成
+      p.currentFile = ''
+    }
+    progress.value = p
   },
   (result: ExportResult) => {
     // 结果更新回调
@@ -37,12 +40,16 @@ const packer = new Packer(
 )
 
 // 导出进度
-const exportWorking = ref(false)
-const currentFile = ref('')
-const totalFileCount = ref(0)
-const finishFileCount = ref(0)
-const progressValue = ref(0)
-
+const progress = ref<PackProgress>({
+  working: false,
+  currentFile: '',
+  totalFileCount: 0,
+  finishFileCount: 0
+})
+const progressValue = computed(() => {
+  if (progress.value.totalFileCount === 0) return 0
+  return (progress.value.finishFileCount / progress.value.totalFileCount) * 100
+})
 // 导出结果
 const exportResult = ref<ExportResult>({
   success: false,
@@ -72,7 +79,12 @@ const addFiles = async (paths: string[]) => {
 
     for (const path of paths) {
       if (!(await exists(path))) {
-        ShowError(`输入文件 ${path} 不存在。`)
+        ShowError(`Input file ${path} does not exist.`)
+        continue
+      }
+
+      // check if exists in inputFiles
+      if (inputFiles.value.some((f) => f.path === path)) {
         continue
       }
 
@@ -88,6 +100,7 @@ const addFiles = async (paths: string[]) => {
     // fast mode
     if (exportConfig.value.fastMode) {
       await handleExport()
+      handleCloseAll()
     }
   } catch (e) {
     ShowError(e)
@@ -122,7 +135,7 @@ const handleSelectDirectory = async () => {
 
 // 处理移除文件
 const handleRemoveFile = (index: number) => {
-  console.log('移除文件', index)
+  console.log('Remove file', index)
   inputFiles.value.splice(index, 1)
 }
 
@@ -201,9 +214,9 @@ onUnmounted(() => {
             prepend-icon="mdi-folder-plus"
             @click="handleAddViaDialog(false)"
           >
-            添加文件夹
+            {{ t('pack.addFolder') }}
           </v-btn>
-          <v-tooltip text="可用于合并多个 Pak 文件" location="top">
+          <v-tooltip :text="t('pack.addPakTooltip')" location="top">
             <template #activator="{ props }">
               <v-btn
                 v-bind="props"
@@ -212,17 +225,17 @@ onUnmounted(() => {
                 prepend-icon="mdi-file-plus"
                 @click="handleAddViaDialog(true)"
               >
-                添加 Pak
+                {{ t('pack.addPak') }}
               </v-btn>
             </template>
           </v-tooltip>
           <v-btn class="text-none" prepend-icon="mdi-close-box-multiple" @click="handleCloseAll">
-            移除全部
+            {{ t('pack.removeAll') }}
           </v-btn>
         </div>
 
         <!-- 文件列表 -->
-        <div class="text-subtitle-1">文件列表</div>
+        <div class="text-subtitle-1">{{ t('pack.fileList') }}</div>
         <div class="h-[calc(100vh-230px)] overflow-auto">
           <!-- 空内容提示 -->
           <div
@@ -235,8 +248,8 @@ onUnmounted(() => {
               color="grey-lighten-1"
               class="mb-4"
             ></v-icon>
-            <p class="text-grey-lighten-1 text-h6">尚未添加文件</p>
-            <p class="text-grey-lighten-1 text-body-2">点击上方按钮或拖拽文件到此处添加</p>
+            <p class="text-grey-lighten-1 text-h6">{{ t('pack.noFilesAdded') }}</p>
+            <p class="text-grey-lighten-1 text-body-2">{{ t('pack.noFilesAddedDesc') }}</p>
           </div>
 
           <div v-else class="h-full overflow-auto">
@@ -271,14 +284,14 @@ onUnmounted(() => {
     <div class="w-[350px] flex flex-col gap-4 pl-2">
       <!-- 导出配置 -->
       <v-card class="pa-4 elevation-3 rounded-lg">
-        <div class="text-subtitle-1 mb-4">导出设置</div>
+        <div class="text-subtitle-1 mb-4">{{ t('pack.exportSettings') }}</div>
 
         <!-- 导出模式 -->
         <div class="mb-4">
-          <div class="text-body-2 mb-2">导出模式</div>
+          <div class="text-body-2 mb-2">{{ t('pack.exportMode') }}</div>
           <v-radio-group v-model="exportConfig.mode" density="compact" hide-details>
-            <v-radio label="每个文件项单独导出 pak" value="individual" density="compact"></v-radio>
-            <v-radio label="所有文件导出为单个 pak" value="single" density="compact"></v-radio>
+            <v-radio :label="t('pack.exportModeIndividual')" value="individual" density="compact"></v-radio>
+            <!-- <v-radio :label="t('pack.exportModeSingle')" value="single" density="compact"></v-radio> -->
           </v-radio-group>
         </div>
 
@@ -287,39 +300,39 @@ onUnmounted(() => {
           <div class="flex items-center gap-2">
             <v-checkbox
               v-model="exportConfig.autoDetectRoot"
-              label="自动检测根目录"
+              :label="t('pack.autoDetectRoot')"
               density="compact"
               color="primary"
               hide-details
             ></v-checkbox>
-            <HoverBubble>自动检测第一个 natives/STM/** 路径作为根目录</HoverBubble>
+            <HoverBubble>{{ t('pack.autoDetectRootTooltip') }}</HoverBubble>
           </div>
 
           <div class="flex items-center gap-2">
             <v-checkbox
               v-model="exportConfig.fastMode"
-              label="快速模式"
+              :label="t('pack.fastMode')"
               density="compact"
               color="primary"
               hide-details
             ></v-checkbox>
             <HoverBubble>
-              导入文件后会自动导出到指定目录，无需确认。<br />
-              如未指定目录，则导出到输入文件相同目录。
+              {{ t('pack.fastModeTooltipL1') }}<br />
+              {{ t('pack.fastModeTooltipL2') }}
             </HoverBubble>
           </div>
         </div>
 
         <!-- 导出文件 -->
         <div class="mb-4">
-          <div class="text-body-2 mb-2">导出文件</div>
+          <div class="text-body-2 mb-2">{{ t('pack.exportDirectory') }}</div>
           <div class="flex gap-2">
             <v-text-field
               v-model="exportConfig.exportDirectory"
               variant="outlined"
               density="comfortable"
               hide-details
-              placeholder="导出目录"
+              :placeholder="t('pack.exportDirectoryPlaceholder')"
             ></v-text-field>
             <v-btn icon="mdi-folder-open" variant="text" @click="handleSelectDirectory"></v-btn>
           </div>
@@ -327,7 +340,7 @@ onUnmounted(() => {
 
         <!-- 导出按钮 -->
         <v-btn
-          v-if="!exportWorking"
+          v-if="!progress.working"
           class="text-none"
           color="primary"
           prepend-icon="mdi-export"
@@ -335,23 +348,23 @@ onUnmounted(() => {
           :disabled="!enableExport"
           block
         >
-          导出
+          {{ t('pack.export') }}
         </v-btn>
 
         <!-- 取消导出按钮 -->
         <v-btn
-          v-if="exportWorking"
+          v-if="progress.working"
           class="text-none"
           color="warning"
           prepend-icon="mdi-stop"
           @click="handleTerminateExport"
           block
         >
-          取消导出
+          {{ t('pack.cancelExport') }}
         </v-btn>
 
         <!-- 导出报告信息 -->
-        <div v-if="exportWorking || exportResult.success || exportResult.error" class="mt-4">
+        <div v-if="progress.working || exportResult.success || exportResult.error" class="mt-4">
           <v-progress-linear
             v-if="progressValue > 0"
             :color="progressValue >= 100 ? 'green' : 'primary'"
@@ -363,49 +376,31 @@ onUnmounted(() => {
 
           <!-- 进度信息 -->
           <div v-if="progressValue > 0" class="text-body-2 mb-2">
-            {{ finishFileCount }} / {{ totalFileCount }} 个文件
+            {{ progress.finishFileCount }} / {{ progress.totalFileCount }} {{ t('pack.filesCount') }}
           </div>
-          <div v-if="progressValue > 0" class="text-body-2 mb-1">正在导出：</div>
-          <div v-if="progressValue > 0" class="text-body-2 break-all mb-3">
-            {{ currentFile }}
+          <div v-if="progress.currentFile" class="text-body-2 mb-1">{{ t('pack.exporting') }}</div>
+          <div v-if="progress.currentFile" class="text-body-2 break-all mb-3">
+            {{ progress.currentFile }}
           </div>
 
           <!-- 导出结果 -->
-          <div
-            v-if="exportResult.success && !exportWorking"
-            class="mt-4 pa-2 bg-green-50 border border-green-200 rounded"
-          >
-            <div class="flex items-center justify-between">
-              <div class="text-body-2 text-green-700 font-medium">导出成功</div>
-              <v-btn
-                icon="mdi-close"
-                variant="text"
-                size="small"
-                @click="handleResetExport"
-              ></v-btn>
+          <div v-if="exportResult.success && !progress.working" class="mt-4">
+            <div class="text-body-2 text-green-700 font-medium mb-2">
+              <v-icon icon="mdi-check-circle" color="green" size="small" class="mr-1"></v-icon>
+              {{ t('pack.exportSuccess') }}
             </div>
-            <div class="text-body-2 mb-2">导出的文件：</div>
-            <div
-              v-for="(file, index) in exportResult.files"
-              :key="index"
-              class="text-body-2 mb-1 break-all"
-            >
-              {{ file }}
+            
+            <!-- 文件树显示 -->
+            <div v-if="exportResult.fileTree" class="mt-3">
+              <div class="text-body-2 font-medium mb-2">{{ t('pack.fileStructure') }}</div>
+              <pre class="text-xs bg-gray-50 p-2 rounded border max-h-48 max-w-full overflow-auto font-mono whitespace-pre">{{ exportResult.fileTree }}</pre>
             </div>
           </div>
 
-          <div
-            v-else-if="exportResult.error && !exportWorking"
-            class="mt-4 pa-2 bg-red-50 border border-red-200 rounded"
-          >
-            <div class="flex items-center justify-between">
-              <div class="text-body-2 text-red-700 font-medium">导出失败</div>
-              <v-btn
-                icon="mdi-close"
-                variant="text"
-                size="small"
-                @click="handleResetExport"
-              ></v-btn>
+          <div v-else-if="exportResult.error && !progress.working" class="mt-4">
+            <div class="text-body-2 text-red-700 font-medium mb-2">
+              <v-icon icon="mdi-alert-circle" color="red" size="small" class="mr-1"></v-icon>
+              {{ t('pack.exportFailed') }}
             </div>
             <div class="text-body-2 break-all">{{ exportResult.error }}</div>
           </div>
@@ -418,7 +413,7 @@ onUnmounted(() => {
       <v-card>
         <v-card-title class="text-h6 pa-4">
           <v-icon icon="mdi-alert-circle" color="warning" class="mr-2"></v-icon>
-          处理文件冲突
+          {{ t('pack.fileConflictTitle') }}
         </v-card-title>
 
         <v-card-text class="pa-4">
@@ -427,8 +422,8 @@ onUnmounted(() => {
 
         <v-card-actions class="pa-4">
           <v-spacer></v-spacer>
-          <v-btn color="grey" variant="text" @click="handleConflictCancel">取消</v-btn>
-          <v-btn color="primary" @click="handleConflictResolve">确定</v-btn>
+          <v-btn color="grey" variant="text" @click="handleConflictCancel">{{ t('pack.cancel') }}</v-btn>
+          <v-btn color="primary" @click="handleConflictResolve">{{ t('pack.confirm') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

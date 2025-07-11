@@ -68,6 +68,7 @@ type WorkProgressEventImpl<T> =
     }
   | {
       event: 'workFinished'
+      data?: T
     }
   | {
       event: 'fileDone'
@@ -89,6 +90,20 @@ type UnpackProgressData = {
 type PackProgressData = {
   path: string
   finishCount: number
+  tree?: PackedFileTree
+}
+
+type PackedFileTree = {
+  paks: Array<PackedPak>
+}
+
+export type PackedPak = {
+  path: string
+  files: Array<{
+    path: string
+    hash: JsSafeHash
+    size: number
+  }>
 }
 
 export type UnpackProgressEvent = WorkProgressEventImpl<UnpackProgressData>

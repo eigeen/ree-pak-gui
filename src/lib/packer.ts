@@ -8,10 +8,117 @@ import {
   pak_terminate_pack,
   type PackProgressEvent,
   type PakHeaderInfo,
-  type PakEntry
+  type PakEntry,
+  type PackedPak
 } from '@/api/tauri/pak'
 import type { FileItem } from '@/store/work'
 import { getParentPath } from '@/utils/path'
+
+// 定义文件类型
+type PackedFile = {
+  path: string
+  hash: [number, number]
+  size: number
+}
+
+// 文件树渲染函数
+export function renderFileTree(paks: PackedPak[]): string {
+  if (paks.length === 0) {
+    return 'No files'
+  }
+
+  let result = ''
+  
+  paks.forEach((pak, pakIndex) => {
+    const isLastPak = pakIndex === paks.length - 1
+    const pakPrefix = isLastPak ? '└── ' : '├── '
+    const pakName = pak.path.split(/[/\\]/).pop() || pak.path
+    
+    result += `${pakPrefix}📦 ${pakName} (${pak.files.length} files)\n`
+    
+    // 按路径对文件进行分组和排序
+    const fileTree = buildFileTree(pak.files)
+    const childPrefix = isLastPak ? '    ' : '│   '
+    result += renderFileTreeNode(fileTree, childPrefix)
+  })
+  
+  return result
+}
+
+// 构建文件树结构
+function buildFileTree(files: PackedFile[]): FileTreeNode {
+  const root: FileTreeNode = { name: '', children: new Map(), files: [] }
+  
+  files.forEach(file => {
+    const parts = file.path.split(/[/\\]/).filter((part: string) => part.length > 0)
+    let current = root
+    
+    // 遍历路径的每一部分
+    for (let i = 0; i < parts.length - 1; i++) {
+      const part = parts[i]
+      if (!current.children.has(part)) {
+        current.children.set(part, { name: part, children: new Map(), files: [] })
+      }
+      current = current.children.get(part)!
+    }
+    
+    // 添加文件到最终目录
+    if (parts.length > 0) {
+      current.files.push(file)
+    }
+  })
+  
+  return root
+}
+
+// 渲染文件树节点
+function renderFileTreeNode(node: FileTreeNode, prefix: string): string {
+  let result = ''
+  
+  // 获取所有子目录和文件，并排序
+  const children = Array.from(node.children.values()).sort((a, b) => a.name.localeCompare(b.name))
+  const files = node.files.sort((a, b) => a.path.localeCompare(b.path))
+  
+  // 渲染子目录
+  children.forEach((child, index) => {
+    const isLast = index === children.length - 1 && files.length === 0
+    const childPrefix = isLast ? '└── ' : '├── '
+    const nextPrefix = prefix + (isLast ? '    ' : '│   ')
+    
+    result += `${prefix}${childPrefix}📁 ${child.name}\n`
+    result += renderFileTreeNode(child, nextPrefix)
+  })
+  
+  // 渲染文件
+  files.forEach((file, index) => {
+    const isLast = index === files.length - 1
+    const filePrefix = isLast ? '└── ' : '├── '
+    const fileName = file.path.split(/[/\\]/).pop() || file.path
+    const fileSize = formatFileSize(file.size)
+    
+    result += `${prefix}${filePrefix}📄 ${fileName} (${fileSize})\n`
+  })
+  
+  return result
+}
+
+// 格式化文件大小
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 B'
+  
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+// 文件树节点接口
+interface FileTreeNode {
+  name: string
+  children: Map<string, FileTreeNode>
+  files: PackedFile[]
+}
 
 export interface ConflictFile {
   relativePath: string
@@ -30,8 +137,9 @@ export interface ExportConfig {
 
 export interface ExportResult {
   success: boolean
-  files: string[]
+  files: PackedPak[]
   error: string
+  fileTree?: string // 添加文件树字符串显示
 }
 
 export interface PackProgress {
@@ -39,7 +147,6 @@ export interface PackProgress {
   currentFile: string
   totalFileCount: number
   finishFileCount: number
-  progressValue: number
 }
 
 export interface FolderFile {
@@ -54,8 +161,7 @@ export class Packer {
     working: false,
     currentFile: '',
     totalFileCount: 0,
-    finishFileCount: 0,
-    progressValue: 0
+    finishFileCount: 0
   }
 
   private result: ExportResult = {
@@ -84,8 +190,7 @@ export class Packer {
       working: false,
       currentFile: '',
       totalFileCount: 0,
-      finishFileCount: 0,
-      progressValue: 0
+      finishFileCount: 0
     }
     this.result = {
       success: false,
@@ -101,16 +206,14 @@ export class Packer {
   }
 
   private updateProgress(updates: Partial<PackProgress>): void {
-    Object.assign(this.progress, updates)
-    if (this.progress.totalFileCount > 0) {
-      this.progress.progressValue =
-        (this.progress.finishFileCount / this.progress.totalFileCount) * 100
-    }
+    // 创建新的对象引用以确保响应式更新
+    this.progress = { ...this.progress, ...updates }
     this.updateCallbacks()
   }
 
   private updateResult(updates: Partial<ExportResult>): void {
-    Object.assign(this.result, updates)
+    // 创建新的对象引用以确保响应式更新
+    this.result = { ...this.result, ...updates }
     this.updateCallbacks()
   }
 
@@ -139,6 +242,7 @@ export class Packer {
     inputFiles: FileItem[],
     exportConfig: ExportConfig
   ): Promise<void> {
+    // 设置初始进度状态
     this.updateProgress({
       working: true,
       totalFileCount: inputFiles.length,
@@ -147,8 +251,15 @@ export class Packer {
 
     const outputFiles: string[] = []
 
+    function sleep(time: number) {
+      return new Promise(function (resolve) {
+        setTimeout(resolve, time)
+      })
+    }
+
     try {
-      for (const file of inputFiles) {
+      for (let i = 0; i < inputFiles.length; i++) {
+        const file = inputFiles[i]
         const outputName = this.generateOutputName(file.path, exportConfig)
         let exportDir: string
         if (!exportConfig.exportDirectory) {
@@ -173,12 +284,20 @@ export class Packer {
         const processedSources = await this.processSources([file], exportConfig, {})
         await pak_pack(processedSources, outputPath, channel)
         outputFiles.push(outputPath)
+
+        // 等待完成信号，确保文件写入完成，再开始下一个文件
+        while (true) {
+          await sleep(50)
+          if (this.progress.finishFileCount === this.progress.totalFileCount) {
+            break
+          }
+        }
       }
 
       this.updateProgress({ working: false })
       this.updateResult({
         success: true,
-        files: outputFiles,
+        files: [], // 依赖workFinished事件设置正确的文件树
         error: ''
       })
     } catch (error) {
@@ -197,15 +316,30 @@ export class Packer {
     exportConfig: ExportConfig
   ): Promise<ConflictFile[]> {
     try {
+      // 设置初始进度状态
+      this.updateProgress({
+        working: true,
+        totalFileCount: inputFiles.length,
+        finishFileCount: 0
+      })
+
       const conflicts = await this.analyzeConflicts(inputFiles)
 
       if (conflicts.length > 0) {
+        // 有冲突时，暂停进度状态，等待用户解决冲突
+        this.updateProgress({ working: false })
         return conflicts
       } else {
         await this.proceedWithMergeExport(inputFiles, exportConfig)
         return []
       }
     } catch (e) {
+      this.updateProgress({ working: false })
+      this.updateResult({
+        success: false,
+        files: [],
+        error: e instanceof Error ? e.message : String(e)
+      })
       ShowError(e)
       return []
     }
@@ -215,6 +349,13 @@ export class Packer {
     if (!exportConfig.exportDirectory) {
       throw new Error('Export directory is required for merge export')
     }
+
+    // 重新设置进度状态（处理冲突后重新开始）
+    this.updateProgress({
+      working: true,
+      totalFileCount: inputFiles.length,
+      finishFileCount: 0
+    })
 
     const outputName = this.generateMergedOutputName(inputFiles, exportConfig)
     const outputPath = await join(exportConfig.exportDirectory, outputName)
@@ -239,7 +380,7 @@ export class Packer {
       this.updateProgress({ working: false })
       this.updateResult({
         success: true,
-        files: [outputPath],
+        files: [], // 依赖workFinished事件设置正确的文件树
         error: ''
       })
     } catch (error) {
@@ -269,10 +410,13 @@ export class Packer {
         })
         break
       case 'workFinished':
-        this.updateProgress({ working: false })
+        // 任务全部完成
+        this.updateProgress({ working: false, finishFileCount: this.progress.totalFileCount })
+        const paks = event.data?.tree?.paks ?? []
         this.updateResult({
           success: true,
-          files: [],
+          files: paks,
+          fileTree: renderFileTree(paks),
           error: ''
         })
         break
@@ -341,7 +485,7 @@ export class Packer {
 
       return conflicts
     } catch (error) {
-      console.error('分析冲突失败:', error)
+      console.error('Failed to analyze conflicts:', error)
       return []
     }
   }
@@ -371,7 +515,7 @@ export class Packer {
           }
         }
       } catch (error) {
-        console.error('扫描文件夹失败:', error)
+        console.error('Failed to scan folder:', error)
       }
     }
 
@@ -390,13 +534,21 @@ export class Packer {
       const processedPaths: string[] = []
 
       for (const path of sourcePaths) {
-        const parts = path.split(/[/\\]/)
+        // 向下查找第一个文件
+        const firstFile = await this.findFirstFile(path)
+        if (!firstFile) {
+          processedPaths.push(path)
+          continue
+        }
+
+        // check if it is a natives/STM/** path
+        const parts = firstFile.split(/[/\\]/)
         const nativesIndex = parts.findIndex((p) => p === 'natives')
         const stmIndex = parts.findIndex((p) => p === 'STM')
 
         if (nativesIndex >= 0 && stmIndex === nativesIndex + 1) {
-          const separator = path.includes('\\') ? '\\' : '/'
-          const rootPath = parts.slice(0, nativesIndex + 1).join(separator)
+          const separator = firstFile.includes('\\') ? '\\' : '/'
+          const rootPath = parts.slice(0, nativesIndex).join(separator)
           processedPaths.push(rootPath)
         } else {
           processedPaths.push(path)
@@ -407,6 +559,21 @@ export class Packer {
     }
 
     return sourcePaths
+  }
+
+  private async findFirstFile(rootPath: string): Promise<string> {
+    const entries = await readDir(rootPath)
+    for (const entry of entries) {
+      if (entry.isFile) {
+        return await join(rootPath, entry.name)
+      } else {
+        const firstFile = await this.findFirstFile(await join(rootPath, entry.name))
+        if (firstFile) {
+          return firstFile
+        }
+      }
+    }
+    return ''
   }
 
   private async generateUniqueFileName(directory: string, baseName: string): Promise<string> {
@@ -454,9 +621,8 @@ export class Packer {
     try {
       await pak_terminate_pack()
       this.resetExport()
-      ShowWarn('导出操作已取消')
     } catch (error) {
-      ShowError('取消导出操作失败: ' + error)
+      ShowError('Failed to cancel export operation: ' + error)
     }
   }
 

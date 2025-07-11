@@ -27,6 +27,8 @@ pub enum Error {
     PackAlreadyRunning,
     #[error("Pak writer error: {0}")]
     PackWriter(#[from] ree_pak_core::write::PakWriteError),
+    #[error("Terminated.")]
+    Terminated,
 
     #[error("Zip error: {0}")]
     Zip(#[from] zip::result::ZipError),

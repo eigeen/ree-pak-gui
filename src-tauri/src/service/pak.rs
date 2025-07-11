@@ -23,7 +23,8 @@ use ree_pak_core::{
 use walkdir::WalkDir;
 
 use crate::{
-    channel::{PackProgressChannel, UnpackProgressChannel},
+    channel::{PackProgressChannel, PackedFile, PackedFileTree, PackedPak, UnpackProgressChannel},
+    common::JsSafeHash,
     error::{Error, Result},
     pak::{
         ExtractOptions, Pak, PakId, PakInfo,
@@ -33,6 +34,36 @@ use crate::{
 };
 
 pub type PakHeaderInfo = PakArchive;
+
+/// Builder for creating PackedFileTree from packed files
+struct PakTreeBuilder {
+    paks: IndexMap<String, Vec<PackedFile>>,
+}
+
+impl PakTreeBuilder {
+    fn new() -> Self {
+        Self { paks: IndexMap::new() }
+    }
+
+    fn add_file(&mut self, pak_path: &str, file_path: Option<String>, hash: u64, size: u64) {
+        let pak_files = self.paks.entry(pak_path.to_string()).or_default();
+        pak_files.push(PackedFile::new(
+            file_path.unwrap_or_else(|| format!("{:16X}", hash)),
+            JsSafeHash::from_u64(hash),
+            size,
+        ));
+    }
+
+    fn build(self) -> PackedFileTree {
+        let paks = self
+            .paks
+            .into_iter()
+            .map(|(path, files)| PackedPak::new(path, files))
+            .collect();
+
+        PackedFileTree::new(paks)
+    }
+}
 
 pub struct PakService<R> {
     pak_group: Arc<Mutex<PakGroup<R>>>,
@@ -218,14 +249,14 @@ where
         let sources = sources.iter().map(|s| s.as_ref().to_string()).collect::<Vec<_>>();
         let progress1 = progress.clone();
         *self.work_thread.lock() = Some(thread::spawn(move || {
-            let main_fn = move || -> Result<()> {
-                log::debug!("Packing sources: {:?}", sources);
-
-                // collect all files
+            let main_fn = move || -> Result<PakTreeBuilder> {
+                // collect all files and build file tree
                 let mut file_manifests: IndexMap<u64, FileManifest> = IndexMap::new();
+                let mut tree_builder = PakTreeBuilder::new();
+
                 for source in sources {
                     if should_terminate.load(Ordering::Relaxed) {
-                        break;
+                        return Err(Error::Terminated);
                     }
 
                     let source_path = Path::new(&source);
@@ -257,6 +288,7 @@ where
                                 entry.hash(),
                                 FileManifest {
                                     real_path: None,
+                                    pak_path: None,
                                     from_pak: Some(source_path.to_path_buf()),
                                 },
                             );
@@ -274,10 +306,12 @@ where
                                 let relative_path = get_relative_path(&root_path, path)?;
                                 let hash = relative_path.hash_mixed();
 
+                                log::debug!("Adding loose file: {:?}", relative_path);
                                 file_manifests.insert(
                                     hash,
                                     FileManifest {
                                         real_path: Some(path.to_path_buf()),
+                                        pak_path: Some(relative_path),
                                         from_pak: None,
                                     },
                                 );
@@ -291,44 +325,81 @@ where
                 let mut pak_writer = PakWriter::new(output_writer, file_manifests.len() as u64);
                 progress1.work_start(file_manifests.len() as u32);
 
-                // write loose files
-                for (&hash, manifest) in &file_manifests {
-                    let Some(real_path) = &manifest.real_path else { continue };
-                    let mut reader = BufReader::new(File::open(real_path)?);
-                    pak_writer.start_file_hash(hash, FileOptions::default())?;
-                    std::io::copy(&mut reader, &mut pak_writer)?;
-                    progress1.file_done(real_path.to_str().unwrap());
-                }
-                // write pak files. group by from_pak,
-                // and write each pak file
-                let pak_files = file_manifests
-                    .iter()
-                    .filter_map(|(_, manifest)| manifest.from_pak.clone())
-                    .collect::<Vec<_>>();
-                for pak_file in pak_files {
-                    let mut reader = BufReader::new(File::open(&pak_file)?);
-                    let archive = ree_pak_core::read::read_archive(&mut reader)?;
-                    let mut pak_reader = PakArchiveReader::new(reader, &archive);
-                    for entry in archive.entries() {
-                        if !file_manifests.contains_key(&entry.hash()) {
-                            continue;
+                // wrapper pak_writer to ensure it is finished
+                let mut write_files_into_pak = || -> Result<()> {
+                    // write loose files
+                    for (&hash, manifest) in &file_manifests {
+                        if should_terminate.load(Ordering::Relaxed) {
+                            return Err(Error::Terminated);
                         }
 
-                        let mut reader = pak_reader.owned_entry_reader(entry.clone())?;
-                        pak_writer.start_file_hash(entry.hash(), FileOptions::default())?;
+                        let Some(real_path) = &manifest.real_path else { continue };
+                        let mut reader = BufReader::new(File::open(real_path)?);
+                        let file_size = real_path.metadata()?.len();
+                        pak_writer.start_file_hash(hash, FileOptions::default())?;
                         std::io::copy(&mut reader, &mut pak_writer)?;
-                        progress1.file_done(&format!("{}:{:16X}", pak_file.display(), entry.hash()));
-                    }
-                }
+                        progress1.file_done(real_path.to_str().unwrap());
 
+                        // Add to tree builder
+                        tree_builder.add_file(
+                            &output_path.to_string_lossy(),
+                            manifest.pak_path.clone(),
+                            hash,
+                            file_size,
+                        );
+                    }
+                    // write pak files. group by from_pak,
+                    // and write each pak file
+                    let pak_files = file_manifests
+                        .iter()
+                        .filter_map(|(_, manifest)| manifest.from_pak.clone())
+                        .collect::<Vec<_>>();
+                    for pak_file in pak_files {
+                        if should_terminate.load(Ordering::Relaxed) {
+                            return Err(Error::Terminated);
+                        }
+
+                        let mut reader = BufReader::new(File::open(&pak_file)?);
+                        let archive = ree_pak_core::read::read_archive(&mut reader)?;
+                        let mut pak_reader = PakArchiveReader::new(reader, &archive);
+                        for entry in archive.entries() {
+                            if !file_manifests.contains_key(&entry.hash()) {
+                                continue;
+                            }
+
+                            let mut reader = pak_reader.owned_entry_reader(entry.clone())?;
+                            pak_writer.start_file_hash(entry.hash(), FileOptions::default())?;
+                            std::io::copy(&mut reader, &mut pak_writer)?;
+                            progress1.file_done(&format!("{}:{:16X}", pak_file.display(), entry.hash()));
+
+                            // Add to tree builder
+                            // tree_builder.add_pak_file(
+                            //     &output_path.to_string_lossy(),
+                            //     &format!("{}:{:16X}", pak_file.display(), entry.hash()),
+                            //     entry.hash(),
+                            //     entry.uncompressed_size(),
+                            // );
+                            tree_builder.add_file(
+                                &output_path.to_string_lossy(),
+                                None,
+                                entry.hash(),
+                                entry.uncompressed_size(),
+                            );
+                        }
+                    }
+                    Ok(())
+                };
+
+                let result = write_files_into_pak();
                 pak_writer.finish()?;
-                Ok(())
+                result?;
+
+                Ok(tree_builder)
             };
 
-            if let Err(e) = main_fn() {
-                progress.error(e.to_string());
-            } else {
-                progress.work_finished();
+            match main_fn() {
+                Ok(tree_builder) => progress.work_finished(tree_builder.build()),
+                Err(e) => progress.error(e.to_string()),
             }
         }));
 
@@ -353,6 +424,7 @@ impl PakService<()> {
 
 struct FileManifest {
     real_path: Option<PathBuf>,
+    pak_path: Option<String>,
     from_pak: Option<PathBuf>,
 }
 
@@ -466,14 +538,24 @@ where
 }
 
 fn get_relative_path(root_path: &Path, file_path: &Path) -> Result<String> {
-    let root_path = root_path.canonicalize()?;
-    let file_path = file_path.canonicalize()?;
+    // ensure inputs are absolute
+    if !root_path.is_absolute() || !file_path.is_absolute() {
+        return Err(Error::FileIO {
+            path: file_path.display().to_string(),
+            source: std::io::Error::new(std::io::ErrorKind::InvalidData, "File path is not absolute"),
+        });
+    }
+
     let root_str = root_path.to_string_lossy();
     let file_str = file_path.to_string_lossy();
 
     let relative_path = file_str
         .strip_prefix(root_str.as_ref())
         .unwrap_or_else(|| file_str.as_ref());
+
+    // Remove leading path separators after strip_prefix
+    let relative_path = relative_path.trim_start_matches('/').trim_start_matches('\\');
+
     if Path::new(relative_path).is_absolute() {
         return Err(Error::FileIO {
             path: file_path.display().to_string(),
@@ -482,4 +564,22 @@ fn get_relative_path(root_path: &Path, file_path: &Path) -> Result<String> {
     }
 
     Ok(relative_path.replace("\\", "/"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_relative_path() {
+        let root_path = Path::new("C:/Project");
+        let file_path = Path::new("C:/Project/natives/STM/test.txt");
+        let relative_path = get_relative_path(root_path, file_path).unwrap();
+        assert_eq!(relative_path, "natives/STM/test.txt");
+
+        let root_path = Path::new("C:/Project/natives/STM/");
+        let file_path = Path::new("C:/Project/natives/STM/test.txt");
+        let relative_path = get_relative_path(root_path, file_path).unwrap();
+        assert_eq!(relative_path, "test.txt");
+    }
 }
