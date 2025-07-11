@@ -79,7 +79,12 @@ export default {
       filesCount: '个文件',
       fileConflictTitle: '处理文件冲突',
       cancel: '取消',
-      confirm: '确定'
+      confirm: '确定',
+      // Packer error messages
+      noFiles: '没有文件',
+      failedGetParentPath: '无法获取输入文件的父路径',
+      exportDirRequired: '合并导出需要指定导出目录',
+      failedCancelExport: '取消导出操作失败：{error}'
     },
     global: {
       failedLoadSettings: '加载设置失败: {error}',

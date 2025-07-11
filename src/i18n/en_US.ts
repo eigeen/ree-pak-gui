@@ -80,7 +80,12 @@ export default {
       filesCount: 'files',
       fileConflictTitle: 'Handle File Conflicts',
       cancel: 'Cancel',
-      confirm: 'Confirm'
+      confirm: 'Confirm',
+      // Packer error messages
+      noFiles: 'No files',
+      failedGetParentPath: 'Failed to get parent path from input file',
+      exportDirRequired: 'Export directory is required for merge export',
+      failedCancelExport: 'Failed to cancel export operation: {error}'
     },
     global: {
       failedLoadSettings: 'Failed to load settings: {error}',

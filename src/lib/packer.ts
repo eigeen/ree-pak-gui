@@ -13,6 +13,7 @@ import {
 } from '@/api/tauri/pak'
 import type { FileItem } from '@/store/work'
 import { getParentPath } from '@/utils/path'
+import i18n from '@/plugins/i18n'
 
 // 定义文件类型
 type PackedFile = {
@@ -24,7 +25,7 @@ type PackedFile = {
 // 文件树渲染函数
 export function renderFileTree(paks: PackedPak[]): string {
   if (paks.length === 0) {
-    return 'No files'
+    return i18n.global.t('pack.noFiles')
   }
 
   let result = ''
@@ -266,7 +267,7 @@ export class Packer {
           // empty export directory, use input files' directory
           let parentPath = getParentPath(file.path)
           if (!parentPath) {
-            throw new Error('Failed to get parent path from input file.')
+            throw new Error(i18n.global.t('pack.failedGetParentPath'))
           }
           exportDir = parentPath
         } else {
@@ -347,7 +348,7 @@ export class Packer {
 
   async proceedWithMergeExport(inputFiles: FileItem[], exportConfig: ExportConfig): Promise<void> {
     if (!exportConfig.exportDirectory) {
-      throw new Error('Export directory is required for merge export')
+      throw new Error(i18n.global.t('pack.exportDirRequired'))
     }
 
     // 重新设置进度状态（处理冲突后重新开始）
@@ -622,7 +623,7 @@ export class Packer {
       await pak_terminate_pack()
       this.resetExport()
     } catch (error) {
-      ShowError('Failed to cancel export operation: ' + error)
+      ShowError(i18n.global.t('pack.failedCancelExport', { error }))
     }
   }
 
