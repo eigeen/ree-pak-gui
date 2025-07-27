@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.4.1
+
+### New Feature
+
+Add preview pane for image files.
+
+> May experience some slowness when loading large files.
+
 ## v0.4.0
 
 ### New Feature
