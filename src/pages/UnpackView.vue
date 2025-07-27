@@ -44,7 +44,10 @@
     </el-aside>
 
     <div class="main-content">
-      <v-card class="pa-2 elevation-3 rounded-lg tree-card">
+      <v-card
+        class="pa-2 elevation-3 rounded-lg tree-card"
+        :class="{ 'with-preview': isPreviewExpanded }"
+      >
         <!-- 渲染确认覆盖层 -->
         <div v-if="showOverlay" class="overlay" @click.stop>
           <div class="overlay-content">
@@ -90,7 +93,25 @@
             >
           </div>
         </div>
+
+        <!-- 悬浮展开按钮 -->
+        <v-btn
+          class="expand-btn"
+          :icon="isPreviewExpanded ? 'mdi-chevron-right' : 'mdi-chevron-left'"
+          :color="isPreviewExpanded ? 'grey' : 'primary'"
+          variant="elevated"
+          size="small"
+          @click="togglePreviewPane"
+        ></v-btn>
+        <v-btn @click="getPreview('natives/STM/streaming/Art/Model/Character/ch04/0/00/00/00/ch04_000_0000_1002_MB.tex.241106027')">
+          Test
+        </v-btn>
       </v-card>
+
+      <!-- 预览窗格 -->
+      <div v-if="isPreviewExpanded" class="preview-content">
+        <PreviewPane></PreviewPane>
+      </div>
     </div>
   </el-container>
 
@@ -149,7 +170,7 @@ import { open as dialogOpen } from '@tauri-apps/plugin-dialog'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import type { UnlistenFn } from '@tauri-apps/api/event'
 import { Channel } from '@tauri-apps/api/core'
-import { getCurrentWindow, ProgressBarStatus } from '@tauri-apps/api/window'
+import { getCurrentWindow, ProgressBarStatus, LogicalSize } from '@tauri-apps/api/window'
 import { exists } from '@tauri-apps/plugin-fs'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
@@ -165,10 +186,12 @@ import {
 import type { ExtractOptions, PakInfo, RenderTreeNode, UnpackProgressEvent } from '@/api/tauri/pak'
 import PakFiles from '@/components/PakFiles.vue'
 import FileTree from '@/components/FileTree.vue'
+import PreviewPane from '@/components/PreviewPane.vue'
 import { file_table_load } from '@/api/tauri/filelist'
 import { ShowError, ShowWarn } from '@/utils/message'
 import { useWorkStore } from '@/store/work'
 import { FileListService } from '@/service/filelist'
+import { getPreviewFile } from '@/api/tauri/utils'
 
 const workStore = useWorkStore()
 
@@ -183,6 +206,10 @@ const treeData = ref<RenderTreeNode | null>(null)
 const showOverlay = ref(false)
 // is tree loading
 const loadingTree = ref(false)
+// 预览窗格展开状态
+const isPreviewExpanded = ref(false)
+// 原始窗口大小
+const originalWindowSize = ref<{ width: number; height: number } | null>(null)
 // const fileNameTablePath = ref('')
 // 解包进度条
 const unpackWorking = ref(false)
@@ -452,6 +479,41 @@ async function handleConfirmTermination() {
   ShowWarn(t('global.extractionTerminated'))
 }
 
+// 切换预览窗格
+async function togglePreviewPane() {
+  const window = getCurrentWindow()
+
+  try {
+    if (!isPreviewExpanded.value) {
+      // 保存当前窗口大小
+      const size = await window.innerSize()
+      originalWindowSize.value = { width: size.width, height: size.height }
+
+      // 展开窗口，增加 400px 宽度
+      await window.setSize(new LogicalSize(size.width + 400, size.height))
+
+      isPreviewExpanded.value = true
+    } else {
+      // 恢复原始窗口大小
+      if (originalWindowSize.value) {
+        await window.setSize(
+          new LogicalSize(originalWindowSize.value.width, originalWindowSize.value.height)
+        )
+      }
+
+      isPreviewExpanded.value = false
+    }
+  } catch (error) {
+    // ShowError(t('global.failedToResizeWindow', { error: String(error) }))
+    ShowError(String(error))
+  }
+}
+
+async function getPreview(pakEntryPath: string) {
+  const previewFile = await getPreviewFile(pakEntryPath)
+  console.log('previewFile', previewFile)
+}
+
 // 处理文件拖拽功能
 watch(
   () => enableAddPaks,
@@ -535,12 +597,19 @@ onUnmounted(async () => {
   height: 100%;
   width: 100%;
   padding: 0 0.5rem 1rem 0.5rem;
+  display: flex;
+  gap: 0.5rem;
 
   .tree-card {
     display: flex;
     flex-direction: column;
     height: 100%;
     width: 100%;
+    position: relative;
+
+    &.with-preview {
+      width: calc(100% - 400px);
+    }
   }
 
   .tree-panel {
@@ -554,6 +623,11 @@ onUnmounted(async () => {
       flex-grow: 1;
       overflow: auto;
     }
+  }
+
+  .preview-content {
+    width: 400px;
+    height: 100%;
   }
 }
 
@@ -597,5 +671,14 @@ onUnmounted(async () => {
 
 .load-btn {
   min-width: 160px;
+}
+
+.expand-btn {
+  position: absolute;
+  top: 50%;
+  right: -16px;
+  transform: translateY(-50%);
+  z-index: 15;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 </style>

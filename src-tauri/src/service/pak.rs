@@ -4,7 +4,7 @@ use std::{
     io::{BufRead, BufReader, BufWriter, Read, Seek, Write},
     path::{Path, PathBuf},
     sync::{
-        Arc,
+        Arc, OnceLock,
         atomic::{AtomicBool, Ordering},
     },
     thread::{self, JoinHandle},
@@ -34,6 +34,8 @@ use crate::{
 };
 
 pub type PakHeaderInfo = PakArchive;
+
+static PAK_SERVICE: OnceLock<PakService<BufReader<File>>> = OnceLock::new();
 
 /// Builder for creating PackedFileTree from packed files
 struct PakTreeBuilder {
@@ -72,6 +74,14 @@ pub struct PakService<R> {
 }
 
 impl PakService<BufReader<File>> {
+    pub fn initialize(pak_group: PakGroup<BufReader<File>>) -> &'static Self {
+        PAK_SERVICE.get_or_init(|| Self::new(pak_group))
+    }
+
+    pub fn get() -> &'static Self {
+        PAK_SERVICE.get().unwrap()
+    }
+
     pub fn open_pak(&self, path: &str) -> Result<PakId> {
         // open pak file
         let file = std::fs::File::open(path).map_err(|e| Error::FileIO {
@@ -95,7 +105,7 @@ impl<R> PakService<R>
 where
     R: Send + Sync + BufRead + Seek + 'static,
 {
-    pub fn new(pak_group: PakGroup<R>) -> Self {
+    fn new(pak_group: PakGroup<R>) -> Self {
         Self {
             pak_group: Arc::new(Mutex::new(pak_group)),
             work_thread: Mutex::new(None),
@@ -224,6 +234,37 @@ where
         }));
 
         Ok(())
+    }
+
+    /// Unpack a specific file from Paks.
+    pub fn unpack_file(&self, entry_path: &str, output_path: impl AsRef<Path>) -> Result<()> {
+        let mut _pak_group = self.pak_group.lock();
+        if _pak_group.paks().is_empty() {
+            return Err(Error::NoPaksLoaded);
+        }
+        if _pak_group.file_name_table().is_none() {
+            return Err(Error::MissingFileList);
+        }
+
+        // get newest file from paks
+        let file_hash = entry_path.hash_mixed();
+        for pak in _pak_group.paks_mut().iter_mut().rev() {
+            if let Some(entry) = pak.archive.entries().iter().find(|e| e.hash() == file_hash) {
+                let reader = pak.reader.as_mut().unwrap();
+                let mut entry_reader = PakArchiveReader::new(reader, &pak.archive).owned_entry_reader(entry.clone())?;
+
+                let output_path = output_path.as_ref();
+                let file_dir = output_path.parent().unwrap();
+                if !file_dir.exists() {
+                    std::fs::create_dir_all(file_dir)?;
+                }
+                let mut file = File::create(output_path)?;
+                std::io::copy(&mut entry_reader, &mut file)?;
+                return Ok(());
+            }
+        }
+
+        Err(Error::PakEntryNotFound(entry_path.to_string()))
     }
 
     pub fn set_file_name_table(&self, table: FileNameTable) {

@@ -1,11 +1,13 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::sync::OnceLock;
+use std::{path::PathBuf, sync::OnceLock};
 
 use pak::group::PakGroup;
 use service::pak::PakService;
 use tauri::{AppHandle, Manager};
+
+use crate::service::preview::PreviewService;
 
 mod channel;
 mod command;
@@ -18,6 +20,9 @@ mod pak;
 mod service;
 mod utility;
 
+const LOCAL_DIR_PATH: &str = "ree-pak-tools";
+const TEMP_DIR_NAME: &str = "temp";
+
 static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
 
 fn panic_hook(info: &std::panic::PanicHookInfo) {
@@ -28,15 +33,43 @@ fn panic_hook(info: &std::panic::PanicHookInfo) {
     std::process::exit(1);
 }
 
+// Clean temp files.
+fn clean_temp_files() {
+    let temp_dir = get_local_dir().join(TEMP_DIR_NAME);
+    if temp_dir.exists() {
+        if let Err(e) = std::fs::remove_dir_all(&temp_dir) {
+            log::warn!("Failed to clean temp files: {}", e);
+        } else {
+            log::info!("Temp files cleaned: {:?}", temp_dir);
+        }
+    }
+}
+
+fn get_local_dir() -> PathBuf {
+    let exe_path = std::env::current_exe().unwrap();
+    let exe_dir = exe_path.parent().unwrap();
+    let local_dir = exe_dir.join(LOCAL_DIR_PATH);
+    if !local_dir.exists() {
+        std::fs::create_dir_all(&local_dir).unwrap();
+    }
+
+    local_dir
+}
+
 fn main() {
     std::panic::set_hook(Box::new(panic_hook));
     logger::Logger::init();
+
+    // initialize services
+    let _ = PakService::initialize(PakGroup::new());
+    let _ = PreviewService::initialize();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let _ = APP_HANDLE.set(app.handle().clone());
             let main_window = app.get_webview_window("main").unwrap();
@@ -45,8 +78,6 @@ fn main() {
                 .unwrap();
             Ok(())
         })
-        .manage(PakService::new(PakGroup::new()))
-        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             command::pak_clear_all,
             command::pak_list_all,
@@ -62,6 +93,7 @@ fn main() {
             command::pak_pack,
             command::pak_terminate_pack,
             command::file_table_load,
+            command::get_preview_file,
             command::get_exe_path,
             command::get_compile_info,
             command::perform_update,
@@ -69,6 +101,14 @@ fn main() {
             command::murmur32,
             command::murmur32_utf16,
         ])
+        .on_window_event(|window, event| {
+            // Clean temp files when main window is closed.
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                if window.label() == "main" {
+                    clean_temp_files();
+                }
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

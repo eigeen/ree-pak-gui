@@ -8,6 +8,10 @@ export interface CompileInfo {
   arch: string
 }
 
+export function getPreviewFile(pakEntryPath: string): Promise<string> {
+  return invoke('get_preview_file', { pakEntryPath })
+}
+
 export function getExePath(): Promise<string> {
   return invoke('get_exe_path')
 }

@@ -19,6 +19,7 @@ declare module 'vue' {
     Menu: typeof import('./src/components/Menu.vue')['default']
     PakFileItem: typeof import('./src/components/PakFileItem.vue')['default']
     PakFiles: typeof import('./src/components/PakFiles.vue')['default']
+    PreviewPane: typeof import('./src/components/PreviewPane.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     Settings: typeof import('./src/components/Settings/Settings.vue')['default']

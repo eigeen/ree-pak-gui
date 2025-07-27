@@ -1,58 +1,59 @@
-use std::{fs::File, io::BufReader};
-
 use anyhow::Context as _;
 use ree_pak_core::filename::{FileNameTable, murmur3_hash};
-use tauri::ipc::Channel;
 
 use crate::{
-    channel::{
-        PackProgressChannel, PackProgressChannelInner, UnpackProgressChannel, UnpackProgressChannelInner,
-        WorkProgressEvent,
-    },
+    channel::{PackProgressChannel, PackProgressChannelInner, UnpackProgressChannel, UnpackProgressChannelInner},
     pak::{
         ExtractOptions, PakId, PakInfo,
         tree::{FileTree, RenderTreeNode, RenderTreeOptions},
     },
-    service::pak::{PakHeaderInfo, PakService},
+    service::{
+        pak::{PakHeaderInfo, PakService},
+        preview::PreviewService,
+    },
     utility, warp_result_elapsed,
 };
 
-type PakServiceState = PakService<BufReader<File>>;
-
 /// Clear all loaded Pak files.
 #[tauri::command]
-pub fn pak_clear_all(pak_service: tauri::State<PakServiceState>) -> Result<(), String> {
+pub fn pak_clear_all() -> Result<(), String> {
+    let pak_service = PakService::get();
     pak_service.clear_all_paks();
     Ok(())
 }
 
 /// List all loaded Pak files.
 #[tauri::command]
-pub fn pak_list_all(pak_service: tauri::State<PakServiceState>) -> Result<Vec<PakInfo>, String> {
+pub fn pak_list_all() -> Result<Vec<PakInfo>, String> {
+    let pak_service = PakService::get();
     Ok(pak_service.list_all_paks())
 }
 
 /// Open a Pak file.
 #[tauri::command]
-pub fn pak_open(pak_service: tauri::State<PakServiceState>, path: &str) -> Result<PakId, String> {
+pub fn pak_open(path: &str) -> Result<PakId, String> {
+    let pak_service = PakService::get();
     pak_service.open_pak(path).map_err(|e| e.to_string())
 }
 
 /// Close a Pak file.
 #[tauri::command]
-pub fn pak_close(pak_service: tauri::State<PakServiceState>, id: PakId) -> Result<(), String> {
+pub fn pak_close(id: PakId) -> Result<(), String> {
+    let pak_service = PakService::get();
     pak_service.close_pak(id).map_err(|e| e.to_string())
 }
 
 /// Set the order of loaded Pak files.
 #[tauri::command]
-pub fn pak_order(pak_service: tauri::State<PakServiceState>, order: Vec<PakId>) -> Result<(), String> {
+pub fn pak_order(order: Vec<PakId>) -> Result<(), String> {
+    let pak_service = PakService::get();
     pak_service.order_paks(&order).map_err(|e| e.to_string())
 }
 
 /// Get the information of a Pak file.
 #[tauri::command]
-pub fn pak_get_info(pak_service: tauri::State<PakServiceState>, id: PakId) -> Result<PakInfo, String> {
+pub fn pak_get_info(id: PakId) -> Result<PakInfo, String> {
+    let pak_service = PakService::get();
     pak_service.get_pak_info(id).map_err(|e| e.to_string())
 }
 
@@ -60,7 +61,8 @@ pub fn pak_get_info(pak_service: tauri::State<PakServiceState>, id: PakId) -> Re
 ///
 /// Should load file name list first.
 #[tauri::command]
-pub fn pak_read_file_tree(pak_service: tauri::State<PakServiceState>) -> Result<FileTree, String> {
+pub fn pak_read_file_tree() -> Result<FileTree, String> {
+    let pak_service = PakService::get();
     pak_service.read_file_tree().map_err(|e| e.to_string())
 }
 
@@ -70,10 +72,8 @@ pub fn pak_read_file_tree(pak_service: tauri::State<PakServiceState>) -> Result<
 ///
 /// Should load file name list first.
 #[tauri::command]
-pub fn pak_read_file_tree_optimized(
-    pak_service: tauri::State<PakServiceState>,
-    options: Option<RenderTreeOptions>,
-) -> Result<RenderTreeNode, String> {
+pub fn pak_read_file_tree_optimized(options: Option<RenderTreeOptions>) -> Result<RenderTreeNode, String> {
+    let pak_service = PakService::get();
     warp_result_elapsed!(
         pak_service.read_file_tree_optimized(&options.unwrap_or_default()),
         "read_file_tree_optimized spent {} ms"
@@ -82,11 +82,8 @@ pub fn pak_read_file_tree_optimized(
 
 /// Extract all loaded paks.
 #[tauri::command]
-pub fn pak_extract_all(
-    pak_service: tauri::State<PakServiceState>,
-    options: ExtractOptions,
-    on_event: UnpackProgressChannelInner,
-) -> Result<(), String> {
+pub fn pak_extract_all(options: ExtractOptions, on_event: UnpackProgressChannelInner) -> Result<(), String> {
+    let pak_service = PakService::get();
     if options.extract_all {
         println!("Extracting all entries...");
     } else {
@@ -102,7 +99,8 @@ pub fn pak_extract_all(
 
 /// Terminate the current extraction process.
 #[tauri::command]
-pub fn pak_terminate_extraction(pak_service: tauri::State<PakServiceState>) -> Result<(), String> {
+pub fn pak_terminate_extraction() -> Result<(), String> {
+    let pak_service = PakService::get();
     pak_service.terminate_work();
     log::warn!("Extraction process terminated.");
     Ok(())
@@ -114,25 +112,23 @@ pub fn pak_get_header(pak_path: &str) -> Result<PakHeaderInfo, String> {
 }
 
 #[tauri::command]
-pub fn pak_pack(
-    pak_service: tauri::State<PakServiceState>,
-    sources: Vec<String>,
-    output: String,
-    on_event: PackProgressChannelInner,
-) -> Result<(), String> {
+pub fn pak_pack(sources: Vec<String>, output: String, on_event: PackProgressChannelInner) -> Result<(), String> {
+    let pak_service = PakService::get();
     let channel = PackProgressChannel::new(on_event);
     pak_service.pack(&sources, &output, channel).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn pak_terminate_pack(pak_service: tauri::State<PakServiceState>) -> Result<(), String> {
+pub fn pak_terminate_pack() -> Result<(), String> {
+    let pak_service = PakService::get();
     pak_service.terminate_work();
     log::warn!("Pack process terminated.");
     Ok(())
 }
 
 #[tauri::command]
-pub fn file_table_load(pak_service: tauri::State<PakServiceState>, path: &str) -> Result<(), String> {
+pub fn file_table_load(path: &str) -> Result<(), String> {
+    let pak_service = PakService::get();
     warp_result_elapsed!(
         {
             let table = FileNameTable::from_list_file(path).map_err(|e| e.to_string())?;
@@ -141,6 +137,20 @@ pub fn file_table_load(pak_service: tauri::State<PakServiceState>, path: &str) -
         },
         "file_table_load spent {} ms"
     )
+}
+
+/// Get preview file path.
+///
+/// Will return error if the file is not supported.
+#[tauri::command]
+pub async fn get_preview_file(pak_entry_path: &str) -> Result<String, String> {
+    let preview_service = PreviewService::get();
+
+    preview_service
+        .get_preview_file(pak_entry_path)
+        .await
+        .map_err(|e| e.to_string())
+        .map(|p| p.to_string_lossy().to_string())
 }
 
 #[tauri::command]

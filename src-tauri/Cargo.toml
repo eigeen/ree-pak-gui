@@ -16,6 +16,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 ree-pak-core = { path = "../../ree-pak-core" }
+re-tex = { git = "https://github.com/eigeen/re-tex", features = ["image"] }
 
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
@@ -48,6 +49,8 @@ tauri-plugin-process = "2"
 zip = { version = "4.0", default-features = false, features = ["deflate"] }
 indexmap.workspace = true
 walkdir.workspace = true
+# for preview
+image = { version = "0.25", default-features = false, features = ["png", "rayon"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.61", features = ["Win32_UI_WindowsAndMessaging"] }
