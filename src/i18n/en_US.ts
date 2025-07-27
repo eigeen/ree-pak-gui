@@ -87,6 +87,12 @@ export default {
       exportDirRequired: 'Export directory is required for merge export',
       failedCancelExport: 'Failed to cancel export operation: {error}'
     },
+    preview: {
+      title: 'Preview',
+      previewLoadFailed: 'Preview load failed',
+      unsupportedFileType: 'Unsupported file type for preview',
+      selectFileToPreview: 'Select a file to preview content'
+    },
     global: {
       failedLoadSettings: 'Failed to load settings: {error}',
       useDefaultSettings: 'Will use default settings',

@@ -1,6 +1,6 @@
 <template>
   <v-card class="preview-pane pa-4 elevation-3 rounded-lg">
-    <div class="text-subtitle-1">预览</div>
+    <div class="text-subtitle-1">{{ $t('preview.title') }}</div>
     <v-card-text class="preview-content">
       <!-- 显示预览图片 -->
       <div v-if="previewUri && isImage" class="preview-image-container">
@@ -19,7 +19,7 @@
           <template #error>
             <div class="image-slot">
               <v-icon icon="mdi-alert-circle-outline" size="64" color="error" class="mb-4"></v-icon>
-              <p class="text-error text-body-1">预览加载失败</p>
+              <p class="text-error text-body-1">{{ $t('preview.previewLoadFailed') }}</p>
             </div>
           </template>
         </el-image>
@@ -30,7 +30,7 @@
       <!-- 显示其他文件类型的占位符 -->
       <div v-else-if="previewUri && !isImage" class="preview-unsupported">
         <v-icon icon="mdi-file-outline" size="64" color="grey-lighten-1" class="mb-4"></v-icon>
-        <p class="text-grey-lighten-1 text-body-1">不支持预览此文件类型</p>
+        <p class="text-grey-lighten-1 text-body-1">{{ $t('preview.unsupportedFileType') }}</p>
         <p v-if="fileName" class="text-grey-lighten-2 text-body-2">{{ fileName }}</p>
       </div>
       <!-- 默认占位符 -->
@@ -41,7 +41,7 @@
           color="grey-lighten-1"
           class="mb-4"
         ></v-icon>
-        <p class="text-grey-lighten-1 text-body-1">选择文件以预览内容</p>
+        <p class="text-grey-lighten-1 text-body-1">{{ $t('preview.selectFileToPreview') }}</p>
       </div>
     </v-card-text>
   </v-card>
@@ -124,7 +124,7 @@ const isImage = computed(() => {
 .preview-filename {
   margin-top: 12px;
   font-size: 0.875rem;
-  color: rgba(0, 0, 0, 0.6);
+  color: rgba(var(--v-theme-on-surface), 0.7);
   text-align: center;
   word-break: break-all;
   max-width: 100%;

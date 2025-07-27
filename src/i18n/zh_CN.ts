@@ -86,6 +86,12 @@ export default {
       exportDirRequired: '合并导出需要指定导出目录',
       failedCancelExport: '取消导出操作失败：{error}'
     },
+    preview: {
+      title: '预览',
+      previewLoadFailed: '预览加载失败',
+      unsupportedFileType: '不支持预览此文件类型',
+      selectFileToPreview: '选择文件以预览内容'
+    },
     global: {
       failedLoadSettings: '加载设置失败: {error}',
       useDefaultSettings: '将使用默认设置',
