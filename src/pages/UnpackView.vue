@@ -108,7 +108,7 @@
 
       <!-- 预览窗格 -->
       <div v-if="isPreviewExpanded" class="preview-content">
-        <PreviewPane></PreviewPane>
+        <PreviewPane :preview-uri="previewUri" :file-name="previewFileName"></PreviewPane>
       </div>
     </div>
   </el-container>
@@ -181,7 +181,13 @@ import {
   pak_read_file_tree_optimized,
   pak_terminate_extraction
 } from '@/api/tauri/pak'
-import type { ExtractOptions, JsSafeHash, PakInfo, RenderTreeNode, UnpackProgressEvent } from '@/api/tauri/pak'
+import type {
+  ExtractOptions,
+  JsSafeHash,
+  PakInfo,
+  RenderTreeNode,
+  UnpackProgressEvent
+} from '@/api/tauri/pak'
 import PakFiles from '@/components/PakFiles.vue'
 import FileTree, { type TreeData } from '@/components/FileTree.vue'
 import PreviewPane from '@/components/PreviewPane.vue'
@@ -208,6 +214,9 @@ const loadingTree = ref(false)
 const isPreviewExpanded = ref(false)
 // 原始窗口大小
 const originalWindowSize = ref<{ width: number; height: number } | null>(null)
+// 预览状态
+const previewUri = ref('')
+const previewFileName = ref('')
 // const fileNameTablePath = ref('')
 // 解包进度条
 const unpackWorking = ref(false)
@@ -513,13 +522,31 @@ function parseId(id: string): JsSafeHash {
 
 async function handleNodeClick(data: TreeData, _node: any, _event: MouseEvent) {
   try {
+    // 只有在预览窗格展开时才处理预览
+    if (!isPreviewExpanded.value) {
+      return
+    }
+
+    // 如果是目录（有子节点），清空预览
+    if (data.children && data.children.length > 0) {
+      previewUri.value = ''
+      previewFileName.value = ''
+      return
+    }
+
     const hash = parseId(data.id)
     const previewFile = await getPreviewFile(hash)
 
-    const fileUri = convertFileSrc(previewFile)
-    console.log('fileUri', fileUri)
-  } catch (_) {
-    // ignore error
+    const fileUri = convertFileSrc(previewFile, 'asset')
+    console.debug('preview file', data.label)
+
+    // 更新预览状态
+    previewUri.value = fileUri
+    previewFileName.value = data.label
+  } catch (error) {
+    // 预览失败时清空状态
+    previewUri.value = ''
+    previewFileName.value = ''
   }
 }
 
@@ -534,6 +561,14 @@ watch(
     }
   }
 )
+
+// 预览窗格关闭时清空预览状态
+watch(isPreviewExpanded, (expanded) => {
+  if (!expanded) {
+    previewUri.value = ''
+    previewFileName.value = ''
+  }
+})
 
 async function loadWorkRecords() {
   await workStore.loadWorkRecords()

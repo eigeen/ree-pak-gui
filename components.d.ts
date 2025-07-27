@@ -10,6 +10,7 @@ declare module 'vue' {
   export interface GlobalComponents {
     ElAside: typeof import('element-plus/es')['ElAside']
     ElContainer: typeof import('element-plus/es')['ElContainer']
+    ElImage: typeof import('element-plus/es')['ElImage']
     ElTreeV2: typeof import('element-plus/es')['ElTreeV2']
     FileConflict: typeof import('./src/components/FileConflict.vue')['default']
     FileNameTable: typeof import('./src/components/FileNameTable/FileNameTable.vue')['default']
