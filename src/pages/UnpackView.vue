@@ -78,6 +78,7 @@
           <FileTree
             class="file-tree"
             ref="fileTreeComponent"
+            @node-click="handleNodeClick"
             :data="treeData"
             :filter-text="filterTextApply"
             :regex-mode="workStore.unpack.filterUseRegex"
@@ -103,9 +104,6 @@
           size="small"
           @click="togglePreviewPane"
         ></v-btn>
-        <v-btn @click="getPreview('natives/STM/streaming/Art/Model/Character/ch04/0/00/00/00/ch04_000_0000_1002_MB.tex.241106027')">
-          Test
-        </v-btn>
       </v-card>
 
       <!-- 预览窗格 -->
@@ -169,7 +167,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { open as dialogOpen } from '@tauri-apps/plugin-dialog'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import type { UnlistenFn } from '@tauri-apps/api/event'
-import { Channel } from '@tauri-apps/api/core'
+import { Channel, convertFileSrc } from '@tauri-apps/api/core'
 import { getCurrentWindow, ProgressBarStatus, LogicalSize } from '@tauri-apps/api/window'
 import { exists } from '@tauri-apps/plugin-fs'
 import { useI18n } from 'vue-i18n'
@@ -183,9 +181,9 @@ import {
   pak_read_file_tree_optimized,
   pak_terminate_extraction
 } from '@/api/tauri/pak'
-import type { ExtractOptions, PakInfo, RenderTreeNode, UnpackProgressEvent } from '@/api/tauri/pak'
+import type { ExtractOptions, JsSafeHash, PakInfo, RenderTreeNode, UnpackProgressEvent } from '@/api/tauri/pak'
 import PakFiles from '@/components/PakFiles.vue'
-import FileTree from '@/components/FileTree.vue'
+import FileTree, { type TreeData } from '@/components/FileTree.vue'
 import PreviewPane from '@/components/PreviewPane.vue'
 import { file_table_load } from '@/api/tauri/filelist'
 import { ShowError, ShowWarn } from '@/utils/message'
@@ -509,9 +507,20 @@ async function togglePreviewPane() {
   }
 }
 
-async function getPreview(pakEntryPath: string) {
-  const previewFile = await getPreviewFile(pakEntryPath)
-  console.log('previewFile', previewFile)
+function parseId(id: string): JsSafeHash {
+  return id.split(',').map((str) => parseInt(str, 10)) as JsSafeHash
+}
+
+async function handleNodeClick(data: TreeData, _node: any, _event: MouseEvent) {
+  try {
+    const hash = parseId(data.id)
+    const previewFile = await getPreviewFile(hash)
+
+    const fileUri = convertFileSrc(previewFile)
+    console.log('fileUri', fileUri)
+  } catch (_) {
+    // ignore error
+  }
 }
 
 // 处理文件拖拽功能

@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import type { JsSafeHash } from './pak'
 
 export interface CompileInfo {
   version: string
@@ -8,8 +9,8 @@ export interface CompileInfo {
   arch: string
 }
 
-export function getPreviewFile(pakEntryPath: string): Promise<string> {
-  return invoke('get_preview_file', { pakEntryPath })
+export function getPreviewFile(hash: JsSafeHash): Promise<string> {
+  return invoke('get_preview_file', { hash })
 }
 
 export function getExePath(): Promise<string> {

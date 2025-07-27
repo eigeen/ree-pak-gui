@@ -48,14 +48,28 @@ impl PreviewService {
     /// Get preview file path from Pak.
     ///
     /// If preview not found, create a new one.
-    pub async fn get_preview_file(&self, pak_entry_path: &str) -> Result<PathBuf> {
+    pub async fn get_preview_file(&self, hash: u64) -> Result<PathBuf> {
+        // get entry path
+        let pak_entry_path = {
+            let pak_group = self.pak_service.pak_group();
+            let pak_group = pak_group.lock();
+            let Some(file_name_table) = pak_group.file_name_table() else {
+                return Err(Error::MissingFileList);
+            };
+
+            file_name_table
+                .get_file_name(hash)
+                .map(|p| p.get_name().to_string())
+                .ok_or_else(|| Error::PakEntryNotFound(hash.to_string()))?
+        };
+
         // check file type
         // example: path/to/file.tex.241106027 -> tex
         let ext = pak_entry_path.split('.').rev().nth(1).unwrap_or_default();
         let file_type = PreviewFileType::from_extension(ext).ok_or(Error::PreviewFileNotSupported(ext.to_string()))?;
 
         // if preview file exists, return it
-        if let Some(path) = self.get_existing_preview_file(pak_entry_path) {
+        if let Some(path) = self.get_existing_preview_file(&pak_entry_path) {
             return Ok(path);
         }
 

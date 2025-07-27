@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ExtractFileInfo, JsSafeHash, RenderTreeNode } from '@/api/tauri/pak'
-import type { ElTree } from 'element-plus'
+import type { ElTree, TreeNode } from 'element-plus'
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 
 export interface TreeData {
@@ -21,6 +21,10 @@ export interface Props {
 }
 
 const props = defineProps<Props>()
+
+const emit = defineEmits<{
+  (e: 'node-click', data: TreeData, node: TreeNode, event: MouseEvent): void
+}>()
 // const props = withDefaults(defineProps<Props>(), {
 //   data: (): RenderTreeNode[] => { return [] },
 // })
@@ -259,6 +263,9 @@ defineExpose({ getCheckedNodes })
       :props="treeProps"
       :data="filteredData"
       :height="treeHeight"
+      @node-click="(data: TreeData, node: TreeNode, e: MouseEvent) => {
+        emit('node-click', data, node, e)
+      }"
       show-checkbox
     >
       <template #default="{ node }">

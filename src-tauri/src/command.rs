@@ -3,6 +3,7 @@ use ree_pak_core::filename::{FileNameTable, murmur3_hash};
 
 use crate::{
     channel::{PackProgressChannel, PackProgressChannelInner, UnpackProgressChannel, UnpackProgressChannelInner},
+    common::JsSafeHash,
     pak::{
         ExtractOptions, PakId, PakInfo,
         tree::{FileTree, RenderTreeNode, RenderTreeOptions},
@@ -143,11 +144,11 @@ pub fn file_table_load(path: &str) -> Result<(), String> {
 ///
 /// Will return error if the file is not supported.
 #[tauri::command]
-pub async fn get_preview_file(pak_entry_path: &str) -> Result<String, String> {
+pub async fn get_preview_file(hash: JsSafeHash) -> Result<String, String> {
     let preview_service = PreviewService::get();
 
     preview_service
-        .get_preview_file(pak_entry_path)
+        .get_preview_file(hash.hash_u64())
         .await
         .map_err(|e| e.to_string())
         .map(|p| p.to_string_lossy().to_string())

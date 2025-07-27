@@ -21,16 +21,16 @@ impl<R> PakGroup<R>
 where
     R: Send + Sync + BufRead + Seek,
 {
-    pub fn file_name_table(&self) -> Option<&FileNameTable> {
-        self.file_name_table.as_ref()
-    }
-
     pub fn paks(&self) -> &[Pak<R>] {
         &self.paks
     }
 
     pub fn paks_mut(&mut self) -> &mut [Pak<R>] {
         &mut self.paks
+    }
+
+    pub fn file_name_table(&self) -> Option<&FileNameTable> {
+        self.file_name_table.as_ref()
     }
 
     pub fn pak_infos(&self) -> Vec<PakInfo> {
