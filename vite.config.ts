@@ -64,13 +64,6 @@ export default defineConfig({
   server: {
     strictPort: true
   },
-  css: {
-    preprocessorOptions: {
-      sass: {
-        api: 'modern-compiler'
-      }
-    }
-  },
   // to access the Tauri environment variables set by the CLI with information about the current target
   envPrefix: [
     'VITE_',
