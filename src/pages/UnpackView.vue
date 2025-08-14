@@ -494,24 +494,30 @@ async function togglePreviewPane() {
     if (!isPreviewExpanded.value) {
       // 保存当前窗口大小
       const size = await window.innerSize()
+      // 获取缩放
+      const scale = await window.scaleFactor()
+      console.debug('window scale', scale)
       originalWindowSize.value = { width: size.width, height: size.height }
 
       // 展开窗口，增加 400px 宽度
-      await window.setSize(new LogicalSize(size.width + 400, size.height))
+      await window.setSize(new LogicalSize(size.width + 400 / scale, size.height / scale))
 
       isPreviewExpanded.value = true
     } else {
       // 恢复原始窗口大小
       if (originalWindowSize.value) {
+        const scale = await window.scaleFactor()
         await window.setSize(
-          new LogicalSize(originalWindowSize.value.width, originalWindowSize.value.height)
+          new LogicalSize(
+            originalWindowSize.value.width / scale,
+            originalWindowSize.value.height / scale
+          )
         )
       }
 
       isPreviewExpanded.value = false
     }
   } catch (error) {
-    // ShowError(t('global.failedToResizeWindow', { error: String(error) }))
     ShowError(String(error))
   }
 }
