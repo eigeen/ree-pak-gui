@@ -448,7 +448,7 @@ let unlisten: UnlistenFn
 
 async function startListenToDrop() {
   console.debug('start listen to drop')
-  unlisten = await getCurrentWebview().onDragDropEvent(async (event) => {
+  unlisten = await getCurrentWebview().onDragDropEvent(async (event: any) => {
     if (event.payload.type === 'drop') {
       await dropInAddPaks(event.payload.paths)
     }
