@@ -68,6 +68,8 @@ export const useWorkStore = defineStore('work', () => {
     console.log(`Loading work records from ${workFile}`)
     const content = await readTextFile(workFile)
     const work = JSON.parse(content)
+    console.debug('work record', work)
+
     if (work.unpack) {
       unpack.value = work.unpack
     }

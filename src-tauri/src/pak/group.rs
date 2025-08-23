@@ -9,8 +9,6 @@ use super::{Pak, PakId, PakInfo, tree::FileTree};
 
 use crate::error::{Error, Result};
 
-type PakBufReaderFile = Pak<BufReader<File>>;
-
 /// Manages a group of paks.
 pub struct PakGroup<R> {
     paks: Vec<Pak<R>>,
@@ -58,10 +56,6 @@ where
 
     pub fn get_pak(&self, id: &PakId) -> Option<&Pak<R>> {
         self.paks.iter().find(|pak| pak.id == *id)
-    }
-
-    pub fn get_pak_mut(&mut self, id: &PakId) -> Option<&mut Pak<R>> {
-        self.paks.iter_mut().find(|pak| pak.id == *id)
     }
 
     pub fn get_pak_by_path(&self, path: &str) -> Option<&Pak<R>> {

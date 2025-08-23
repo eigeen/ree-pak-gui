@@ -249,8 +249,10 @@ const enableExtract = computed(() => treeData.value !== null)
 watch(pakData, async () => {
   console.debug('pakData changed', pakData.value)
   treeData.value = null
-  // sync to work store
-  workStore.unpack.paks = pakData.value.map((pak) => pak.path)
+  // sync to work store, only when initial loaded
+  if (initialLoaded.value) {
+    workStore.unpack.paks = pakData.value.map((pak) => pak.path)
+  }
 })
 
 // auto render tree
@@ -602,12 +604,16 @@ async function loadWorkRecords() {
   }
 
   initialLoaded.value = true
+  // reload data to get current state
+  await reloadData()
+  // sync to work store
+  workStore.unpack.paks = pakData.value.map((pak) => pak.path)
 }
 
 onMounted(async () => {
   await startListenToDrop()
-  // 加载数据
-  await reloadData()
+  // 先尝试恢复工作现场（内部会调用reloadData）
+  await loadWorkRecords()
 })
 
 onUnmounted(async () => {
