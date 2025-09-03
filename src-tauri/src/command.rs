@@ -1,8 +1,12 @@
 use anyhow::Context as _;
 use ree_pak_core::filename::{FileNameTable, murmur3_hash};
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    channel::{PackProgressChannel, PackProgressChannelInner, UnpackProgressChannel, UnpackProgressChannelInner},
+    channel::{
+        PackProgressChannel, PackProgressChannelInner, PathScanProgressChannel, PathScanProgressChannelInner,
+        UnpackProgressChannel, UnpackProgressChannelInner,
+    },
     common::JsSafeHash,
     pak::{
         ExtractOptions, PakId, PakInfo,
@@ -11,6 +15,7 @@ use crate::{
     service::{
         pak::{PakHeaderInfo, PakService},
         preview::PreviewService,
+        tools::ToolsService,
     },
     utility, warp_result_elapsed,
 };
@@ -160,7 +165,7 @@ pub fn get_exe_path() -> Result<String, String> {
     Ok(path.to_string_lossy().to_string())
 }
 
-#[derive(serde::Serialize)]
+#[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompileInfo {
     version: &'static str,
@@ -211,4 +216,31 @@ pub fn murmur32(buffer: Vec<u8>) -> Result<u32, String> {
 pub fn murmur32_utf16(str: String) -> Result<u64, String> {
     use ree_pak_core::filename::FileNameExt;
     Ok(str.hash_mixed())
+}
+
+// Tools commands
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PathScanOptions {
+    pub pak_files: Vec<String>,
+    pub dump_files: Vec<String>,
+}
+
+/// Path scanning command
+#[tauri::command]
+pub fn tools_scan_paths(options: PathScanOptions, on_event: PathScanProgressChannelInner) -> Result<(), String> {
+    let channel = PathScanProgressChannel::new(on_event);
+
+    // Call path scanning service
+    let tools_service = ToolsService::get();
+    tools_service.scan_paths(&options, channel).map_err(|e| e.to_string())
+}
+
+/// Terminate path scanning
+#[tauri::command]
+pub fn tools_terminate_scan() -> Result<(), String> {
+    let tools_service = ToolsService::get();
+    tools_service.terminate_scan();
+    Ok(())
 }

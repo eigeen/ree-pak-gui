@@ -187,10 +187,10 @@ where
     /// - No paks or no file list is loaded.
     /// - Unpack already running.
     pub fn unpack_optional(&self, options: &ExtractOptions, progress: UnpackProgressChannel) -> Result<()> {
-        if let Some(handle) = &*self.work_thread.lock() {
-            if !handle.is_finished() {
-                return Err(Error::UnpackAlreadyRunning);
-            }
+        if let Some(handle) = &*self.work_thread.lock()
+            && !handle.is_finished()
+        {
+            return Err(Error::UnpackAlreadyRunning);
         }
 
         let _pak_group = self.pak_group.lock();
@@ -272,10 +272,10 @@ where
     }
 
     pub fn pack(&self, sources: &[impl AsRef<str>], output: &str, progress: PackProgressChannel) -> Result<()> {
-        if let Some(handle) = &*self.work_thread.lock() {
-            if !handle.is_finished() {
-                return Err(Error::PackAlreadyRunning);
-            }
+        if let Some(handle) = &*self.work_thread.lock()
+            && !handle.is_finished()
+        {
+            return Err(Error::PackAlreadyRunning);
         }
 
         let output_path = PathBuf::from(output);
@@ -341,7 +341,7 @@ where
                             .try_for_each(|entry| -> Result<()> {
                                 let entry = entry.map_err(|e| Error::FileIO {
                                     path: root_path.display().to_string(),
-                                    source: std::io::Error::new(std::io::ErrorKind::Other, e.to_string()),
+                                    source: std::io::Error::other(e.to_string()),
                                 })?;
                                 let path = entry.path();
                                 let relative_path = get_relative_path(&root_path, path)?;
@@ -568,11 +568,11 @@ where
     file.write_all(&data)?;
 
     // guess unknown file extension
-    if output_path.extension().is_none() {
-        if let Some(ext) = entry_reader.determine_extension() {
-            let new_path = output_path.with_extension(ext);
-            std::fs::rename(output_path, new_path)?;
-        }
+    if output_path.extension().is_none()
+        && let Some(ext) = entry_reader.determine_extension()
+    {
+        let new_path = output_path.with_extension(ext);
+        std::fs::rename(output_path, new_path)?;
     }
 
     Ok(())

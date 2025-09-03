@@ -208,3 +208,58 @@ impl PackProgressChannelImpl<PackProgressData> {
         true
     }
 }
+
+// Path scan progress
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase", tag = "event", content = "data")]
+pub enum PathScanProgressEvent {
+    #[serde(rename_all = "camelCase")]
+    StartFile { current: u32, total: u32 },
+    #[serde(rename_all = "camelCase")]
+    Finish {
+        success: bool,
+        found_paths: Vec<String>,
+        error: Option<String>,
+    },
+}
+
+pub type PathScanProgressChannel = PathScanProgressChannelImpl;
+pub type PathScanProgressChannelInner = Channel<PathScanProgressEvent>;
+
+#[derive(Clone)]
+pub struct PathScanProgressChannelImpl {
+    channel: Channel<PathScanProgressEvent>,
+}
+
+impl PathScanProgressChannelImpl {
+    pub fn new(channel: Channel<PathScanProgressEvent>) -> Self {
+        Self { channel }
+    }
+
+    pub fn file_start(&self, current: u32, total: u32) {
+        if let Err(e) = self.channel.send(PathScanProgressEvent::StartFile { current, total }) {
+            log::error!("Failed to send path scan progress event: {}", e);
+        }
+    }
+
+    pub fn finish_ok(&self, found_paths: Vec<String>) {
+        if let Err(e) = self.channel.send(PathScanProgressEvent::Finish {
+            success: true,
+            found_paths,
+            error: None,
+        }) {
+            log::error!("Failed to send path scan progress event: {}", e);
+        }
+    }
+
+    pub fn finish_err(&self, error: String) {
+        if let Err(e) = self.channel.send(PathScanProgressEvent::Finish {
+            success: false,
+            found_paths: Vec::new(),
+            error: Some(error),
+        }) {
+            log::error!("Failed to send path scan progress event: {}", e);
+        }
+    }
+}

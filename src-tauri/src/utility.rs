@@ -41,10 +41,10 @@ pub fn zip_extract_all(input: impl AsRef<Path>, output_root: impl AsRef<Path>) -
         let mut file = zip.by_index(i)?;
         if let Some(p) = file.enclosed_name() {
             let outpath = output_root.join(p);
-            if let Some(p) = outpath.parent() {
-                if !p.exists() {
-                    std::fs::create_dir_all(p)?;
-                }
+            if let Some(p) = outpath.parent()
+                && !p.exists()
+            {
+                std::fs::create_dir_all(p)?;
             }
             let mut outfile = File::create(&outpath)?;
             std::io::copy(&mut file, &mut outfile)?;

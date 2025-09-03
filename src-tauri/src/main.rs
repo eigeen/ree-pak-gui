@@ -100,13 +100,15 @@ fn main() {
             command::zip_extract_file,
             command::murmur32,
             command::murmur32_utf16,
+            command::tools_scan_paths,
+            command::tools_terminate_scan,
         ])
         .on_window_event(|window, event| {
             // Clean temp files when main window is closed.
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
-                if window.label() == "main" {
-                    clean_temp_files();
-                }
+            if let tauri::WindowEvent::CloseRequested { .. } = event
+                && window.label() == "main"
+            {
+                clean_temp_files();
             }
         })
         .run(tauri::generate_context!())
