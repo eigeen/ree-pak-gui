@@ -22,6 +22,7 @@ export type PathScanProgressEvent =
 export interface PathScanOptions {
   pakFiles: string[]
   dumpFiles: string[]
+  pathListFile?: string
 }
 
 /**

@@ -73,18 +73,17 @@
         </v-col>
       </v-row>
 
-      <!-- 名称表选择 -->
+      <!-- 已知文件名表选择 -->
       <v-row class="mt-4">
         <v-col cols="12">
           <v-card outlined>
-            <v-card-title class="text-subtitle-1">名称表（可选）</v-card-title>
+            <v-card-title class="text-subtitle-1">已知文件名表（可选）</v-card-title>
             <v-card-text>
               <v-row align="center">
                 <v-col cols="8">
                   <v-text-field
                     v-model="nameTableFile"
-                    label="名称表文件路径"
-                    readonly
+                    label="已知文件名表文件路径"
                     density="compact"
                     :disabled="scanning"
                   />
@@ -157,7 +156,12 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { PathScanner } from '@/lib/pathScanner'
-import { scanPaths, terminatePathScan, type PathScanOptions, type PathScanProgressEvent } from '@/api/tauri/tools'
+import {
+  scanPaths,
+  terminatePathScan,
+  type PathScanOptions,
+  type PathScanProgressEvent
+} from '@/api/tauri/tools'
 import { ShowError, ShowInfo } from '@/utils/message'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { Channel } from '@tauri-apps/api/core'
@@ -233,13 +237,7 @@ const selectDumpFiles = async () => {
 const selectNameTableFile = async () => {
   try {
     const selected = await openDialog({
-      multiple: false,
-      filters: [
-        {
-          name: 'Name Table Files',
-          extensions: ['txt', 'nam', 'json']
-        }
-      ]
+      multiple: false
     })
 
     if (selected && typeof selected === 'string') {
@@ -272,36 +270,7 @@ const startScan = async () => {
   }
 
   try {
-    // pathScanner = new PathScanner(
-    //   (event) => {
-    //     console.log('event', event)
-    //     switch (event.event) {
-    //       case 'startFile':
-    //         let data = event.data
-    //         progressMessage.value = `Scanning file ${data.current} / ${data.total}`
-    //         break
-    //       case 'scanItem':
-    //         data = event.data
-    //         progress.value = (data.current / data.total) * 100
-    //         break
-    //       case 'finish':
-    //         if (event.data.success) {
-    //           progress.value = 100
-    //           scanResult.value = event.data.found_paths
-    //         } else {
-    //           progressMessage.value = event.data.error ?? 'Unknown Error'
-    //         }
-    //         scanning.value = false
-    //         break
-    //     }
-    //   },
-    // )
-
-    // await pathScanner.scan(options)
-
-    const channel = new Channel<PathScanProgressEvent>()
-    channel.onmessage = (event) => {
-      console.log('event', event)
+    pathScanner = new PathScanner((event) => {
       switch (event.event) {
         case 'startFile':
           let data = event.data
@@ -311,17 +280,15 @@ const startScan = async () => {
           if (event.data.success) {
             scanResult.value = event.data.foundPaths
             progressMessage.value = 'Scan finished'
-            console.log("scanResult", scanResult.value)
+            console.log('scanResult', scanResult.value)
           } else {
             progressMessage.value = event.data.error ?? 'Unknown Error'
           }
           scanning.value = false
           break
       }
-    }
-
-    await scanPaths(options, channel)
-
+    })
+    await pathScanner.scan(options)
   } catch (error) {
     scanning.value = false
     ShowError(`扫描失败: ${error}`)

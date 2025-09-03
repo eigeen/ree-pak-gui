@@ -225,6 +225,7 @@ pub fn murmur32_utf16(str: String) -> Result<u64, String> {
 pub struct PathScanOptions {
     pub pak_files: Vec<String>,
     pub dump_files: Vec<String>,
+    pub path_list_file: Option<String>,
 }
 
 /// Path scanning command

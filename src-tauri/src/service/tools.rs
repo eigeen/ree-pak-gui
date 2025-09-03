@@ -1,9 +1,12 @@
 //! Tools service for path scanning and other utility functions
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use parking_lot::Mutex;
-use ree_path_searcher::{PathSearcher, SearchResult};
+use ree_pak_core::filename::FileNameTable;
+use ree_path_searcher::PathSearcher;
 use std::{
+    fs::File,
+    io::BufReader,
     sync::{
         Arc, OnceLock,
         atomic::{AtomicBool, Ordering},
@@ -11,7 +14,7 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-use crate::{channel::PathScanProgressChannel, command::PathScanOptions};
+use crate::{channel::PathScanProgressChannel, command::PathScanOptions, error::Error};
 
 static TOOLS_SERVICE: OnceLock<ToolsService> = OnceLock::new();
 
@@ -67,10 +70,7 @@ impl ToolsService {
                     .build()
                     .map_err(|e| anyhow::anyhow!("Failed to build path searcher: {}", e))?;
 
-                let mut all_results = SearchResult {
-                    found_paths: vec![],
-                    unknown_paths: rustc_hash::FxHashSet::default(),
-                };
+                let mut found_paths: Vec<String> = vec![];
 
                 let total_files = options.dump_files.len() + options.pak_files.len();
                 let mut current_file = 0;
@@ -93,8 +93,12 @@ impl ToolsService {
                         .search_memory_dump(dump_file)
                         .map_err(|e| anyhow::anyhow!("Failed to scan memory dump {}: {}", dump_file, e))?;
 
-                    all_results.found_paths.extend(result.found_paths);
-                    all_results.unknown_paths.extend(result.unknown_paths);
+                    found_paths.extend(
+                        result
+                            .found_paths
+                            .into_iter()
+                            .flat_map(|(_, p)| p.into_iter().map(|info| info.full_path)),
+                    );
                 }
 
                 // Process PAK files if any
@@ -115,21 +119,23 @@ impl ToolsService {
                         .search_pak_files()
                         .map_err(|e| anyhow::anyhow!("Failed to scan pak files: {}", e))?;
 
-                    all_results.found_paths.extend(result.found_paths);
-                    all_results.unknown_paths.extend(result.unknown_paths);
+                    found_paths.extend(
+                        result
+                            .found_paths
+                            .into_iter()
+                            .flat_map(|(_, p)| p.into_iter().map(|info| info.full_path)),
+                    );
+                }
+
+                // check entry hash on loaded list file
+                if let Some(list_path) = options.path_list_file {
+                    let paths = Self::check_on_list_file(&list_path, &options.pak_files)?;
+                    found_paths.extend(paths);
                 }
 
                 // Sort and deduplicate results
-                all_results.found_paths.sort_unstable_by(|(p, _), (q, _)| p.cmp(q));
-                all_results.found_paths.dedup_by(|(p, _), (q, _)| p == q);
-
-                // Convert results to the expected format
-                let mut found_paths = Vec::new();
-                for (_raw_path, indexes) in all_results.found_paths {
-                    for index in indexes {
-                        found_paths.push(index.full_path);
-                    }
-                }
+                found_paths.sort_unstable();
+                found_paths.dedup();
 
                 // Return results
                 Ok(PathScanResult {
@@ -162,5 +168,38 @@ impl ToolsService {
             let _ = handle.join();
             self.should_terminate.store(false, Ordering::Relaxed);
         }
+    }
+
+    fn check_on_list_file(list_path: &str, pak_files: &[String]) -> Result<Vec<String>> {
+        // open pak files
+        let pak_archives = pak_files
+            .iter()
+            .map(|path| {
+                let file = File::open(path)
+                    .map_err(|e| Error::FileIO {
+                        path: path.to_string(),
+                        source: e,
+                    })
+                    .context("Failed to open pak file")?;
+
+                let mut reader = BufReader::new(file);
+                let archive = ree_pak_core::read::read_archive(&mut reader)?;
+                Ok(archive)
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        // load list file
+        let list_file = FileNameTable::from_list_file(list_path)?;
+
+        let mut found_paths = vec![];
+        for archive in pak_archives {
+            for entry in archive.entries() {
+                if let Some(path) = list_file.get_file_name(entry.hash()) {
+                    found_paths.push(path.get_name().to_string());
+                }
+            }
+        }
+
+        Ok(found_paths)
     }
 }
