@@ -6,7 +6,7 @@ export default {
       repack: '打包'
     },
     unpack: {
-      fileList: '文件列表',
+      fileList: '路径列表',
       pakFiles: 'Pak 文件',
       filterKeyword: '过滤关键字',
       regex: '正则表达式',
@@ -25,21 +25,21 @@ export default {
       confirm: '确认'
     },
     fileNameTable: {
-      manageFileList: '管理文件列表',
+      manageFileList: '管理路径列表',
       openLocalDir: '打开本地目录',
       fetchRemote: '获取远程文件',
       local: '本地',
       refresh: '刷新',
       delete: '删除',
       downloadable: '可下载',
-      failedFetchRemote: '获取远程文件列表失败: {error}',
+      failedFetchRemote: '获取远程路径列表失败: {error}',
       failedDownloadRemote: '下载远程文件失败: {error}',
       selectedFilesDeleted: '已删除所选文件。',
       conflictDownloadTip1: '存在同名本地文件。',
       conflictDownloadTip2: '如需下载，请先重命名或删除本地文件。'
     },
     pakFiles: {
-      selectFileNameTable: '请先选择一个文件名列表。',
+      selectFileNameTable: '请先选择一个路径列表。',
       openPaks: '打开 Pak 文件',
       closeAllPaks: '关闭所有 Pak 文件'
     },

@@ -6,7 +6,7 @@ export default {
       repack: 'Repack'
     },
     unpack: {
-      fileList: 'File List',
+      fileList: 'Path List',
       pakFiles: 'Pak Files',
       filterKeyword: 'Filter keyword',
       regex: 'Regex',
@@ -26,21 +26,21 @@ export default {
       confirm: 'Confirm'
     },
     fileNameTable: {
-      manageFileList: 'Manage File List',
+      manageFileList: 'Manage Path List',
       openLocalDir: 'Open Local Dir',
       fetchRemote: 'Fetch Remote',
       local: 'Local',
       refresh: 'Refresh',
       delete: 'Delete',
       downloadable: 'Downloadable',
-      failedFetchRemote: 'Failed to fetch remote file list: {error}',
+      failedFetchRemote: 'Failed to fetch remote path list: {error}',
       failedDownloadRemote: 'Failed to download remote file: {error}',
       selectedFilesDeleted: 'Selected files deleted.',
       conflictDownloadTip1: 'You have a local file with same identifier.',
       conflictDownloadTip2: 'If you want to download, please rename or delete the local file first.'
     },
     pakFiles: {
-      selectFileNameTable: 'Select a File Name Table first.',
+      selectFileNameTable: 'Select a Path List first.',
       openPaks: 'Open Paks',
       closeAllPaks: 'Close all paks'
     },

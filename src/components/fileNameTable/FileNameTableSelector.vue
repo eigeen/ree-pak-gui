@@ -1,6 +1,6 @@
 <template>
   <v-autocomplete
-    label="File Name Table"
+    label="Path List"
     v-model="selectedValue"
     :items="items"
     item-title="label"
