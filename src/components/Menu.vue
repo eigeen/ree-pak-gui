@@ -1,5 +1,5 @@
 <template>
-  <v-toolbar class="menu">
+  <v-toolbar class="menu" :style="menuBackgroundStyle">
     <!-- Left Group -->
     <div class="left-group">
       <div class="slogan">{{ t('menu.slogan') }}</div>
@@ -49,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUpdateStore } from '@/store/update'
 import { useSettingsStore } from '@/store/settings'
@@ -64,9 +64,35 @@ const settingsStore = useSettingsStore()
 const route = useRoute()
 const activeRoute = ref(route.path)
 const updateDialog = ref<any>(null)
+const scrollY = ref(0)
 
 // 获取所有可用工具
 const availableTools = getAllTools()
+
+// 滚动监听函数
+const handleScroll = () => {
+  scrollY.value = window.scrollY
+}
+
+// 计算背景样式
+const menuBackgroundStyle = computed(() => {
+  const isScrolled = scrollY.value > 10
+  return {
+    backgroundColor: isScrolled ? 'rgba(255, 255, 255, 0.3)' : 'transparent',
+    backdropFilter: isScrolled ? 'blur(12px)' : 'none',
+    WebkitBackdropFilter: isScrolled ? 'blur(12px)' : 'none',
+    transition: 'all 0.3s ease'
+  }
+})
+
+// 生命周期钩子
+onMounted(() => {
+  window.addEventListener('scroll', handleScroll, { passive: true })
+})
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleScroll)
+})
 
 watch(
   () => route.path,

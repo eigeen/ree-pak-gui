@@ -48,9 +48,9 @@ html, body {
   background-color: #f5f5f5;
 }
 
-html::-webkit-scrollbar {
-  display: none;
-}
+// html::-webkit-scrollbar {
+//   display: none;
+// }
 
 .app-root {
   display: flex;
