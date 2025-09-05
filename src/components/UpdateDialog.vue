@@ -1,9 +1,16 @@
 <template>
   <v-dialog v-model="show" width="auto" max-height="600px" persistent>
-    <v-card class="pa-2" max-width="600" prepend-icon="mdi-update" :title="t('updateDialog.updateAvailable')">
+    <v-card
+      class="pa-2"
+      max-width="600"
+      prepend-icon="mdi-update"
+      :title="t('updateDialog.updateAvailable')"
+    >
       <v-card-text>
         <div class="mb-4">
-          <h6 class="text-h6 mb-2">{{ t('updateDialog.version') }} v{{ updateStore.updateVersion?.version }}</h6>
+          <h6 class="text-h6 mb-2">
+            {{ t('updateDialog.version') }} v{{ updateStore.updateVersion?.version }}
+          </h6>
           <p>{{ t('updateDialog.releaseDate') }}: {{ updateStore.updateVersion?.pub_time }}</p>
           <p v-if="updateStore.updateVersion?.description">
             {{ updateStore.updateVersion?.description }}
@@ -22,7 +29,9 @@
 
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn v-if="!downloading" class="text-none" @click="show = false">{{ t('updateDialog.notNow') }}</v-btn>
+        <v-btn v-if="!downloading" class="text-none" @click="show = false">{{
+          t('updateDialog.notNow')
+        }}</v-btn>
         <v-btn v-if="!downloading" class="text-none" color="primary" @click="startDownload">
           {{ t('updateDialog.update') }}
         </v-btn>

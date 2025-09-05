@@ -29,31 +29,31 @@ export function renderFileTree(paks: PackedPak[]): string {
   }
 
   let result = ''
-  
+
   paks.forEach((pak, pakIndex) => {
     const isLastPak = pakIndex === paks.length - 1
     const pakPrefix = isLastPak ? '└── ' : '├── '
     const pakName = pak.path.split(/[/\\]/).pop() || pak.path
-    
+
     result += `${pakPrefix}📦 ${pakName} (${pak.files.length} files)\n`
-    
+
     // 按路径对文件进行分组和排序
     const fileTree = buildFileTree(pak.files)
     const childPrefix = isLastPak ? '    ' : '│   '
     result += renderFileTreeNode(fileTree, childPrefix)
   })
-  
+
   return result
 }
 
 // 构建文件树结构
 function buildFileTree(files: PackedFile[]): FileTreeNode {
   const root: FileTreeNode = { name: '', children: new Map(), files: [] }
-  
-  files.forEach(file => {
+
+  files.forEach((file) => {
     const parts = file.path.split(/[/\\]/).filter((part: string) => part.length > 0)
     let current = root
-    
+
     // 遍历路径的每一部分
     for (let i = 0; i < parts.length - 1; i++) {
       const part = parts[i]
@@ -62,55 +62,55 @@ function buildFileTree(files: PackedFile[]): FileTreeNode {
       }
       current = current.children.get(part)!
     }
-    
+
     // 添加文件到最终目录
     if (parts.length > 0) {
       current.files.push(file)
     }
   })
-  
+
   return root
 }
 
 // 渲染文件树节点
 function renderFileTreeNode(node: FileTreeNode, prefix: string): string {
   let result = ''
-  
+
   // 获取所有子目录和文件，并排序
   const children = Array.from(node.children.values()).sort((a, b) => a.name.localeCompare(b.name))
   const files = node.files.sort((a, b) => a.path.localeCompare(b.path))
-  
+
   // 渲染子目录
   children.forEach((child, index) => {
     const isLast = index === children.length - 1 && files.length === 0
     const childPrefix = isLast ? '└── ' : '├── '
     const nextPrefix = prefix + (isLast ? '    ' : '│   ')
-    
+
     result += `${prefix}${childPrefix}📁 ${child.name}\n`
     result += renderFileTreeNode(child, nextPrefix)
   })
-  
+
   // 渲染文件
   files.forEach((file, index) => {
     const isLast = index === files.length - 1
     const filePrefix = isLast ? '└── ' : '├── '
     const fileName = file.path.split(/[/\\]/).pop() || file.path
     const fileSize = formatFileSize(file.size)
-    
+
     result += `${prefix}${filePrefix}📄 ${fileName} (${fileSize})\n`
   })
-  
+
   return result
 }
 
 // 格式化文件大小
 function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 B'
-  
+
   const k = 1024
   const sizes = ['B', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  
+
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 

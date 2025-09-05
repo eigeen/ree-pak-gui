@@ -8,10 +8,14 @@
     <!-- Center Group -->
     <div class="center-group">
       <v-btn-toggle mandatory density="compact" v-model="activeRoute" color="primary">
-        <v-btn class="text-none" value="/unpack" text :to="{ name: 'UnpackView' }">{{ t('menu.unpack') }}</v-btn>
-        <v-btn class="text-none" value="/pack" text :to="{ name: 'PackView' }">{{ t('menu.repack') }}</v-btn>
+        <v-btn class="text-none" value="/unpack" text :to="{ name: 'UnpackView' }">{{
+          t('menu.unpack')
+        }}</v-btn>
+        <v-btn class="text-none" value="/pack" text :to="{ name: 'PackView' }">{{
+          t('menu.repack')
+        }}</v-btn>
       </v-btn-toggle>
-      
+
       <!-- Tool Menu -->
       <v-menu offset-y>
         <template v-slot:activator="{ props }">
@@ -21,11 +25,7 @@
           </v-btn>
         </template>
         <v-list>
-          <v-list-item 
-            v-for="tool in availableTools" 
-            :key="tool.id"
-            :to="`/tools/${tool.id}`"
-          >
+          <v-list-item v-for="tool in availableTools" :key="tool.id" :to="`/tools/${tool.id}`">
             <template v-slot:prepend>
               <v-icon v-if="tool.icon" :icon="tool.icon"></v-icon>
             </template>

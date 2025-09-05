@@ -9,19 +9,19 @@ const router = createRouter({
       redirect: '/unpack'
     },
     {
-      path: "/unpack",
-      name: "UnpackView",
-      component: () => import("@/pages/UnpackView.vue")
+      path: '/unpack',
+      name: 'UnpackView',
+      component: () => import('@/pages/UnpackView.vue')
     },
     {
-      path: "/pack",
-      name: "PackView", 
-      component: () => import("@/pages/PackView.vue")
+      path: '/pack',
+      name: 'PackView',
+      component: () => import('@/pages/PackView.vue')
     },
     {
-      path: "/tools/:toolId",
-      name: "ToolsView",
-      component: () => import("@/pages/ToolsView.vue"),
+      path: '/tools/:toolId',
+      name: 'ToolsView',
+      component: () => import('@/pages/ToolsView.vue'),
       beforeEnter: (to, from, next) => {
         const toolId = to.params.toolId as string
         const tool = getToolById(toolId)

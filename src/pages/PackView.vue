@@ -290,7 +290,11 @@ onUnmounted(() => {
         <div class="mb-4">
           <div class="text-body-2 mb-2">{{ t('pack.exportMode') }}</div>
           <v-radio-group v-model="exportConfig.mode" density="compact" hide-details>
-            <v-radio :label="t('pack.exportModeIndividual')" value="individual" density="compact"></v-radio>
+            <v-radio
+              :label="t('pack.exportModeIndividual')"
+              value="individual"
+              density="compact"
+            ></v-radio>
             <!-- <v-radio :label="t('pack.exportModeSingle')" value="single" density="compact"></v-radio> -->
           </v-radio-group>
         </div>
@@ -376,7 +380,8 @@ onUnmounted(() => {
 
           <!-- 进度信息 -->
           <div v-if="progressValue > 0" class="text-body-2 mb-2">
-            {{ progress.finishFileCount }} / {{ progress.totalFileCount }} {{ t('pack.filesCount') }}
+            {{ progress.finishFileCount }} / {{ progress.totalFileCount }}
+            {{ t('pack.filesCount') }}
           </div>
           <div v-if="progress.currentFile" class="text-body-2 mb-1">{{ t('pack.exporting') }}</div>
           <div v-if="progress.currentFile" class="text-body-2 break-all mb-3">
@@ -389,11 +394,14 @@ onUnmounted(() => {
               <v-icon icon="mdi-check-circle" color="green" size="small" class="mr-1"></v-icon>
               {{ t('pack.exportSuccess') }}
             </div>
-            
+
             <!-- 文件树显示 -->
             <div v-if="exportResult.fileTree" class="mt-3">
               <div class="text-body-2 font-medium mb-2">{{ t('pack.fileStructure') }}</div>
-              <pre class="text-xs bg-gray-50 p-2 rounded border max-h-48 max-w-full overflow-auto font-mono whitespace-pre">{{ exportResult.fileTree }}</pre>
+              <pre
+                class="text-xs bg-gray-50 p-2 rounded border max-h-48 max-w-full overflow-auto font-mono whitespace-pre"
+                >{{ exportResult.fileTree }}</pre
+              >
             </div>
           </div>
 
@@ -422,7 +430,9 @@ onUnmounted(() => {
 
         <v-card-actions class="pa-4">
           <v-spacer></v-spacer>
-          <v-btn color="grey" variant="text" @click="handleConflictCancel">{{ t('pack.cancel') }}</v-btn>
+          <v-btn color="grey" variant="text" @click="handleConflictCancel">{{
+            t('pack.cancel')
+          }}</v-btn>
           <v-btn color="primary" @click="handleConflictResolve">{{ t('pack.confirm') }}</v-btn>
         </v-card-actions>
       </v-card>

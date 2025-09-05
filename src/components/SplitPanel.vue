@@ -29,11 +29,11 @@ function startDrag(e: MouseEvent) {
 
 function handleDrag(e: MouseEvent) {
   if (!isDragging.value || !splitLayout.value) return
-  
+
   const containerWidth = splitLayout.value.offsetWidth
   const deltaX = e.clientX - startX.value
   const newLeftWidth = startLeftWidth.value + (deltaX / containerWidth) * 10
-  
+
   // Limit min/max width
   if (newLeftWidth > 1 && newLeftWidth < 9) {
     emit('update:leftWidth', newLeftWidth)
@@ -71,22 +71,22 @@ onUnmounted(() => {
   gap: 0;
   height: 100%;
   position: relative;
-  
+
   .left-panel {
     flex: v-bind('props.leftWidth');
     overflow: hidden;
   }
-  
+
   .split-handle {
     width: 8px;
     cursor: col-resize;
     transition: background-color 0.2s;
-    
+
     &:hover {
       background-color: #ddd;
     }
   }
-  
+
   .right-panel {
     flex: v-bind('props.rightWidth');
     overflow-y: auto;

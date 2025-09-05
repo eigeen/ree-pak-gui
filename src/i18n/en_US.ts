@@ -67,8 +67,10 @@ export default {
       autoDetectRoot: 'Auto detect root directory',
       autoDetectRootTooltip: 'Auto detect the first natives/STM/** path as root directory',
       fastMode: 'Fast Mode',
-      fastModeTooltipL1: 'Automatically export to specified directory after importing files, no confirmation needed.',
-      fastModeTooltipL2: 'If no directory is specified, export to the same directory as input files.',
+      fastModeTooltipL1:
+        'Automatically export to specified directory after importing files, no confirmation needed.',
+      fastModeTooltipL2:
+        'If no directory is specified, export to the same directory as input files.',
       exportDirectory: 'Export Directory',
       exportDirectoryPlaceholder: 'Export directory',
       export: 'Export',

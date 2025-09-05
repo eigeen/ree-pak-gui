@@ -263,9 +263,11 @@ defineExpose({ getCheckedNodes })
       :props="treeProps"
       :data="filteredData"
       :height="treeHeight"
-      @node-click="(data: TreeData, node: TreeNode, e: MouseEvent) => {
-        emit('node-click', data, node, e)
-      }"
+      @node-click="
+        (data: TreeData, node: TreeNode, e: MouseEvent) => {
+          emit('node-click', data, node, e)
+        }
+      "
       show-checkbox
     >
       <template #default="{ node }">

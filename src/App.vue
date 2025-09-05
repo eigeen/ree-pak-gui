@@ -28,7 +28,7 @@ onMounted(async () => {
     }
   } catch (error) {
     ShowError(`Failed to load settings: ${error}`)
-    ShowWarn("Will use default settings")
+    ShowWarn('Will use default settings')
   }
 
   // load workspace records
@@ -42,7 +42,8 @@ onMounted(async () => {
 </script>
 
 <style lang="scss">
-html, body {
+html,
+body {
   /* disable vuetify scrollbar */
   overflow-y: auto !important;
   background-color: #f5f5f5;

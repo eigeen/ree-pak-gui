@@ -62,7 +62,7 @@ export class BufReader implements BufRead {
   }
 
   // 扩展方法：行迭代器
-  async* lines(): AsyncIterableIterator<string> {
+  async *lines(): AsyncIterableIterator<string> {
     const decoder = new TextDecoder()
     let lineBuffer = new Uint8Array(1024)
     let linePos = 0

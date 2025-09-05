@@ -1,4 +1,4 @@
-import type { FileHandle } from "@tauri-apps/plugin-fs"
+import type { FileHandle } from '@tauri-apps/plugin-fs'
 
 export interface Read {
   /**

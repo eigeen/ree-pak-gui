@@ -7,10 +7,7 @@
           <v-icon icon="mdi-chevron-right"></v-icon>
         </template>
         <template v-slot:item="{ item }">
-          <v-breadcrumbs-item
-            :to="item.to"
-            :disabled="item.disabled"
-          >
+          <v-breadcrumbs-item :to="item.to" :disabled="item.disabled">
             {{ item.title }}
           </v-breadcrumbs-item>
         </template>
@@ -19,16 +16,10 @@
 
     <!-- 工具内容区域 -->
     <div class="tool-container">
-      <component 
-        v-if="currentTool" 
-        :is="currentTool.component" 
-        :key="toolId"
-      />
+      <component v-if="currentTool" :is="currentTool.component" :key="toolId" />
       <div v-else class="tool-not-found">
         <v-alert type="error" variant="tonal">
-          <template v-slot:title>
-            工具不存在
-          </template>
+          <template v-slot:title> 工具不存在 </template>
           找不到ID为 "{{ toolId }}" 的工具
         </v-alert>
       </div>

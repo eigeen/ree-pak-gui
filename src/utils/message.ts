@@ -1,4 +1,4 @@
-import { ElMessage } from "element-plus"
+import { ElMessage } from 'element-plus'
 
 // global message invoker
 export const ShowError = (message: any) => {

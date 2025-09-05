@@ -1,6 +1,6 @@
 /**
  * Computes the SHA-256 hash of the input array buffer.
- * @param array 
+ * @param array
  * @returns Hex string of SHA-256 hash of the input array buffer.
  */
 export async function sha256Hex(array: ArrayBuffer | Uint8Array): Promise<string> {

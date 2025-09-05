@@ -21,7 +21,7 @@ export interface DownloadOptions {
 export async function fetchWithSpeedCheck(
   url: string,
   options: DownloadOptions = {},
-  onEvent?: (event: ProgressEvent) => Promise<void>,
+  onEvent?: (event: ProgressEvent) => Promise<void>
 ): Promise<Blob> {
   const {
     connectTimeout = 10000,
