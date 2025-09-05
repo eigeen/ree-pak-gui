@@ -1,17 +1,29 @@
 <template>
   <div class="path-scanner">
-    <v-card class="mb-4" variant="outlined">
-      <v-card-title class="d-flex align-center">
-        <v-icon icon="mdi-folder-search" class="mr-3"></v-icon>
-        路径扫描
-      </v-card-title>
-      <v-card-subtitle> 扫描Pak文件和内存转储文件中的路径信息 </v-card-subtitle>
-    </v-card>
+    <!-- 标题 -->
+    <div class="text-h5 mb-4">路径扫描</div>
+
+    <!-- 描述栏 -->
+    <div class="text-body-1 mb-2">尝试扫描Pak文件内包含的子文件路径。</div>
+    <v-alert color="info" variant="tonal" class="mb-6 w-[80%]">
+      <div class="text-body-2">
+        <v-icon size="small" class="mr-1">mdi-information</v-icon>
+        这是一个轻量版，如果需要扫描较大文件，例如游戏原始Pak，请使用
+        <a
+          href="#"
+          @click="openUrl('https://github.com/eigeen/ree-path-searcher')"
+          class="text-primary text-decoration-none"
+        >
+          独立版本
+        </a>
+        以获得更高性能
+      </div>
+    </v-alert>
 
     <v-container>
       <v-row>
         <!-- Pak 文件选择 -->
-        <v-col cols="12" md="6">
+        <v-col cols="12">
           <v-card outlined>
             <v-card-title class="text-subtitle-1">Pak 文件</v-card-title>
             <v-card-text>
@@ -40,60 +52,15 @@
             </v-card-text>
           </v-card>
         </v-col>
-
-        <!-- 内存转储文件选择 -->
-        <v-col cols="12" md="6">
-          <v-card outlined>
-            <v-card-title class="text-subtitle-1">内存转储文件</v-card-title>
-            <v-card-text>
-              <v-btn
-                color="primary"
-                block
-                @click="selectDumpFiles"
-                :disabled="scanning"
-                class="mb-3"
-              >
-                选择转储文件
-              </v-btn>
-              <v-list density="compact" max-height="200" style="overflow-y: auto">
-                <v-list-item v-for="(file, index) in dumpFiles" :key="index" class="text-caption">
-                  <v-list-item-title>{{ file }}</v-list-item-title>
-                  <template v-slot:append>
-                    <v-btn
-                      icon="mdi-close"
-                      size="x-small"
-                      @click="removeDumpFile(index)"
-                      :disabled="scanning"
-                    />
-                  </template>
-                </v-list-item>
-              </v-list>
-            </v-card-text>
-          </v-card>
-        </v-col>
       </v-row>
 
-      <!-- 已知文件名表选择 -->
+      <!-- 已知路径列表选择 -->
       <v-row class="mt-4">
         <v-col cols="12">
           <v-card outlined>
-            <v-card-title class="text-subtitle-1">已知文件名表（可选）</v-card-title>
+            <v-card-title class="text-subtitle-1">已知路径列表（可选）</v-card-title>
             <v-card-text>
-              <v-row align="center">
-                <v-col cols="8">
-                  <v-text-field
-                    v-model="nameTableFile"
-                    label="已知文件名表文件路径"
-                    density="compact"
-                    :disabled="scanning"
-                  />
-                </v-col>
-                <v-col cols="4">
-                  <v-btn color="primary" @click="selectNameTableFile" :disabled="scanning" block>
-                    选择文件
-                  </v-btn>
-                </v-col>
-              </v-row>
+              <FileNameTableSelector v-model="selectedFileList" :items="comboItems" />
             </v-card-text>
           </v-card>
         </v-col>
@@ -154,7 +121,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { PathScanner } from '@/lib/pathScanner'
 import {
   scanPaths,
@@ -165,11 +132,17 @@ import {
 import { ShowError, ShowInfo } from '@/utils/message'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { Channel } from '@tauri-apps/api/core'
+import { openUrl } from '@tauri-apps/plugin-opener'
+import FileNameTableSelector from '@/components/FileNameTable/FileNameTableSelector.vue'
+import { useFileListStore } from '@/store/filelist'
+import type { Option } from '@/components/FileNameTable/FileNameTableSelector.vue'
 
 // 文件选择状态
 const pakFiles = ref<string[]>([])
-const dumpFiles = ref<string[]>([])
-const nameTableFile = ref<string>('')
+const selectedFileList = ref<string>('')
+
+// 文件列表状态
+const fileListStore = useFileListStore()
 
 // 扫描状态
 const scanning = ref(false)
@@ -180,7 +153,7 @@ let pathScanner: PathScanner | null = null
 
 // 计算是否可以开始扫描
 const canStartScan = computed(() => {
-  return pakFiles.value.length > 0 || dumpFiles.value.length > 0
+  return pakFiles.value.length > 0
 })
 
 // 重置状态
@@ -212,49 +185,9 @@ const selectPakFiles = async () => {
   }
 }
 
-const selectDumpFiles = async () => {
-  try {
-    const selected = await openDialog({
-      multiple: true,
-      filters: [
-        {
-          name: 'Dump Files',
-          extensions: ['dmp', 'dump', 'bin']
-        }
-      ]
-    })
-
-    if (selected && Array.isArray(selected)) {
-      dumpFiles.value = [...dumpFiles.value, ...selected]
-    } else if (selected && typeof selected === 'string') {
-      dumpFiles.value.push(selected)
-    }
-  } catch (error) {
-    ShowError(`选择文件失败: ${error}`)
-  }
-}
-
-const selectNameTableFile = async () => {
-  try {
-    const selected = await openDialog({
-      multiple: false
-    })
-
-    if (selected && typeof selected === 'string') {
-      nameTableFile.value = selected
-    }
-  } catch (error) {
-    ShowError(`选择文件失败: ${error}`)
-  }
-}
-
 // 移除文件
 const removePakFile = (index: number) => {
   pakFiles.value.splice(index, 1)
-}
-
-const removeDumpFile = (index: number) => {
-  dumpFiles.value.splice(index, 1)
 }
 
 // 扫描操作
@@ -266,7 +199,7 @@ const startScan = async () => {
 
   const options: PathScanOptions = {
     pakFiles: pakFiles.value,
-    dumpFiles: dumpFiles.value
+    dumpFiles: []
   }
 
   try {
@@ -316,6 +249,45 @@ const copyResults = async () => {
     ShowError(`复制失败: ${error}`)
   }
 }
+
+// 获取文件列表选项
+const localSources = computed(() => {
+  const itemsMap: { [identifier: string]: any } = {}
+  for (const identifier in fileListStore.localFile) {
+    itemsMap[identifier] = {
+      ...fileListStore.localFile[identifier].source
+    }
+  }
+  for (const fileName in fileListStore.downloadedFile) {
+    const source = fileListStore.downloadedFile[fileName].source
+    const identifier = source.identifier
+    if (identifier in itemsMap) {
+      continue
+    }
+    itemsMap[identifier] = {
+      ...source
+    }
+  }
+
+  const sources = Object.values(itemsMap)
+  sources.sort((a: any, b: any) => a.identifier.localeCompare(b.identifier))
+  return sources
+})
+
+const comboItems = computed(() =>
+  localSources.value.map((item: any) => {
+    return { label: item.identifier, value: item.identifier }
+  })
+)
+
+// 初始化文件列表
+onMounted(async () => {
+  try {
+    await fileListStore.refreshLocalSource()
+  } catch (error) {
+    console.error('Failed to load file list:', error)
+  }
+})
 </script>
 
 <style scoped lang="scss">
