@@ -1,7 +1,7 @@
 <template>
   <v-app>
     <v-main class="app-root">
-      <Menu></Menu>
+      <Menu class="fixed-menu"></Menu>
       <div class="content">
         <router-view />
       </div>
@@ -59,16 +59,16 @@ html::-webkit-scrollbar {
   background-color: #f5f5f5;
 }
 
-el-menu {
-  .right-group {
-    display: flex;
-    align-items: center;
-    margin-left: auto;
-  }
+.fixed-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
 }
 
 .content {
-  margin: 0 10px;
+  margin: 64px 10px 0 10px;
   flex: 1;
 }
 </style>

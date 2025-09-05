@@ -12,7 +12,7 @@
         <v-btn class="text-none" value="/pack" text :to="{ name: 'PackView' }">{{ t('menu.repack') }}</v-btn>
       </v-btn-toggle>
       
-      <!-- 工具菜单 -->
+      <!-- Tool Menu -->
       <v-menu offset-y>
         <template v-slot:activator="{ props }">
           <v-btn class="text-none ml-2" text v-bind="props">
