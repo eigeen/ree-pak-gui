@@ -1,19 +1,5 @@
 <template>
   <div class="tools-view">
-    <!-- 面包屑导航 -->
-    <div class="breadcrumb-nav">
-      <v-breadcrumbs :items="breadcrumbItems" class="px-0">
-        <template v-slot:divider>
-          <v-icon icon="mdi-chevron-right"></v-icon>
-        </template>
-        <template v-slot:item="{ item }">
-          <v-breadcrumbs-item :to="item.to" :disabled="item.disabled">
-            {{ item.title }}
-          </v-breadcrumbs-item>
-        </template>
-      </v-breadcrumbs>
-    </div>
-
     <!-- 工具内容区域 -->
     <div class="tool-container">
       <component v-if="currentTool" :is="currentTool.component" :key="toolId" />
