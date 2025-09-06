@@ -3,22 +3,22 @@
     <!-- 中置容器 -->
     <div class="content-container mx-auto">
       <!-- 标题 -->
-      <div class="text-h5 mb-4">路径扫描</div>
+      <div class="text-h5 mb-4">{{ t('pathScanner.title') }}</div>
 
       <!-- 描述栏 -->
-      <div class="text-body-1 mb-2">尝试扫描Pak文件内包含的子文件路径。</div>
+      <div class="text-body-1 mb-2">{{ t('pathScanner.description') }}</div>
       <v-alert color="info" variant="tonal" class="mb-2">
         <div class="text-body-2">
           <v-icon size="small" class="mr-1">mdi-information</v-icon>
-          这是一个轻量版，如果需要扫描较大文件，请使用
+          {{ t('pathScanner.lightVersionTip') }}
           <a
             href="#"
             @click="openUrl('https://github.com/eigeen/ree-path-searcher')"
             class="text-primary text-decoration-none"
           >
-            独立版本
+            {{ t('pathScanner.standaloneVersion') }}
           </a>
-          以获得更高性能
+          {{ t('pathScanner.betterPerformance') }}
         </div>
       </v-alert>
 
@@ -27,16 +27,16 @@
           <!-- Pak 文件选择 -->
           <v-col cols="12">
             <v-card outlined>
-              <v-card-title class="text-subtitle-1">Pak 文件</v-card-title>
+              <v-card-title class="text-subtitle-1">{{ t('pathScanner.pakFiles') }}</v-card-title>
               <v-card-text>
                 <v-btn
                   color="primary"
                   block
                   @click="selectPakFiles"
                   :disabled="scanning"
-                  class="mb-3"
+                  class="mb-3 text-none"
                 >
-                  选择 Pak 文件
+                  {{ t('pathScanner.selectPakFiles') }}
                 </v-btn>
                 <v-list density="compact" max-height="200" style="overflow-y: auto">
                   <v-list-item v-for="(file, index) in pakFiles" :key="index" class="text-caption">
@@ -60,7 +60,9 @@
         <v-row class="mt-4">
           <v-col cols="12">
             <v-card outlined>
-              <v-card-title class="text-subtitle-1">已知路径列表（可选）</v-card-title>
+              <v-card-title class="text-subtitle-1">{{
+                t('pathScanner.knownPathList')
+              }}</v-card-title>
               <v-card-text>
                 <FileNameTableSelector v-model="selectedFileList" :items="comboItems" />
               </v-card-text>
@@ -72,7 +74,7 @@
         <v-row v-if="scanning || scanResult" class="mt-4">
           <v-col cols="12">
             <v-card outlined>
-              <v-card-title class="text-subtitle-1">扫描状态</v-card-title>
+              <v-card-title class="text-subtitle-1">{{ t('pathScanner.scanStatus') }}</v-card-title>
               <v-card-text>
                 <v-progress-linear
                   v-if="scanning"
@@ -93,7 +95,8 @@
                 <!-- 结果显示 -->
                 <div v-if="scanResult && !scanning">
                   <div class="text-subtitle-2 mb-2">
-                    扫描完成 - 找到 {{ scanResult.length }} 个路径
+                    {{ t('pathScanner.scanComplete') }} {{ scanResult.length }}
+                    {{ t('pathScanner.foundPaths') }}
                   </div>
                   <v-textarea
                     :model-value="scanResult.join('\n')"
@@ -103,7 +106,9 @@
                     class="text-caption"
                     hide-details
                   />
-                  <v-btn color="primary" @click="copyResults" class="mt-2"> 复制结果 </v-btn>
+                  <v-btn color="secondary" @click="copyResults" class="mt-2 text-none">{{
+                    t('pathScanner.copyResults')
+                  }}</v-btn>
                 </div>
               </v-card-text>
             </v-card>
@@ -113,9 +118,17 @@
         <!-- 操作按钮 -->
         <v-row class="mt-4">
           <v-col cols="12" class="d-flex justify-end gap-3">
-            <v-btn v-if="scanning" color="error" @click="stopScan"> 停止扫描 </v-btn>
-            <v-btn v-if="!scanning" color="primary" @click="startScan" :disabled="!canStartScan">
-              开始扫描
+            <v-btn v-if="scanning" class="text-none" color="error" @click="stopScan">{{
+              t('pathScanner.stopScan')
+            }}</v-btn>
+            <v-btn
+              v-if="!scanning"
+              class="text-none"
+              color="primary"
+              @click="startScan"
+              :disabled="!canStartScan"
+            >
+              {{ t('pathScanner.startScan') }}
             </v-btn>
           </v-col>
         </v-row>
@@ -133,6 +146,9 @@ import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import FileNameTableSelector from '@/components/FileNameTable/FileNameTableSelector.vue'
 import { useFileListStore } from '@/store/filelist'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 // 文件选择状态
 const pakFiles = ref<string[]>([])
@@ -178,7 +194,7 @@ const selectPakFiles = async () => {
       pakFiles.value.push(selected)
     }
   } catch (error) {
-    ShowError(`选择文件失败: ${error}`)
+    ShowError(t('pathScanner.selectFilesFailed', { error }))
   }
 }
 
@@ -221,7 +237,7 @@ const startScan = async () => {
     await pathScanner.scan(options)
   } catch (error) {
     scanning.value = false
-    ShowError(`扫描失败: ${error}`)
+    ShowError(t('pathScanner.scanFailed', { error }))
   }
 }
 
@@ -231,7 +247,7 @@ const stopScan = async () => {
     await terminatePathScan()
   }
   scanning.value = false
-  progressMessage.value = '扫描已停止'
+  progressMessage.value = 'Scan stopped'
 }
 
 const copyResults = async () => {
@@ -241,9 +257,9 @@ const copyResults = async () => {
 
   try {
     await navigator.clipboard.writeText(scanResult.value.join('\n'))
-    ShowInfo('结果已复制到剪贴板')
+    ShowInfo(t('pathScanner.resultsCopied'))
   } catch (error) {
-    ShowError(`复制失败: ${error}`)
+    ShowError(t('pathScanner.copyFailed', { error }))
   }
 }
 

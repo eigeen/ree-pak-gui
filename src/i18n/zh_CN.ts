@@ -3,7 +3,8 @@ export default {
     menu: {
       slogan: 'REE Pak Tool',
       unpack: '解包',
-      repack: '打包'
+      repack: '打包',
+      tools: '工具'
     },
     unpack: {
       fileList: '路径列表',
@@ -91,6 +92,26 @@ export default {
       previewLoadFailed: '预览加载失败',
       unsupportedFileType: '不支持预览此文件类型',
       selectFileToPreview: '选择文件以预览内容'
+    },
+    pathScanner: {
+      title: '路径扫描',
+      description: '尝试扫描Pak文件内包含的子文件路径。',
+      lightVersionTip: '这是一个轻量版，如果需要扫描较大文件，请使用',
+      standaloneVersion: '独立版本',
+      betterPerformance: '以获得更高性能。',
+      pakFiles: 'Pak 文件',
+      selectPakFiles: '选择 Pak 文件',
+      knownPathList: '已知路径列表（可选）',
+      scanStatus: '扫描状态',
+      scanComplete: '扫描完成 - 找到',
+      foundPaths: '个路径',
+      copyResults: '复制结果',
+      stopScan: '停止扫描',
+      startScan: '开始扫描',
+      resultsCopied: '结果已复制到剪贴板',
+      selectFilesFailed: '选择文件失败: {error}',
+      scanFailed: '扫描失败: {error}',
+      copyFailed: '复制失败: {error}'
     },
     global: {
       failedLoadSettings: '加载设置失败: {error}',

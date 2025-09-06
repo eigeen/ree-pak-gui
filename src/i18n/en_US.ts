@@ -3,7 +3,8 @@ export default {
     menu: {
       slogan: 'REE Pak Tool',
       unpack: 'Unpack',
-      repack: 'Repack'
+      repack: 'Repack',
+      tools: 'Tools'
     },
     unpack: {
       fileList: 'Path List',
@@ -94,6 +95,26 @@ export default {
       previewLoadFailed: 'Preview load failed',
       unsupportedFileType: 'Unsupported file type for preview',
       selectFileToPreview: 'Select a file to preview content'
+    },
+    pathScanner: {
+      title: 'Path Scanner',
+      description: 'Try to scan file paths contained within Pak files.',
+      lightVersionTip: 'This is a lite version. If you need to scan large files, please use',
+      standaloneVersion: 'standalone version',
+      betterPerformance: 'for better performance.',
+      pakFiles: 'Pak Files',
+      selectPakFiles: 'Select Pak Files',
+      knownPathList: 'Known Path List (Optional)',
+      scanStatus: 'Scan Status',
+      scanComplete: 'Scan complete - found',
+      foundPaths: 'paths',
+      copyResults: 'Copy Results',
+      stopScan: 'Stop Scan',
+      startScan: 'Start Scan',
+      resultsCopied: 'Results copied to clipboard',
+      selectFilesFailed: 'Failed to select files: {error}',
+      scanFailed: 'Scan failed: {error}',
+      copyFailed: 'Copy failed: {error}'
     },
     global: {
       failedLoadSettings: 'Failed to load settings: {error}',

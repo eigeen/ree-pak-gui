@@ -20,7 +20,7 @@
       <v-menu offset-y>
         <template v-slot:activator="{ props }">
           <v-btn class="text-none ml-2" text v-bind="props">
-            工具
+            {{ t('menu.tools') }}
             <v-icon right>mdi-chevron-down</v-icon>
           </v-btn>
         </template>
@@ -29,7 +29,7 @@
             <template v-slot:prepend>
               <v-icon v-if="tool.icon" :icon="tool.icon"></v-icon>
             </template>
-            <v-list-item-title>{{ tool.title }}</v-list-item-title>
+            <v-list-item-title>{{ t(tool.title) }}</v-list-item-title>
           </v-list-item>
         </v-list>
       </v-menu>

@@ -4,7 +4,7 @@ import { defineAsyncComponent } from 'vue'
 // 工具路由接口
 export interface ToolRoute {
   id: string // 工具ID
-  title: string // 工具标题
+  title: string // 工具标题(i18n key)
   icon?: string // 工具图标
   component: Component // 工具组件
 }
@@ -13,7 +13,7 @@ export interface ToolRoute {
 const toolsRegistry: ToolRoute[] = [
   {
     id: 'path-scan',
-    title: '路径扫描',
+    title: 'pathScanner.title',
     icon: 'mdi-folder-search',
     component: defineAsyncComponent(() => import('@/components/tools/PathScanner.vue'))
   }
