@@ -34,7 +34,7 @@ uuid = { version = "1.10", features = [
     "macro-diagnostics",
     "serde",
 ] }
-anyhow = "1.0"
+anyhow.workspace = true
 thiserror = "2.0"
 rustc-hash = "2.0"
 nohash = "0.2"
