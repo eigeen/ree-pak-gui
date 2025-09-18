@@ -283,6 +283,8 @@ export class Packer {
         }
 
         const processedSources = await this.processSources([file], exportConfig, {})
+        console.debug('processedSources', processedSources)
+
         await pak_pack(processedSources, outputPath, channel)
         outputFiles.push(outputPath)
 
@@ -529,7 +531,7 @@ export class Packer {
     exportConfig: ExportConfig,
     resolutions: { [relativePath: string]: number }
   ): Promise<string[]> {
-    let sourcePaths = files.map((f) => f.path)
+    const sourcePaths = files.map((f) => f.path)
 
     if (exportConfig.autoDetectRoot) {
       const processedPaths: string[] = []
@@ -544,12 +546,12 @@ export class Packer {
 
         // check if it is a natives/STM/** path
         const parts = firstFile.split(/[/\\]/)
-        const nativesIndex = parts.findIndex((p) => p === 'natives')
-        const stmIndex = parts.findIndex((p) => p === 'STM')
+        const nativesIndex = parts.findIndex((p) => p.toLowerCase() === 'natives')
+        const stmIndex = parts.findIndex((p) => p.toLowerCase() === 'stm')
 
         if (nativesIndex >= 0 && stmIndex === nativesIndex + 1) {
           const separator = firstFile.includes('\\') ? '\\' : '/'
-          const rootPath = parts.slice(0, nativesIndex).join(separator)
+          const rootPath = parts.slice(0, nativesIndex + 1).join(separator) // keep xxx/yyy/natives
           processedPaths.push(rootPath)
         } else {
           processedPaths.push(path)

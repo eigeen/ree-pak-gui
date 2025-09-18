@@ -344,7 +344,7 @@ where
                                     source: std::io::Error::other(e.to_string()),
                                 })?;
                                 let path = entry.path();
-                                let relative_path = get_relative_path(&root_path, path)?;
+                                let relative_path = get_relative_path_with_parent(&root_path, path)?;
                                 let hash = relative_path.hash_mixed();
 
                                 log::debug!("Adding loose file: {:?}", relative_path);
@@ -578,7 +578,9 @@ where
     Ok(())
 }
 
-fn get_relative_path(root_path: &Path, file_path: &Path) -> Result<String> {
+/// 获取包含父目录名称的相对路径
+/// 例如：root_path = "A", file_path = "A/B/C" -> 返回 "A/B/C"
+fn get_relative_path_with_parent(root_path: &Path, file_path: &Path) -> Result<String> {
     // ensure inputs are absolute
     if !root_path.is_absolute() || !file_path.is_absolute() {
         return Err(Error::FileIO {
@@ -587,12 +589,18 @@ fn get_relative_path(root_path: &Path, file_path: &Path) -> Result<String> {
         });
     }
 
-    let root_str = root_path.to_string_lossy();
+    // 获取根路径的父目录
+    let root_parent = root_path.parent().unwrap_or(Path::new(""));
+    let root_parent_str = root_parent.to_string_lossy();
     let file_str = file_path.to_string_lossy();
 
-    let relative_path = file_str
-        .strip_prefix(root_str.as_ref())
-        .unwrap_or_else(|| file_str.as_ref());
+    let relative_path = if !root_parent_str.is_empty() {
+        file_str
+            .strip_prefix(root_parent_str.as_ref())
+            .unwrap_or_else(|| file_str.as_ref())
+    } else {
+        file_str.as_ref()
+    };
 
     // Remove leading path separators after strip_prefix
     let relative_path = relative_path.trim_start_matches('/').trim_start_matches('\\');
@@ -612,15 +620,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_get_relative_path() {
-        let root_path = Path::new("C:/Project");
-        let file_path = Path::new("C:/Project/natives/STM/test.txt");
-        let relative_path = get_relative_path(root_path, file_path).unwrap();
-        assert_eq!(relative_path, "natives/STM/test.txt");
+    fn test_get_relative_path_with_parent() {
+        // 测试包含父目录名称的相对路径
+        let root_path = Path::new("C:/Folder/Project");
+        let file_path = Path::new("C:/Folder/Project/natives/STM/test.txt");
+        let relative_path = get_relative_path_with_parent(root_path, file_path).unwrap();
+        assert_eq!(relative_path, "Project/natives/STM/test.txt");
 
-        let root_path = Path::new("C:/Project/natives/STM/");
-        let file_path = Path::new("C:/Project/natives/STM/test.txt");
-        let relative_path = get_relative_path(root_path, file_path).unwrap();
-        assert_eq!(relative_path, "test.txt");
+        let root_path = Path::new("C:/Data/MyMod");
+        let file_path = Path::new("C:/Data/MyMod/assets/texture.png");
+        let relative_path = get_relative_path_with_parent(root_path, file_path).unwrap();
+        assert_eq!(relative_path, "MyMod/assets/texture.png");
     }
 }
