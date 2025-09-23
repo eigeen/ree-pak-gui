@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { getFileListDir } from '@/lib/localDir'
 import type { FileListSource, NameListFile } from '@/lib/NameListFile'
-import { FileListService } from '@/service/filelist'
+import { fileListService } from '@/service/filelist'
 import { useFileListStore } from '@/store/filelist'
 import { ShowError, ShowInfo } from '@/utils/message'
 import { getFileStem } from '@/utils/path'
@@ -128,8 +128,7 @@ async function handleUpdateItem(item: RemoteFileListItem) {
   item.status = 'updating'
 
   try {
-    const srv = FileListService.getInstance()
-    await srv.downloadRemoteFile(item.fileName)
+    await fileListService.downloadRemoteFile(item.fileName)
   } catch (err) {
     ShowError(t('fileNameTable.failedDownloadRemote', { error: String(err) }))
     item.status = oldStatus
@@ -145,8 +144,7 @@ async function handleDownload(item: RemoteFileListItem) {
   item.status = 'downloading'
 
   try {
-    const srv = FileListService.getInstance()
-    await srv.downloadRemoteFile(item.fileName)
+    await fileListService.downloadRemoteFile(item.fileName)
   } catch (err) {
     ShowError(t('fileNameTable.failedDownloadRemote', { error: String(err) }))
     item.status = oldStatus
@@ -191,13 +189,12 @@ async function handleDeleteLocal() {
     return
   }
 
-  const srv = FileListService.getInstance()
   try {
     for (const identifier of localListSelected.value) {
       if (identifier in filelistStore.downloadedFile) {
-        await srv.removeDownloaded(identifier)
+        await fileListService.removeDownloaded(identifier)
       } else if (identifier in filelistStore.localFile) {
-        await srv.removeLocal(identifier)
+        await fileListService.removeLocal(identifier)
       }
     }
   } catch (err) {

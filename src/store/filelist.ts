@@ -1,6 +1,6 @@
 import type { FileListInfo } from '@/api/http/filelist'
 import type { NameListFile } from '@/lib/NameListFile'
-import { FileListService } from '@/service/filelist'
+import { fileListService } from '@/service/filelist'
 import { defineStore } from 'pinia'
 import { ref, type Reactive } from 'vue'
 
@@ -13,13 +13,11 @@ export const useFileListStore = defineStore('filelist', () => {
   const additionalList = ref<string[]>([])
 
   const refreshLocalSource = async () => {
-    const srv = FileListService.getInstance()
-    await srv.refreshLocalSource()
+    await fileListService.refreshLocalSource()
   }
 
   const fetchRemoteSource = async () => {
-    const srv = FileListService.getInstance()
-    await srv.fetchRemoteSource()
+    await fileListService.fetchRemoteSource()
   }
 
   return {

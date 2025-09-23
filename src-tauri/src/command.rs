@@ -145,6 +145,19 @@ pub fn file_table_load(path: &str) -> Result<(), String> {
     )
 }
 
+#[tauri::command]
+pub fn file_table_set_list(file_path_list: Vec<String>) -> Result<(), String> {
+    let pak_service = PakService::get();
+    warp_result_elapsed!(
+        {
+            let table = FileNameTable::from_list(file_path_list).map_err(|e| e.to_string())?;
+            pak_service.set_file_name_table(table);
+            Ok::<(), String>(())
+        },
+        "file_table_set spent {} ms"
+    )
+}
+
 /// Get preview file path.
 ///
 /// Will return error if the file is not supported.

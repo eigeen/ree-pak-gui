@@ -17,21 +17,13 @@ import { exists, mkdir, readDir, remove, writeFile, writeTextFile } from '@tauri
 import { reactive, type Reactive } from 'vue'
 
 export class FileListService {
-  private static instance: FileListService | null = null
   private static readonly NOTIFY_FILE_NAME = '_DONT_EDIT_FILES'
 
   private store
   private remoteServers: string[] = []
 
-  private constructor() {
+  constructor() {
     this.store = useFileListStore()
-  }
-
-  public static getInstance(): FileListService {
-    if (!FileListService.instance) {
-      FileListService.instance = new FileListService()
-    }
-    return FileListService.instance
   }
 
   public async refreshLocalSource(): Promise<void> {
@@ -207,3 +199,5 @@ export class FileListService {
     }
   }
 }
+
+export const fileListService = new FileListService()

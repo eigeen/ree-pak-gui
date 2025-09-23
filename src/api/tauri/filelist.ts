@@ -5,10 +5,16 @@ export interface FileListInfo {
   absPath: string
 }
 
-export function file_table_get_list(): Promise<FileListInfo[]> {
-  return invoke('file_table_get_list')
-}
+export class FilePathList {
+  static async getList(): Promise<FileListInfo[]> {
+    return invoke('file_table_get_list')
+  }
 
-export function file_table_load(path: string): Promise<void> {
-  return invoke('file_table_load', { path })
+  static async load(path: string): Promise<void> {
+    return invoke('file_table_load', { path })
+  }
+
+  static async setList(filePathList: string[]): Promise<void> {
+    return invoke('file_table_set_list', { filePathList })
+  }
 }

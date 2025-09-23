@@ -191,10 +191,10 @@ import type {
 import PakFiles from '@/components/PakFiles.vue'
 import FileTree, { type TreeData } from '@/components/FileTree.vue'
 import PreviewPane from '@/components/PreviewPane.vue'
-import { file_table_load } from '@/api/tauri/filelist'
+import { FilePathList } from '@/api/tauri/filelist'
 import { ShowError, ShowWarn } from '@/utils/message'
 import { useWorkStore } from '@/store/work'
-import { FileListService } from '@/service/filelist'
+import { fileListService } from '@/service/filelist'
 import { getPreviewFile } from '@/api/tauri/utils'
 
 const workStore = useWorkStore()
@@ -332,13 +332,12 @@ async function doRender() {
   loadingTree.value = true
   try {
     // 载入文件名列表
-    const filelistSrv = FileListService.getInstance()
-    const file = filelistSrv.getFileByIdent(workStore.unpack.fileList)
+    const file = fileListService.getFileByIdent(workStore.unpack.fileList)
     if (!file) {
       throw new Error(`Name list file not found: ${workStore.unpack.fileList}`)
     }
 
-    await file_table_load(file.source.filePath)
+    await FilePathList.load(file.source.filePath)
     // 渲染树
     const result = await pak_read_file_tree_optimized()
     treeData.value = result

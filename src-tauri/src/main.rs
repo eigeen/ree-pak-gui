@@ -93,6 +93,7 @@ fn main() {
             command::pak_pack,
             command::pak_terminate_pack,
             command::file_table_load,
+            command::file_table_set_list,
             command::get_preview_file,
             command::get_exe_path,
             command::get_compile_info,
