@@ -146,16 +146,10 @@ pub fn file_table_load(path: &str) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn file_table_set_list(file_path_list: Vec<String>) -> Result<(), String> {
+pub fn file_table_push_paths(file_path_list: Vec<String>) -> Result<(), String> {
     let pak_service = PakService::get();
-    warp_result_elapsed!(
-        {
-            let table = FileNameTable::from_list(file_path_list).map_err(|e| e.to_string())?;
-            pak_service.set_file_name_table(table);
-            Ok::<(), String>(())
-        },
-        "file_table_set spent {} ms"
-    )
+    pak_service.push_file_paths(file_path_list);
+    Ok(())
 }
 
 /// Get preview file path.

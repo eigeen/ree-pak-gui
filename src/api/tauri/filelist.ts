@@ -14,7 +14,7 @@ export class FilePathList {
     return invoke('file_table_load', { path })
   }
 
-  static async setList(filePathList: string[]): Promise<void> {
-    return invoke('file_table_set_list', { filePathList })
+  static async pushPaths(filePathList: string[]): Promise<void> {
+    return invoke('file_table_push_paths', { filePathList })
   }
 }

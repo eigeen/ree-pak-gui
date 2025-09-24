@@ -337,7 +337,7 @@ async function doRender() {
       throw new Error(`Name list file not found: ${workStore.unpack.fileList}`)
     }
 
-    await FilePathList.load(file.source.filePath)
+    await fileListService.loadFilePathList(file.source.filePath)
     // 渲染树
     const result = await pak_read_file_tree_optimized()
     treeData.value = result

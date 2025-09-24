@@ -7,6 +7,7 @@
 
 import { FileListAPI, type FileListInfo } from '@/api/http/filelist'
 import { zipExtractFile } from '@/api/tauri/utils'
+import { FilePathList } from '@/api/tauri/filelist'
 import { fetchWithSpeedCheck } from '@/lib/http/download'
 import { getFileListDir, getTempDir } from '@/lib/localDir'
 import { NameListFile } from '@/lib/NameListFile'
@@ -15,6 +16,20 @@ import { getFileStem } from '@/utils/path'
 import { join } from '@tauri-apps/api/path'
 import { exists, mkdir, readDir, remove, writeFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import { reactive, type Reactive } from 'vue'
+
+/**
+ * Builtin file path table.
+ * - modinfo.ini: Fluffy Mod Manager metadata file.
+ * - <image files>: Some common cover image names. The exact name
+ *   is defined in modinfo.ini, so it's not exact.
+ */
+const BUILTIN_PATH_TABLE: string[] = [
+  'modinfo.ini',
+  'cover.png',
+  'cover.jpg',
+  'screenshot.png',
+  'screenshot.jpg'
+]
 
 export class FileListService {
   private static readonly NOTIFY_FILE_NAME = '_DONT_EDIT_FILES'
@@ -26,7 +41,7 @@ export class FileListService {
     this.store = useFileListStore()
   }
 
-  public async refreshLocalSource(): Promise<void> {
+  async refreshLocalSource(): Promise<void> {
     // local manual sources
     const sources: { [identifier: string]: Reactive<NameListFile> } = {}
 
@@ -72,7 +87,7 @@ export class FileListService {
     await FileListService.touchNotifyFile()
   }
 
-  public async fetchRemoteSource(): Promise<void> {
+  async fetchRemoteSource(): Promise<void> {
     const filelistApi = FileListAPI.getInstance()
     const manifest = await filelistApi.fetchFileListManifest()
 
@@ -85,7 +100,7 @@ export class FileListService {
     this.remoteServers = manifest.base_urls
   }
 
-  public async downloadRemoteFile(fileName: string): Promise<void> {
+  async downloadRemoteFile(fileName: string): Promise<void> {
     if (!this.store.remoteManifest[fileName]) {
       throw new Error(`File not found in remote source: ${fileName}`)
     }
@@ -139,7 +154,7 @@ export class FileListService {
     await writeFile(targetPath, new Uint8Array(await blob.arrayBuffer()))
   }
 
-  public async removeDownloaded(identifier: string): Promise<void> {
+  async removeDownloaded(identifier: string): Promise<void> {
     const file = this.store.downloadedFile[identifier]
     if (!file) {
       throw new Error(`File not found in downloaded source: ${identifier}`)
@@ -155,7 +170,7 @@ export class FileListService {
     delete this.store.downloadedFile[identifier]
   }
 
-  public async removeLocal(identifier: string): Promise<void> {
+  async removeLocal(identifier: string): Promise<void> {
     const file = this.store.localFile[identifier]
     if (!file) {
       throw new Error(`File not found in local source: ${identifier}`)
@@ -171,7 +186,7 @@ export class FileListService {
     delete this.store.localFile[identifier]
   }
 
-  public getFileByIdent(identifier: string): Reactive<NameListFile> | null {
+  getFileByIdent(identifier: string): Reactive<NameListFile> | null {
     const file = this.store.localFile[identifier] || this.store.downloadedFile[identifier]
     if (!file) {
       return null
@@ -179,7 +194,7 @@ export class FileListService {
     return file
   }
 
-  public static async getDownloadedDir(): Promise<string> {
+  static async getDownloadedDir(): Promise<string> {
     const filelistDir = await getFileListDir(false)
     const remoteDir = await join(filelistDir, 'remote')
     if (!(await exists(remoteDir))) {
@@ -187,6 +202,15 @@ export class FileListService {
     }
 
     return remoteDir
+  }
+
+  /**
+   * Load file path list file, and load builtin paths.
+   * @param path File path list file path.
+   */
+  async loadFilePathList(path: string): Promise<void> {
+    await FilePathList.load(path)
+    await FilePathList.pushPaths(BUILTIN_PATH_TABLE)
   }
 
   private static async touchNotifyFile(): Promise<void> {

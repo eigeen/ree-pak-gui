@@ -31,6 +31,10 @@ where
         self.file_name_table.as_ref()
     }
 
+    pub fn file_name_table_mut(&mut self) -> Option<&mut FileNameTable> {
+        self.file_name_table.as_mut()
+    }
+
     pub fn pak_infos(&self) -> Vec<PakInfo> {
         self.paks
             .iter()

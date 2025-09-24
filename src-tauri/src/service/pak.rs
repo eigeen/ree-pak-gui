@@ -271,6 +271,16 @@ where
         self.pak_group.lock().set_file_name_table(table);
     }
 
+    pub fn push_file_paths(&self, paths: Vec<String>) {
+        let mut pak_group = self.pak_group.lock();
+        let file_list = pak_group.file_name_table_mut();
+        if let Some(file_list) = file_list {
+            for file_name in paths {
+                file_list.push_str(&file_name);
+            }
+        }
+    }
+
     pub fn pack(&self, sources: &[impl AsRef<str>], output: &str, progress: PackProgressChannel) -> Result<()> {
         if let Some(handle) = &*self.work_thread.lock()
             && !handle.is_finished()
