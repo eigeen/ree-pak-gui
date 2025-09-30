@@ -1,5 +1,5 @@
 use anyhow::Context as _;
-use ree_pak_core::filename::{FileNameTable, murmur3_hash};
+use ree_pak_core::filename::FileNameTable;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -216,12 +216,12 @@ pub fn zip_extract_file(file_path: String, output_path: Option<String>) -> Resul
 
 #[tauri::command]
 pub fn murmur32(buffer: Vec<u8>) -> Result<u32, String> {
-    murmur3_hash(&mut buffer.as_slice()).map_err(|e| e.to_string())
+    ree_pak_core::utf16_hash::murmur3_hash(&mut buffer.as_slice()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn murmur32_utf16(str: String) -> Result<u64, String> {
-    use ree_pak_core::filename::FileNameExt;
+    use ree_pak_core::utf16_hash::Utf16HashExt;
     Ok(str.hash_mixed())
 }
 

@@ -8,7 +8,7 @@ use std::{
 
 use parking_lot::Mutex;
 use re_tex::tex::Tex;
-use ree_pak_core::filename::FileNameExt;
+use ree_pak_core::utf16_hash::Utf16HashExt;
 
 use crate::{
     TEMP_DIR_NAME,
@@ -59,7 +59,7 @@ impl PreviewService {
 
             file_name_table
                 .get_file_name(hash)
-                .map(|p| p.get_name().to_string())
+                .map(|p| p.to_string().unwrap())
                 .ok_or_else(|| Error::PakEntryNotFound(hash.to_string()))?
         };
 

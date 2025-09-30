@@ -89,7 +89,7 @@ where
         self.archive.entries().iter().for_each(|entry| {
             let file_relative_path: PathBuf = name_table
                 .get_file_name(entry.hash())
-                .map(|fname| fname.get_name().to_string())
+                .map(|fname| fname.to_string().unwrap())
                 .unwrap_or_else(|| format!("_Unknown/{:08X}", entry.hash()))
                 .into();
             let components: Vec<&str> = file_relative_path

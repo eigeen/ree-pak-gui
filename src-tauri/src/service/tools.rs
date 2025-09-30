@@ -195,7 +195,7 @@ impl ToolsService {
         for archive in pak_archives {
             for entry in archive.entries() {
                 if let Some(path) = list_file.get_file_name(entry.hash()) {
-                    found_paths.push(path.get_name().to_string());
+                    found_paths.push(path.to_string().unwrap());
                 }
             }
         }

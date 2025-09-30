@@ -15,9 +15,10 @@ use nohash::BuildNoHashHasher;
 use parking_lot::Mutex;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use ree_pak_core::{
-    filename::{FileNameExt, FileNameTable},
+    filename::FileNameTable,
     pak::PakArchive,
     read::{archive::PakArchiveReader, entry::PakEntryReader},
+    utf16_hash::Utf16HashExt,
     write::{FileOptions, PakWriter},
 };
 use walkdir::WalkDir;
@@ -524,7 +525,7 @@ where
             // output file path
             let file_relative_path: PathBuf = file_name_table
                 .get_file_name(entry.hash())
-                .map(|fname| fname.get_name().to_string())
+                .map(|fname| fname.to_string().unwrap())
                 .unwrap_or_else(|| format!("_Unknown/{:08X}", entry.hash()))
                 .into();
             let output_path = output_path.join(&file_relative_path);
