@@ -1,7 +1,7 @@
 use std::{
     collections::HashSet,
     fs::{File, OpenOptions},
-    io::{BufRead, BufReader, BufWriter, Read, Seek, Write},
+    io::{BufRead, BufReader, BufWriter, Read, Write},
     path::{Path, PathBuf},
     sync::{
         Arc, OnceLock,
@@ -17,7 +17,8 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use ree_pak_core::{
     filename::FileNameTable,
     pak::PakArchive,
-    read::{archive::PakArchiveReader, entry::PakEntryReader},
+    pakfile::PakFile,
+    read::entry::PakEntryReader,
     utf16_hash::Utf16HashExt,
     write::{FileOptions, PakWriter},
 };
@@ -36,7 +37,7 @@ use crate::{
 
 pub type PakHeaderInfo = PakArchive;
 
-static PAK_SERVICE: OnceLock<PakService<BufReader<File>>> = OnceLock::new();
+static PAK_SERVICE: OnceLock<PakService> = OnceLock::new();
 
 /// Builder for creating PackedFileTree from packed files
 struct PakTreeBuilder {
@@ -68,14 +69,14 @@ impl PakTreeBuilder {
     }
 }
 
-pub struct PakService<R> {
-    pak_group: Arc<Mutex<PakGroup<R>>>,
+pub struct PakService {
+    pak_group: Arc<Mutex<PakGroup>>,
     work_thread: Mutex<Option<JoinHandle<()>>>,
     should_terminate: Arc<AtomicBool>,
 }
 
-impl PakService<BufReader<File>> {
-    pub fn initialize(pak_group: PakGroup<BufReader<File>>) -> &'static Self {
+impl PakService {
+    pub fn initialize(pak_group: PakGroup) -> &'static Self {
         PAK_SERVICE.get_or_init(|| Self::new(pak_group))
     }
 
@@ -84,29 +85,25 @@ impl PakService<BufReader<File>> {
     }
 
     pub fn open_pak(&self, path: &str) -> Result<PakId> {
-        // open pak file
-        let file = std::fs::File::open(path).map_err(|e| Error::FileIO {
-            path: path.to_string(),
-            source: e,
+        let pakfile = PakFile::open(path).map_err(|e| match e {
+            ree_pak_core::error::PakError::IO(source) => Error::FileIO {
+                path: path.to_string(),
+                source,
+            },
+            other => Error::PakCore(other),
         })?;
-        let mut reader = std::io::BufReader::new(file);
-        let archive = ree_pak_core::read::read_archive(&mut reader)?;
 
-        // store pak and create id
-        let path_abs = std::path::Path::new(path).canonicalize()?;
-        let pak = Pak::new(&path_abs.display().to_string(), archive, reader);
-        let id: PakId = pak.id;
+        let path_abs = pakfile.path().display().to_string();
+        let pak = Pak::new(&path_abs, pakfile);
+        let id = pak.id;
 
         self.pak_group.lock().add_pak(pak);
         Ok(id)
     }
 }
 
-impl<R> PakService<R>
-where
-    R: Send + Sync + BufRead + Seek + 'static,
-{
-    fn new(pak_group: PakGroup<R>) -> Self {
+impl PakService {
+    fn new(pak_group: PakGroup) -> Self {
         Self {
             pak_group: Arc::new(Mutex::new(pak_group)),
             work_thread: Mutex::new(None),
@@ -114,7 +111,7 @@ where
         }
     }
 
-    pub fn pak_group(&self) -> Arc<Mutex<PakGroup<R>>> {
+    pub fn pak_group(&self) -> Arc<Mutex<PakGroup>> {
         self.pak_group.clone()
     }
 
@@ -215,8 +212,7 @@ where
         *self.work_thread.lock() = Some(thread::spawn(move || {
             let mut _pak_group = pak_group.lock();
             let file_name_table = _pak_group.file_name_table().unwrap().clone();
-            let paks = _pak_group.paks_mut();
-            for pak in paks {
+            for pak in _pak_group.paks() {
                 if should_terminate.load(Ordering::Relaxed) {
                     break;
                 }
@@ -249,10 +245,9 @@ where
 
         // get newest file from paks
         let file_hash = entry_path.hash_mixed();
-        for pak in _pak_group.paks_mut().iter_mut().rev() {
-            if let Some(entry) = pak.archive.entries().iter().find(|e| e.hash() == file_hash) {
-                let reader = pak.reader.as_mut().unwrap();
-                let mut entry_reader = PakArchiveReader::new(reader, &pak.archive).owned_entry_reader(entry.clone())?;
+        for pak in _pak_group.paks().iter().rev() {
+            if let Some(entry) = pak.pakfile.archive().entries().iter().find(|e| e.hash() == file_hash) {
+                let mut entry_reader = pak.pakfile.open_entry(entry)?;
 
                 let output_path = output_path.as_ref();
                 let file_dir = output_path.parent().unwrap();
@@ -402,24 +397,24 @@ where
                     }
                     // write pak files. group by from_pak,
                     // and write each pak file
-                    let pak_files = file_manifests
-                        .iter()
-                        .filter_map(|(_, manifest)| manifest.from_pak.clone())
+                    let mut pak_files = file_manifests
+                        .values()
+                        .filter_map(|manifest| manifest.from_pak.clone())
                         .collect::<Vec<_>>();
+                    pak_files.sort();
+                    pak_files.dedup();
                     for pak_file in pak_files {
                         if should_terminate.load(Ordering::Relaxed) {
                             return Err(Error::Terminated);
                         }
 
-                        let mut reader = BufReader::new(File::open(&pak_file)?);
-                        let archive = ree_pak_core::read::read_archive(&mut reader)?;
-                        let mut pak_reader = PakArchiveReader::new(reader, &archive);
-                        for entry in archive.entries() {
+                        let pak = PakFile::open(&pak_file)?;
+                        for entry in pak.archive().entries() {
                             if !file_manifests.contains_key(&entry.hash()) {
                                 continue;
                             }
 
-                            let mut reader = pak_reader.owned_entry_reader(entry.clone())?;
+                            let mut reader = pak.open_entry(entry)?;
                             pak_writer.start_file_hash(entry.hash(), FileOptions::default())?;
                             std::io::copy(&mut reader, &mut pak_writer)?;
                             progress1.file_done(&format!("{}:{:16X}", pak_file.display(), entry.hash()));
@@ -459,7 +454,7 @@ where
     }
 }
 
-impl PakService<()> {
+impl PakService {
     pub fn get_header(path: impl AsRef<Path>) -> Result<PakHeaderInfo> {
         let path = path.as_ref();
         // open pak file
@@ -480,33 +475,26 @@ struct FileManifest {
     from_pak: Option<PathBuf>,
 }
 
-fn unpack_parallel_error_continue<R>(
-    pak: &mut Pak<R>,
+fn unpack_parallel_error_continue(
+    pak: &Pak,
     file_name_table: &FileNameTable,
     options: &ExtractOptions,
     progress: UnpackProgressChannel,
     should_terminate: Arc<AtomicBool>,
-) -> anyhow::Result<()>
-where
-    R: Read + Seek + Send,
-{
+) -> anyhow::Result<()> {
     let mut target_files: HashSet<u64, BuildNoHashHasher<u64>> = HashSet::default();
     for info in options.extract_files.iter() {
         if info.belongs_to == pak.id {
             target_files.insert(info.hash.hash_u64());
         }
     }
-    if pak.reader.is_none() {
-        return Err(anyhow::anyhow!("Pak reader is not set"));
-    }
-
-    let archive_reader = Mutex::new(PakArchiveReader::new(pak.reader.take().unwrap(), &pak.archive));
 
     let output_path = Path::new(&options.output_path);
 
     // extract files
     let _ = pak
-        .archive
+        .pakfile
+        .archive()
         .entries()
         .par_iter()
         .try_for_each(|entry| -> anyhow::Result<()> {
@@ -518,10 +506,7 @@ where
             }
 
             // get entry reader
-            let entry_reader = {
-                let mut r = archive_reader.lock();
-                (*r).owned_entry_reader(entry.clone())?
-            };
+            let entry_reader = pak.pakfile.open_entry(entry)?;
             // output file path
             let file_relative_path: PathBuf = file_name_table
                 .get_file_name(entry.hash())
@@ -535,7 +520,7 @@ where
                 log::error!(
                     "Error processing entry: {}. Path: {:?}",
                     e,
-                    file_name_table.get_file_name(entry.hash()).unwrap(),
+                    file_name_table.get_file_name(entry.hash()),
                 );
                 log::debug!("Entry: {:?}", entry);
                 progress.file_done(file_relative_path.to_str().unwrap(), entry.hash(), Some(e.to_string()));
@@ -549,15 +534,14 @@ where
             Ok(())
         });
 
-    pak.reader.replace(archive_reader.into_inner().into_inner());
-
     Ok(())
 }
 
-fn process_entry<R>(mut entry_reader: PakEntryReader<R>, output_path: PathBuf, r#override: bool) -> anyhow::Result<()>
-where
-    R: BufRead + Seek,
-{
+fn process_entry(
+    mut entry_reader: PakEntryReader<Box<dyn BufRead + Send>>,
+    output_path: PathBuf,
+    r#override: bool,
+) -> anyhow::Result<()> {
     let file_dir = output_path.parent().unwrap();
 
     if !file_dir.exists() {

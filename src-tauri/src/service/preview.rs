@@ -21,7 +21,7 @@ static PREVIEW_SERVICE: OnceLock<PreviewService> = OnceLock::new();
 
 /// Preview service.
 pub struct PreviewService {
-    pak_service: &'static PakService<BufReader<File>>,
+    pak_service: &'static PakService,
     temp_dir: PathBuf,
     preview_files: Mutex<HashMap<u64, PathBuf>>,
 }

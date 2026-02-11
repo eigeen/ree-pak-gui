@@ -1,12 +1,6 @@
-use std::{
-    io::{Read, Seek},
-    path::PathBuf,
-};
+use std::path::PathBuf;
 
-use ree_pak_core::{
-    filename::FileNameTable,
-    pak::{CompressionType, PakArchive},
-};
+use ree_pak_core::{filename::FileNameTable, pak::CompressionType, pakfile::PakFile};
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use tree::{FileTree, FileTreeNode, NodeInfo};
@@ -48,23 +42,18 @@ pub struct ExtractFileInfo {
     pub belongs_to: PakId,
 }
 
-pub struct Pak<R> {
+pub struct Pak {
     pub(crate) id: PakId,
     pub(crate) path: String,
-    pub(crate) archive: PakArchive,
-    pub(crate) reader: Option<R>,
+    pub(crate) pakfile: PakFile,
 }
 
-impl<R> Pak<R>
-where
-    R: Read + Seek + Send,
-{
-    pub fn new(path: &str, archive: PakArchive, reader: R) -> Pak<R> {
+impl Pak {
+    pub fn new(path: &str, pakfile: PakFile) -> Pak {
         Pak {
             id: UniqueId::create().into(),
             path: path.to_string(),
-            archive,
-            reader: Some(reader),
+            pakfile,
         }
     }
 
@@ -86,7 +75,7 @@ where
         let mut total_compressed_size = 0_u64;
         let mut total_file_count = 0_u64;
 
-        self.archive.entries().iter().for_each(|entry| {
+        self.pakfile.archive().entries().iter().for_each(|entry| {
             let file_relative_path: PathBuf = name_table
                 .get_file_name(entry.hash())
                 .map(|fname| fname.to_string().unwrap())

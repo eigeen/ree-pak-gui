@@ -1,8 +1,3 @@
-use std::{
-    fs::File,
-    io::{BufRead, BufReader, Seek},
-};
-
 use ree_pak_core::filename::FileNameTable;
 
 use super::{Pak, PakId, PakInfo, tree::FileTree};
@@ -10,20 +5,17 @@ use super::{Pak, PakId, PakInfo, tree::FileTree};
 use crate::error::{Error, Result};
 
 /// Manages a group of paks.
-pub struct PakGroup<R> {
-    paks: Vec<Pak<R>>,
+pub struct PakGroup {
+    paks: Vec<Pak>,
     file_name_table: Option<FileNameTable>,
 }
 
-impl<R> PakGroup<R>
-where
-    R: Send + Sync + BufRead + Seek,
-{
-    pub fn paks(&self) -> &[Pak<R>] {
+impl PakGroup {
+    pub fn paks(&self) -> &[Pak] {
         &self.paks
     }
 
-    pub fn paks_mut(&mut self) -> &mut [Pak<R>] {
+    pub fn paks_mut(&mut self) -> &mut [Pak] {
         &mut self.paks
     }
 
@@ -46,10 +38,13 @@ where
     }
 
     pub fn total_files(&self) -> u64 {
-        self.paks.iter().map(|pak| pak.archive.entries().len() as u64).sum()
+        self.paks
+            .iter()
+            .map(|pak| pak.pakfile.archive().entries().len() as u64)
+            .sum()
     }
 
-    pub fn add_pak(&mut self, pak: Pak<R>) {
+    pub fn add_pak(&mut self, pak: Pak) {
         if let Some(prev_pak) = self.get_pak_by_path(&pak.path) {
             // remove previous pak with same path
             let id: PakId = prev_pak.id;
@@ -58,15 +53,15 @@ where
         self.paks.push(pak);
     }
 
-    pub fn get_pak(&self, id: &PakId) -> Option<&Pak<R>> {
+    pub fn get_pak(&self, id: &PakId) -> Option<&Pak> {
         self.paks.iter().find(|pak| pak.id == *id)
     }
 
-    pub fn get_pak_by_path(&self, path: &str) -> Option<&Pak<R>> {
+    pub fn get_pak_by_path(&self, path: &str) -> Option<&Pak> {
         self.paks.iter().find(|pak| pak.path == path)
     }
 
-    pub fn remove_pak(&mut self, id: &PakId) -> Option<Pak<R>> {
+    pub fn remove_pak(&mut self, id: &PakId) -> Option<Pak> {
         self.paks
             .iter()
             .position(|pak| pak.id == *id)
@@ -105,7 +100,7 @@ where
     }
 }
 
-impl PakGroup<BufReader<File>> {
+impl PakGroup {
     pub fn new() -> Self {
         Self {
             paks: Vec::new(),
