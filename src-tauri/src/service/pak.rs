@@ -1,7 +1,6 @@
 use std::{
-    collections::HashSet,
     fs::{File, OpenOptions},
-    io::{BufRead, BufReader, BufWriter, Read, Write},
+    io::{BufReader, BufWriter, Read, Write},
     path::{Path, PathBuf},
     sync::{
         Arc, OnceLock,
@@ -11,14 +10,11 @@ use std::{
 };
 
 use indexmap::IndexMap;
-use nohash::BuildNoHashHasher;
 use parking_lot::Mutex;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use ree_pak_core::{
     filename::FileNameTable,
-    pak::PakArchive,
+    pak::PakMetadata,
     pakfile::PakFile,
-    read::entry::PakEntryReader,
     utf16_hash::Utf16HashExt,
     write::{FileOptions, PakWriter},
 };
@@ -35,7 +31,7 @@ use crate::{
     },
 };
 
-pub type PakHeaderInfo = PakArchive;
+pub type PakHeaderInfo = PakMetadata;
 
 static PAK_SERVICE: OnceLock<PakService> = OnceLock::new();
 
@@ -46,7 +42,9 @@ struct PakTreeBuilder {
 
 impl PakTreeBuilder {
     fn new() -> Self {
-        Self { paks: IndexMap::new() }
+        Self {
+            paks: IndexMap::new(),
+        }
     }
 
     fn add_file(&mut self, pak_path: &str, file_path: Option<String>, hash: u64, size: u64) {
@@ -85,7 +83,12 @@ impl PakService {
     }
 
     pub fn open_pak(&self, path: &str) -> Result<PakId> {
-        let pakfile = PakFile::open(path).map_err(|e| match e {
+        let file = File::open(path).map_err(|source| Error::FileIO {
+            path: path.to_string(),
+            source,
+        })?;
+
+        let pakfile = PakFile::from_file(file).map_err(|e| match e {
             ree_pak_core::error::PakError::IO(source) => Error::FileIO {
                 path: path.to_string(),
                 source,
@@ -93,7 +96,11 @@ impl PakService {
             other => Error::PakCore(other),
         })?;
 
-        let path_abs = pakfile.path().display().to_string();
+        let path_abs = Path::new(path)
+            .canonicalize()
+            .unwrap_or_else(|_| PathBuf::from(path))
+            .display()
+            .to_string();
         let pak = Pak::new(&path_abs, pakfile);
         let id = pak.id;
 
@@ -149,7 +156,9 @@ impl PakService {
         }
         let all_found = order.iter().all(|id| paks.iter().any(|pak| pak.id == *id));
         if !all_found {
-            return Err(Error::InvalidOrder("Order list contains unknown pak ids.".to_string()));
+            return Err(Error::InvalidOrder(
+                "Order list contains unknown pak ids.".to_string(),
+            ));
         }
         // sort paks by order list
         paks.sort_by_key(|pak| order.iter().position(|id| pak.id == *id).unwrap());
@@ -184,7 +193,11 @@ impl PakService {
     ///
     /// - No paks or no file list is loaded.
     /// - Unpack already running.
-    pub fn unpack_optional(&self, options: &ExtractOptions, progress: UnpackProgressChannel) -> Result<()> {
+    pub fn unpack_optional(
+        &self,
+        options: &ExtractOptions,
+        progress: UnpackProgressChannel,
+    ) -> Result<()> {
         if let Some(handle) = &*self.work_thread.lock()
             && !handle.is_finished()
         {
@@ -211,19 +224,93 @@ impl PakService {
         let options1 = options.clone();
         *self.work_thread.lock() = Some(thread::spawn(move || {
             let mut _pak_group = pak_group.lock();
-            let file_name_table = _pak_group.file_name_table().unwrap().clone();
+            let file_name_table = Arc::new(_pak_group.file_name_table().unwrap().clone());
+            let output_root = PathBuf::from(&options1.output_path);
             for pak in _pak_group.paks() {
                 if should_terminate.load(Ordering::Relaxed) {
                     break;
                 }
 
-                if let Err(e) = unpack_parallel_error_continue(
-                    pak,
-                    &file_name_table,
-                    &options1,
-                    progress.clone(),
-                    should_terminate.clone(),
-                ) {
+                let target_hashes = if options1.extract_all {
+                    None
+                } else {
+                    Some(Arc::new(
+                        options1
+                            .extract_files
+                            .iter()
+                            .filter_map(|info| {
+                                if info.belongs_to == pak.id {
+                                    Some(info.hash.hash_u64())
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect::<std::collections::HashSet<_>>(),
+                    ))
+                };
+
+                let mut extractor = pak
+                    .pakfile
+                    .extractor_callback()
+                    .file_name_table_arc(file_name_table.clone())
+                    .skip_unknown(false)
+                    .continue_on_error(true)
+                    .cancel_flag(should_terminate.clone());
+
+                if let Some(target_hashes) = target_hashes {
+                    extractor =
+                        extractor.filter(move |entry, _path| target_hashes.contains(&entry.hash()));
+                }
+
+                let progress1 = progress.clone();
+                let output_root1 = output_root.clone();
+                let result = extractor.run_with_entry_reader(|entry, rel_path, entry_reader| {
+                    let rel_path_str = rel_path.to_string_lossy();
+                    let out_path = output_root1.join(rel_path);
+
+                    let result = (|| -> std::result::Result<(), ree_pak_core::error::PakError> {
+                        let Some(parent) = out_path.parent() else {
+                            return Ok(());
+                        };
+                        if !parent.exists() {
+                            std::fs::create_dir_all(parent)?;
+                        }
+
+                        // Keep existing behavior: always overwrite.
+                        let mut file = OpenOptions::new()
+                            .create(true)
+                            .write(true)
+                            .truncate(true)
+                            .open(&out_path)?;
+
+                        std::io::copy(entry_reader, &mut file)?;
+                        file.flush()?;
+
+                        if out_path.extension().is_none()
+                            && let Some(ext) = entry_reader.determine_extension()
+                        {
+                            let new_path = out_path.with_extension(ext);
+                            std::fs::rename(&out_path, &new_path)?;
+                        }
+
+                        Ok(())
+                    })();
+
+                    progress1.file_done(
+                        rel_path_str.as_ref(),
+                        entry.hash(),
+                        result.as_ref().err().map(|e| e.to_string()),
+                    );
+
+                    if let Err(e) = &result {
+                        log::error!("Error processing entry: {}. Path: {}", e, rel_path_str);
+                        log::debug!("Entry: {:?}", entry);
+                    }
+
+                    result
+                });
+
+                if let Err(e) = result {
                     eprintln!("Error unpacking pak: {}", e);
                 }
             }
@@ -246,7 +333,13 @@ impl PakService {
         // get newest file from paks
         let file_hash = entry_path.hash_mixed();
         for pak in _pak_group.paks().iter().rev() {
-            if let Some(entry) = pak.pakfile.archive().entries().iter().find(|e| e.hash() == file_hash) {
+            if let Some(entry) = pak
+                .pakfile
+                .metadata()
+                .entries()
+                .iter()
+                .find(|e| e.hash() == file_hash)
+            {
                 let mut entry_reader = pak.pakfile.open_entry(entry)?;
 
                 let output_path = output_path.as_ref();
@@ -277,7 +370,12 @@ impl PakService {
         }
     }
 
-    pub fn pack(&self, sources: &[impl AsRef<str>], output: &str, progress: PackProgressChannel) -> Result<()> {
+    pub fn pack(
+        &self,
+        sources: &[impl AsRef<str>],
+        output: &str,
+        progress: PackProgressChannel,
+    ) -> Result<()> {
         if let Some(handle) = &*self.work_thread.lock()
             && !handle.is_finished()
         {
@@ -288,12 +386,18 @@ impl PakService {
         if output_path.exists() {
             return Err(Error::FileIO {
                 path: output_path.display().to_string(),
-                source: std::io::Error::new(std::io::ErrorKind::AlreadyExists, "Output file already exists"),
+                source: std::io::Error::new(
+                    std::io::ErrorKind::AlreadyExists,
+                    "Output file already exists",
+                ),
             });
         }
 
         let should_terminate = self.should_terminate.clone();
-        let sources = sources.iter().map(|s| s.as_ref().to_string()).collect::<Vec<_>>();
+        let sources = sources
+            .iter()
+            .map(|s| s.as_ref().to_string())
+            .collect::<Vec<_>>();
         let progress1 = progress.clone();
         *self.work_thread.lock() = Some(thread::spawn(move || {
             let main_fn = move || -> Result<PakTreeBuilder> {
@@ -310,7 +414,10 @@ impl PakService {
                     if !source_path.exists() {
                         return Err(Error::FileIO {
                             path: source_path.display().to_string(),
-                            source: std::io::Error::new(std::io::ErrorKind::NotFound, "File not found"),
+                            source: std::io::Error::new(
+                                std::io::ErrorKind::NotFound,
+                                "File not found",
+                            ),
                         });
                     }
 
@@ -324,7 +431,10 @@ impl PakService {
                         if magic != *b"AKPK" {
                             return Err(Error::FileIO {
                                 path: source_path.display().to_string(),
-                                source: std::io::Error::new(std::io::ErrorKind::InvalidData, "Not a pak file"),
+                                source: std::io::Error::new(
+                                    std::io::ErrorKind::InvalidData,
+                                    "Not a pak file",
+                                ),
                             });
                         }
 
@@ -343,14 +453,21 @@ impl PakService {
                     } else {
                         WalkDir::new(source_path)
                             .into_iter()
-                            .filter(|entry| entry.as_ref().unwrap().metadata().is_ok_and(|m| m.is_file()))
+                            .filter(|entry| {
+                                entry
+                                    .as_ref()
+                                    .unwrap()
+                                    .metadata()
+                                    .is_ok_and(|m| m.is_file())
+                            })
                             .try_for_each(|entry| -> Result<()> {
                                 let entry = entry.map_err(|e| Error::FileIO {
                                     path: root_path.display().to_string(),
                                     source: std::io::Error::other(e.to_string()),
                                 })?;
                                 let path = entry.path();
-                                let relative_path = get_relative_path_with_parent(&root_path, path)?;
+                                let relative_path =
+                                    get_relative_path_with_parent(&root_path, path)?;
                                 let hash = relative_path.hash_mixed();
 
                                 log::debug!("Adding loose file: {:?}", relative_path);
@@ -380,7 +497,9 @@ impl PakService {
                             return Err(Error::Terminated);
                         }
 
-                        let Some(real_path) = &manifest.real_path else { continue };
+                        let Some(real_path) = &manifest.real_path else {
+                            continue;
+                        };
                         let mut reader = BufReader::new(File::open(real_path)?);
                         let file_size = real_path.metadata()?.len();
                         pak_writer.start_file_hash(hash, FileOptions::default())?;
@@ -408,8 +527,8 @@ impl PakService {
                             return Err(Error::Terminated);
                         }
 
-                        let pak = PakFile::open(&pak_file)?;
-                        for entry in pak.archive().entries() {
+                        let pak = PakFile::from_file(File::open(&pak_file)?)?;
+                        for entry in pak.metadata().entries() {
                             if !file_manifests.contains_key(&entry.hash()) {
                                 continue;
                             }
@@ -417,7 +536,11 @@ impl PakService {
                             let mut reader = pak.open_entry(entry)?;
                             pak_writer.start_file_hash(entry.hash(), FileOptions::default())?;
                             std::io::copy(&mut reader, &mut pak_writer)?;
-                            progress1.file_done(&format!("{}:{:16X}", pak_file.display(), entry.hash()));
+                            progress1.file_done(&format!(
+                                "{}:{:16X}",
+                                pak_file.display(),
+                                entry.hash()
+                            ));
 
                             // Add to tree builder
                             // tree_builder.add_pak_file(
@@ -463,9 +586,9 @@ impl PakService {
             source: e,
         })?;
         let mut reader = std::io::BufReader::new(file);
-        let archive = ree_pak_core::read::read_archive(&mut reader)?;
+        let metadata = ree_pak_core::read::read_metadata(&mut reader)?;
 
-        Ok(archive)
+        Ok(metadata)
     }
 }
 
@@ -475,104 +598,6 @@ struct FileManifest {
     from_pak: Option<PathBuf>,
 }
 
-fn unpack_parallel_error_continue(
-    pak: &Pak,
-    file_name_table: &FileNameTable,
-    options: &ExtractOptions,
-    progress: UnpackProgressChannel,
-    should_terminate: Arc<AtomicBool>,
-) -> anyhow::Result<()> {
-    let mut target_files: HashSet<u64, BuildNoHashHasher<u64>> = HashSet::default();
-    for info in options.extract_files.iter() {
-        if info.belongs_to == pak.id {
-            target_files.insert(info.hash.hash_u64());
-        }
-    }
-
-    let output_path = Path::new(&options.output_path);
-
-    // extract files
-    let _ = pak
-        .pakfile
-        .archive()
-        .entries()
-        .par_iter()
-        .try_for_each(|entry| -> anyhow::Result<()> {
-            if should_terminate.load(Ordering::Relaxed) {
-                return Err(anyhow::anyhow!("Unpack thread terminated"));
-            }
-            if !(options.extract_all || target_files.contains(&entry.hash())) {
-                return Ok(());
-            }
-
-            // get entry reader
-            let entry_reader = pak.pakfile.open_entry(entry)?;
-            // output file path
-            let file_relative_path: PathBuf = file_name_table
-                .get_file_name(entry.hash())
-                .map(|fname| fname.to_string().unwrap())
-                .unwrap_or_else(|| format!("_Unknown/{:08X}", entry.hash()))
-                .into();
-            let output_path = output_path.join(&file_relative_path);
-
-            let result = process_entry(entry_reader, output_path, true);
-            if let Err(e) = &result {
-                log::error!(
-                    "Error processing entry: {}. Path: {:?}",
-                    e,
-                    file_name_table.get_file_name(entry.hash()),
-                );
-                log::debug!("Entry: {:?}", entry);
-                progress.file_done(file_relative_path.to_str().unwrap(), entry.hash(), Some(e.to_string()));
-            } else {
-                progress.file_done(file_relative_path.to_str().unwrap(), entry.hash(), None);
-            };
-            if let Err(e) = result {
-                log::error!("Error processing entry: {}", e);
-                return Ok(());
-            }
-            Ok(())
-        });
-
-    Ok(())
-}
-
-fn process_entry(
-    mut entry_reader: PakEntryReader<Box<dyn BufRead + Send>>,
-    output_path: PathBuf,
-    r#override: bool,
-) -> anyhow::Result<()> {
-    let file_dir = output_path.parent().unwrap();
-
-    if !file_dir.exists() {
-        std::fs::create_dir_all(file_dir)?;
-    }
-
-    let mut data = vec![];
-    std::io::copy(&mut entry_reader, &mut data)?;
-
-    let mut file = if r#override {
-        OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(true)
-            .open(&output_path)?
-    } else {
-        OpenOptions::new().create_new(true).write(true).open(&output_path)?
-    };
-    file.write_all(&data)?;
-
-    // guess unknown file extension
-    if output_path.extension().is_none()
-        && let Some(ext) = entry_reader.determine_extension()
-    {
-        let new_path = output_path.with_extension(ext);
-        std::fs::rename(output_path, new_path)?;
-    }
-
-    Ok(())
-}
-
 /// 获取包含父目录名称的相对路径
 /// 例如：root_path = "A", file_path = "A/B/C" -> 返回 "A/B/C"
 fn get_relative_path_with_parent(root_path: &Path, file_path: &Path) -> Result<String> {
@@ -580,7 +605,10 @@ fn get_relative_path_with_parent(root_path: &Path, file_path: &Path) -> Result<S
     if !root_path.is_absolute() || !file_path.is_absolute() {
         return Err(Error::FileIO {
             path: file_path.display().to_string(),
-            source: std::io::Error::new(std::io::ErrorKind::InvalidData, "File path is not absolute"),
+            source: std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "File path is not absolute",
+            ),
         });
     }
 
@@ -598,12 +626,17 @@ fn get_relative_path_with_parent(root_path: &Path, file_path: &Path) -> Result<S
     };
 
     // Remove leading path separators after strip_prefix
-    let relative_path = relative_path.trim_start_matches('/').trim_start_matches('\\');
+    let relative_path = relative_path
+        .trim_start_matches('/')
+        .trim_start_matches('\\');
 
     if Path::new(relative_path).is_absolute() {
         return Err(Error::FileIO {
             path: file_path.display().to_string(),
-            source: std::io::Error::new(std::io::ErrorKind::InvalidData, "File path is absolute after strip"),
+            source: std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "File path is absolute after strip",
+            ),
         });
     }
 

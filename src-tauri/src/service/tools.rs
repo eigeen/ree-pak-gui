@@ -172,7 +172,7 @@ impl ToolsService {
 
     fn check_on_list_file(list_path: &str, pak_files: &[String]) -> Result<Vec<String>> {
         // open pak files
-        let pak_archives = pak_files
+        let pak_metadatas = pak_files
             .iter()
             .map(|path| {
                 let file = File::open(path)
@@ -183,8 +183,8 @@ impl ToolsService {
                     .context("Failed to open pak file")?;
 
                 let mut reader = BufReader::new(file);
-                let archive = ree_pak_core::read::read_archive(&mut reader)?;
-                Ok(archive)
+                let metadata = ree_pak_core::read::read_metadata(&mut reader)?;
+                Ok(metadata)
             })
             .collect::<Result<Vec<_>>>()?;
 
@@ -192,8 +192,8 @@ impl ToolsService {
         let list_file = FileNameTable::from_list_file(list_path)?;
 
         let mut found_paths = vec![];
-        for archive in pak_archives {
-            for entry in archive.entries() {
+        for metadata in pak_metadatas {
+            for entry in metadata.entries() {
                 if let Some(path) = list_file.get_file_name(entry.hash()) {
                     found_paths.push(path.to_string().unwrap());
                 }

@@ -75,7 +75,7 @@ impl Pak {
         let mut total_compressed_size = 0_u64;
         let mut total_file_count = 0_u64;
 
-        self.pakfile.archive().entries().iter().for_each(|entry| {
+        self.pakfile.metadata().entries().iter().for_each(|entry| {
             let file_relative_path: PathBuf = name_table
                 .get_file_name(entry.hash())
                 .map(|fname| fname.to_string().unwrap())
@@ -108,7 +108,8 @@ impl Pak {
                 if !is_dir {
                     child_node.info.uncompressed_size = entry.uncompressed_size();
                     child_node.info.compressed_size = entry.compressed_size();
-                    child_node.info.is_compressed = entry.compression_type() != CompressionType::NONE;
+                    child_node.info.is_compressed =
+                        entry.compression_type() != CompressionType::None;
                     child_node.info.hash = Some(JsSafeHash::from_u64(entry.hash()));
                     total_uncompressed_size += entry.uncompressed_size();
                     total_compressed_size += entry.compressed_size();

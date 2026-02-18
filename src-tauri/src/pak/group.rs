@@ -40,7 +40,7 @@ impl PakGroup {
     pub fn total_files(&self) -> u64 {
         self.paks
             .iter()
-            .map(|pak| pak.pakfile.archive().entries().len() as u64)
+            .map(|pak| pak.pakfile.metadata().entries().len() as u64)
             .sum()
     }
 
