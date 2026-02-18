@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.4.7"
+version = "0.4.8"
 description = "RE Engine Package Tools"
 authors = ["Eigeen <dengyk2002@qq.com>"]
 license = "MIT"
@@ -15,7 +15,10 @@ rust-version = "1.88"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-ree-pak-core = { path = "../../ree-pak-core" }
+# local dev
+ree-pak-core = { path = "../../ree-pak-rs/ree-pak-core" }
+
+# ree-pak-core = { git = "https://github.com/eigeen/ree-pak-rs", package = "ree-pak-core" }
 re-tex = { git = "https://github.com/eigeen/re-tex", features = ["image"] }
 ree-path-searcher = { git = "https://github.com/eigeen/ree-path-searcher" }
 
@@ -34,22 +37,22 @@ uuid = { version = "1.10", features = [
     "macro-diagnostics",
     "serde",
 ] }
-anyhow.workspace = true
+anyhow = "1.0"
 thiserror = "2.0"
 rustc-hash = "2.0"
 nohash = "0.2"
 rayon = "1.10"
 log = { version = "0.4", features = ["std"] }
-parking_lot.workspace = true
+parking_lot = "0.12"
 tokio = "1.44"
 self-replace = "1.5"
 tempfile = "3.19"
 semver = "1.0"
 chrono = "0.4"
 sha2 = "0.10"
-zip = { version = "4.0", default-features = false, features = ["deflate"] }
-indexmap.workspace = true
-walkdir.workspace = true
+zip = { version = "8.1", default-features = false, features = ["deflate"] }
+indexmap = "2.13"
+walkdir = "2"
 # for preview
 image = { version = "0.25", default-features = false, features = [
     "png",
