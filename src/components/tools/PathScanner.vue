@@ -267,12 +267,16 @@ const copyResults = async () => {
 const localSources = computed(() => {
   const itemsMap: { [identifier: string]: any } = {}
   for (const identifier in fileListStore.localFile) {
+    const localFile = fileListStore.localFile[identifier]
+    if (!localFile) continue
     itemsMap[identifier] = {
-      ...fileListStore.localFile[identifier].source
+      ...localFile.source
     }
   }
   for (const fileName in fileListStore.downloadedFile) {
-    const source = fileListStore.downloadedFile[fileName].source
+    const downloaded = fileListStore.downloadedFile[fileName]
+    const source = downloaded?.source
+    if (!source) continue
     const identifier = source.identifier
     if (identifier in itemsMap) {
       continue

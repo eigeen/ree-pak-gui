@@ -57,10 +57,15 @@ function buildFileTree(files: PackedFile[]): FileTreeNode {
     // 遍历路径的每一部分
     for (let i = 0; i < parts.length - 1; i++) {
       const part = parts[i]
+      if (!part) continue
+
       if (!current.children.has(part)) {
         current.children.set(part, { name: part, children: new Map(), files: [] })
       }
-      current = current.children.get(part)!
+
+      const next = current.children.get(part)
+      if (!next) continue
+      current = next
     }
 
     // 添加文件到最终目录
@@ -259,8 +264,7 @@ export class Packer {
     }
 
     try {
-      for (let i = 0; i < inputFiles.length; i++) {
-        const file = inputFiles[i]
+      for (const file of inputFiles) {
         const outputName = this.generateOutputName(file.path, exportConfig)
         let exportDir: string
         if (!exportConfig.exportDirectory) {
@@ -607,8 +611,9 @@ export class Packer {
   }
 
   private generateMergedOutputName(inputFiles: FileItem[], exportConfig: ExportConfig): string {
-    if (exportConfig.autoDetectRoot && inputFiles.length > 0) {
-      const firstPath = inputFiles[0].path
+    const firstFile = inputFiles.at(0)
+    if (exportConfig.autoDetectRoot && firstFile) {
+      const firstPath = firstFile.path
       const parts = firstPath.split(/[/\\]/)
       const nativesIndex = parts.findIndex((p) => p === 'natives')
       if (nativesIndex > 0) {

@@ -44,12 +44,16 @@ const hasFetchedRemote = ref(false)
 const localSources = computed<FileListSource[]>(() => {
   const itemsMap: { [identifier: string]: FileListSource } = {}
   for (const identifier in filelistStore.localFile) {
+    const localFile = filelistStore.localFile[identifier]
+    if (!localFile) continue
     itemsMap[identifier] = {
-      ...filelistStore.localFile[identifier].source
+      ...localFile.source
     }
   }
   for (const fileName in filelistStore.downloadedFile) {
-    const source = filelistStore.downloadedFile[fileName].source
+    const downloaded = filelistStore.downloadedFile[fileName]
+    const source = downloaded?.source
+    if (!source) continue
     const identifier = source.identifier
     if (identifier in itemsMap) {
       console.warn(
@@ -83,6 +87,8 @@ watch(
     const items: RemoteFileListItem[] = []
     for (const fileName in filelistStore.remoteManifest) {
       const source = filelistStore.remoteManifest[fileName]
+      if (!source) continue
+      if (!source.file_name) continue
       const identifier = getFileStem(source.file_name)
 
       let status: RemoteItemStatus = 'downloadable'
@@ -91,14 +97,17 @@ watch(
       if (isOnLocal) {
         const localFile =
           filelistStore.localFile[identifier] || filelistStore.downloadedFile[identifier]
+        if (!localFile) {
+          continue
+        }
 
         // if on local manually folder, conflict
-        if (localFile.source.sourceType === 'local') {
+        if (localFile.source?.sourceType === 'local') {
           status = 'conflict'
         } else {
           // check pub time to see if update available
           const localUpdateTime = new Date(localFile.getMetadata<string>('update_time') ?? 0)
-          const remoteUpdateTime = new Date(source.update_time)
+          const remoteUpdateTime = new Date(source.update_time ?? 0)
           if (remoteUpdateTime > localUpdateTime) {
             status = 'updateable'
           } else {
@@ -110,7 +119,7 @@ watch(
       items.push({
         identifier,
         fileName,
-        updateTime: new Date(source.update_time),
+        updateTime: new Date(source.update_time ?? 0),
         status
       })
     }

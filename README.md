@@ -16,3 +16,10 @@ In progress.
 ## Changelog
 
 [CHANGELOG](CHANGELOG.md)
+
+## Building
+
+```sh
+bun install
+bun run tauri build
+```

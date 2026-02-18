@@ -1,6 +1,6 @@
 use std::{
-    fs::{File, OpenOptions},
-    io::{BufReader, BufWriter, Read, Write},
+    fs::File,
+    io::{BufReader, BufWriter, Read},
     path::{Path, PathBuf},
     sync::{
         Arc, OnceLock,
@@ -251,9 +251,10 @@ impl PakService {
 
                 let mut extractor = pak
                     .pakfile
-                    .extractor_callback()
+                    .extractor(&output_root)
                     .file_name_table_arc(file_name_table.clone())
                     .skip_unknown(false)
+                    .overwrite(options1.r#override)
                     .continue_on_error(true)
                     .cancel_flag(should_terminate.clone());
 
@@ -263,52 +264,13 @@ impl PakService {
                 }
 
                 let progress1 = progress.clone();
-                let output_root1 = output_root.clone();
-                let result = extractor.run_with_entry_reader(|entry, rel_path, entry_reader| {
-                    let rel_path_str = rel_path.to_string_lossy();
-                    let out_path = output_root1.join(rel_path);
-
-                    let result = (|| -> std::result::Result<(), ree_pak_core::error::PakError> {
-                        let Some(parent) = out_path.parent() else {
-                            return Ok(());
-                        };
-                        if !parent.exists() {
-                            std::fs::create_dir_all(parent)?;
+                let result = extractor
+                    .on_event(move |event| {
+                        if let ree_pak_core::extract::ExtractEvent::FileDone { hash, path, error } = event {
+                            progress1.file_done(path.to_string_lossy().as_ref(), hash, error);
                         }
-
-                        // Keep existing behavior: always overwrite.
-                        let mut file = OpenOptions::new()
-                            .create(true)
-                            .write(true)
-                            .truncate(true)
-                            .open(&out_path)?;
-
-                        std::io::copy(entry_reader, &mut file)?;
-                        file.flush()?;
-
-                        if out_path.extension().is_none()
-                            && let Some(ext) = entry_reader.determine_extension()
-                        {
-                            let new_path = out_path.with_extension(ext);
-                            std::fs::rename(&out_path, &new_path)?;
-                        }
-
-                        Ok(())
-                    })();
-
-                    progress1.file_done(
-                        rel_path_str.as_ref(),
-                        entry.hash(),
-                        result.as_ref().err().map(|e| e.to_string()),
-                    );
-
-                    if let Err(e) = &result {
-                        log::error!("Error processing entry: {}. Path: {}", e, rel_path_str);
-                        log::debug!("Entry: {:?}", entry);
-                    }
-
-                    result
-                });
+                    })
+                    .run();
 
                 if let Err(e) = result {
                     eprintln!("Error unpacking pak: {}", e);

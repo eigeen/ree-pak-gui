@@ -94,9 +94,15 @@ async function onChange(event: any) {
     return
   }
   const { oldIndex, newIndex } = event
+  if (typeof oldIndex !== 'number' || typeof newIndex !== 'number') {
+    return
+  }
   // create ordered list
   const newList = [...orderedPakList.value]
   const item = newList.splice(oldIndex, 1)[0]
+  if (!item) {
+    return
+  }
   newList.splice(newIndex, 0, item)
   const orderList = newList.map((item) => item.id)
   // send order list to backend

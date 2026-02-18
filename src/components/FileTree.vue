@@ -234,13 +234,13 @@ const extIconMap: Record<string, string> = {
 }
 
 function getFileIcon(label: string): string {
-  const path = label.split('(')[0].trim()
+  const path = label.split('(').at(0)?.trim() ?? ''
   const pathComponents = path.split('.')
   if (pathComponents.length < 3) {
     return 'mdi-file'
   }
-  const ext = pathComponents[pathComponents.length - 2].toLowerCase()
-  if (extIconMap[ext]) {
+  const ext = pathComponents.at(-2)?.toLowerCase()
+  if (ext && extIconMap[ext]) {
     return extIconMap[ext]
   }
   return 'mdi-file'
