@@ -44,12 +44,16 @@ const hasFetchedRemote = ref(false)
 const localSources = computed<FileListSource[]>(() => {
   const itemsMap: { [identifier: string]: FileListSource } = {}
   for (const identifier in filelistStore.localFile) {
+    const localFile = filelistStore.localFile[identifier]
+    if (!localFile) continue
     itemsMap[identifier] = {
-      ...filelistStore.localFile[identifier].source
+      ...localFile.source
     }
   }
   for (const fileName in filelistStore.downloadedFile) {
-    const source = filelistStore.downloadedFile[fileName].source
+    const downloadedFile = filelistStore.downloadedFile[fileName]
+    if (!downloadedFile) continue
+    const source = downloadedFile.source
     const identifier = source.identifier
     if (identifier in itemsMap) {
       console.warn(
@@ -83,14 +87,13 @@ watch(
     const items: RemoteFileListItem[] = []
     for (const fileName in filelistStore.remoteManifest) {
       const source = filelistStore.remoteManifest[fileName]
+      if (!source) continue
       const identifier = getFileStem(source.file_name)
 
       let status: RemoteItemStatus = 'downloadable'
-      const isOnLocal =
-        identifier in filelistStore.localFile || identifier in filelistStore.downloadedFile
-      if (isOnLocal) {
-        const localFile =
-          filelistStore.localFile[identifier] || filelistStore.downloadedFile[identifier]
+      const localFile =
+        filelistStore.localFile[identifier] ?? filelistStore.downloadedFile[identifier]
+      if (localFile) {
 
         // if on local manually folder, conflict
         if (localFile.source.sourceType === 'local') {
