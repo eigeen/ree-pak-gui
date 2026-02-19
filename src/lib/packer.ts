@@ -258,7 +258,7 @@ export class Packer {
     const outputFiles: string[] = []
 
     function sleep(time: number) {
-      return new Promise(function (resolve) {
+      return new Promise((resolve) => {
         setTimeout(resolve, time)
       })
     }
@@ -416,7 +416,7 @@ export class Packer {
           finishFileCount: event.data.finishCount
         })
         break
-      case 'workFinished':
+      case 'workFinished': {
         // 任务全部完成
         this.updateProgress({ working: false, finishFileCount: this.progress.totalFileCount })
         const paks = event.data?.tree?.paks ?? []
@@ -427,6 +427,7 @@ export class Packer {
           error: ''
         })
         break
+      }
       case 'error':
         this.updateProgress({ working: false })
         this.updateResult({
@@ -455,7 +456,7 @@ export class Packer {
             if (!fileMap.has(key)) {
               fileMap.set(key, [])
             }
-            fileMap.get(key)!.push({
+            fileMap.get(key)?.push({
               sourcePath: `${file.path}:${key}`,
               size: pakEntry.uncompressedSize,
               modifiedDate: new Date()
@@ -468,7 +469,7 @@ export class Packer {
             if (!fileMap.has(key)) {
               fileMap.set(key, [])
             }
-            fileMap.get(key)!.push({
+            fileMap.get(key)?.push({
               sourcePath: folderFile.fullPath,
               size: folderFile.size,
               modifiedDate: folderFile.modifiedDate
@@ -533,7 +534,7 @@ export class Packer {
   private async processSources(
     files: FileItem[],
     exportConfig: ExportConfig,
-    resolutions: { [relativePath: string]: number }
+    _resolutions: { [relativePath: string]: number }
   ): Promise<string[]> {
     const sourcePaths = files.map((f) => f.path)
 
@@ -601,7 +602,7 @@ export class Packer {
 
     if (exportConfig.autoDetectRoot) {
       const parts = inputPath.split(/[/\\]/)
-      const nativesIndex = parts.findIndex((p) => p === 'natives')
+      const nativesIndex = parts.indexOf('natives')
       if (nativesIndex > 0) {
         return `${parts[nativesIndex - 1]}.pak`
       }
@@ -615,7 +616,7 @@ export class Packer {
     if (exportConfig.autoDetectRoot && firstFile) {
       const firstPath = firstFile.path
       const parts = firstPath.split(/[/\\]/)
-      const nativesIndex = parts.findIndex((p) => p === 'natives')
+      const nativesIndex = parts.indexOf('natives')
       if (nativesIndex > 0) {
         return `${parts[nativesIndex - 1]}.pak`
       }

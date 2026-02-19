@@ -11,53 +11,13 @@ jobs:
     runs-on: windows-latest
     
     steps:
-    - name: Checkout parent repository (without submodules)
-      uses: actions/checkout@v4
+    - name: Checkout
+      uses: actions/checkout@v6
+
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
       with:
-        repository: eigeen/ree-pak-rs
-        submodules: recursive
-        token: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Remove existing submodule directory
-      shell: bash
-      run: |
-        if [ -d "ree-pak-gui" ]; then
-          echo "Removing existing ree-pak-gui directory..."
-          rm -rf ree-pak-gui
-        fi
-
-    - name: Checkout submodule (latest branch)
-      uses: actions/checkout@v4
-      with:
-        repository: eigeen/ree-pak-gui
-        path: ree-pak-gui
-        ref: main
-        token: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-
-    - name: Install pnpm
-      uses: pnpm/action-setup@v4
-      with:
-        version: 10
-        run_install: false
-
-    - name: Get pnpm store directory
-      id: pnpm-cache
-      shell: bash
-      run: |
-        echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-
-    - name: Setup pnpm cache
-      uses: actions/cache@v4
-      with:
-        path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-pnpm-store-
+        bun-version: latest
 
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
@@ -69,29 +29,22 @@ jobs:
       uses: Swatinem/rust-cache@v2
       with:
         workspaces: |
-          .
-          ree-pak-gui/src-tauri
+          src-tauri
         cache-on-failure: true
 
     - name: Install frontend dependencies
-      working-directory: ree-pak-gui
-      run: pnpm install --frozen-lockfile
-
-    - name: Install Tauri CLI
-      run: |
-        pnpm install -g @tauri-apps/cli@latest
+      run: bun install --frozen-lockfile
 
     - name: Build application (exe only)
-      working-directory: ree-pak-gui
       run: |
-        pnpm tauri build --verbose
+        bun tauri build --verbose
       env:
         TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
         TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
 
     - name: Get version info
       id: version
-      working-directory: ree-pak-gui/src-tauri
+      working-directory: src-tauri
       run: |
         $version = (Get-Content Cargo.toml | Select-String "version = " | Select-Object -First 1).ToString().Split('"')[1]
         echo "VERSION=$version" >> $env:GITHUB_OUTPUT
@@ -103,10 +56,10 @@ jobs:
     #     path: ./
 
     - name: Upload versioned executable
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: ree-pak-rs-v${{ steps.version.outputs.VERSION }}-windows
         path: |
-          target/release/ree-pak-rs.exe
+          src-tauri/target/release/ree-pak-rs.exe
         if-no-files-found: error
         retention-days: 30

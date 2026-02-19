@@ -16,11 +16,11 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 # local dev
-ree-pak-core = { path = "../../ree-pak-rs/ree-pak-core" }
+# ree-pak-core = { path = "../../ree-pak-rs/ree-pak-core" }
 
-# ree-pak-core = { git = "https://github.com/eigeen/ree-pak-rs", package = "ree-pak-core" }
+ree-pak-core = { git = "https://github.com/eigeen/ree-pak-rs", rev = "6dad4aec8982735067ed8c19cf05027d9448cc67", package = "ree-pak-core" }
 re-tex = { git = "https://github.com/eigeen/re-tex", features = ["image"] }
-ree-path-searcher = { git = "https://github.com/eigeen/ree-path-searcher" }
+ree-path-searcher = { git = "https://github.com/eigeen/ree-path-searcher", rev = "0def98148e0d8a98b9ff684c8c09587cd2e87e30" }
 
 tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"

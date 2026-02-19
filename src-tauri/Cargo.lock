@@ -137,7 +137,7 @@ dependencies = [
  "parking_lot",
  "rayon",
  "re-tex",
- "ree-pak-core 0.7.1",
+ "ree-pak-core",
  "ree-path-searcher",
  "rustc-hash",
  "self-replace",
@@ -4200,31 +4200,8 @@ dependencies = [
 
 [[package]]
 name = "ree-pak-core"
-version = "0.6.2"
-source = "git+https://github.com/eigeen/ree-pak-rs#de8760f5c6eb0a08d16750f9f28e830a70a31310"
-dependencies = [
- "bitflags 2.11.0",
- "byteorder",
- "derive_more 2.1.1",
- "flate2",
- "indexmap 2.13.0",
- "memmap2",
- "murmur3",
- "nohash",
- "num",
- "parking_lot",
- "rayon",
- "rustc-hash",
- "serde",
- "static_assertions",
- "thiserror 2.0.18",
- "zerocopy",
- "zstd",
-]
-
-[[package]]
-name = "ree-pak-core"
 version = "0.7.1"
+source = "git+https://github.com/eigeen/ree-pak-rs?rev=6dad4aec8982735067ed8c19cf05027d9448cc67#6dad4aec8982735067ed8c19cf05027d9448cc67"
 dependencies = [
  "bitflags 2.11.0",
  "byteorder",
@@ -4247,8 +4224,8 @@ dependencies = [
 
 [[package]]
 name = "ree-path-searcher"
-version = "0.2.0"
-source = "git+https://github.com/eigeen/ree-path-searcher#11141201a3de804b76ac3d4e9e2b83c802bf214f"
+version = "0.2.1"
+source = "git+https://github.com/eigeen/ree-path-searcher?rev=0def98148e0d8a98b9ff684c8c09587cd2e87e30#0def98148e0d8a98b9ff684c8c09587cd2e87e30"
 dependencies = [
  "clap",
  "color-eyre",
@@ -4259,7 +4236,7 @@ dependencies = [
  "num_cpus",
  "parking_lot",
  "rayon",
- "ree-pak-core 0.6.2",
+ "ree-pak-core",
  "rustc-hash",
 ]
 
