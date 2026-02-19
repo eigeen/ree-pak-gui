@@ -37,13 +37,13 @@ def parse_metadata(file_path: str) -> Dict[str, Any]:
 def main():
     # Get .py file path
     script_path = os.path.dirname(os.path.realpath(__file__))
-    working_dir = os.path.join(script_path, "..", "..")
+    working_dir = os.path.join(script_path, "..")
     # Move to working directory
     os.chdir(working_dir)
 
     filelist_input_dir = "assets/filelist"
-    filelist_manifest_path = "ree-pak-gui/scripts/filelist_manifest.json"
-    filelist_output_dir = "ree-pak-gui/scripts/filelist"
+    filelist_manifest_path = "scripts/filelist_manifest.json"
+    filelist_output_dir = "scripts/filelist"
 
     # Create output directory
     if os.path.exists(filelist_output_dir):
@@ -95,4 +95,5 @@ def main():
         json.dump(manifest, f, indent=2, ensure_ascii=False)
 
 
-main()
+if __name__ == "__main__":
+    main()

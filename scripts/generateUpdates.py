@@ -65,7 +65,7 @@ def generate_update_info():
     commit_time, commit_hash_short = get_commit_info()
 
     # 获取可执行文件路径
-    exe_path = os.path.join("..", "target", "release", "ree-pak-rs.exe")
+    exe_path = os.path.join("src-tauri", "target", "release", "ree-pak-rs.exe")
 
     # 创建zip压缩包
     zip_name = f"ree-pak-gui_{current_version}_windows_x86_64_release_{commit_hash_short}.exe.zip"

@@ -1,5 +1,82 @@
 # Changelog
 
+## v0.4.8
+
+### Features
+
+- Update core to v0.7.1 (new API)
+- Switch to Bun and update dependencies
+
+### Fixes
+
+- Remove broken files
+- Fix frontend linter errors
+
+### CI
+
+- Update build workflow and fix CI issues
+
+## v0.4.7
+
+### Improvements
+
+- Update core
+
+## v0.4.6
+
+### Features
+
+- Support pak v4.2 (core upgrade)
+
+### Improvements
+
+- Update core to v0.5.0
+
+## v0.4.5
+
+### Features
+
+- Built-in file paths (including `modinfo.ini`)
+- Add command `file_table_set_list`
+
+## v0.4.4
+
+### Fixes
+
+- Packer: fix root path detection
+
+### Improvements
+
+- Sync dependencies from parent repo
+
+## v0.4.3
+
+### Features
+
+- Add Path Scan tool/page (basic implementation)
+- Add file reference list
+- Rename “File Name Table” to “Path List”
+- Add i18n for new tools view
+
+### Improvements
+
+- Upgrade to Vite 7 and update dependencies
+- Set MSRV to 1.88
+
+### Fixes
+
+- Fix opened paks state not correctly loaded on app startup
+
+## v0.4.2
+
+### Fixes
+
+- Fix preview pane scaling when window scale != 1
+
+### Improvements
+
+- Update application icon
+
 ## v0.4.1
 
 ### New Feature
@@ -117,3 +194,55 @@ Features that may be completed in v0.4.0 or future versions:
 - i18n支持
 - GUI打包器
 - 集成CLI工具
+
+## v0.2.4
+
+### Fixes
+
+- Fix param field name change
+
+### Improvements
+
+- Upgrade Rust to 1.85 and Edition 2024
+
+## v0.2.2
+
+### Features
+
+- Support `.list.zst` format filelist
+
+### Improvements
+
+- Add Windows message box support
+
+## v0.2.1
+
+### Fixes
+
+- Show message box when panicked
+
+## v0.2.0
+
+### Improvements
+
+- Update to Tauri 2.0
+
+### Fixes
+
+- Unpack data before writing to file
+
+## beta-0.1.1
+
+### Fixes
+
+- Fix empty parent node error when unpacking combined paks
+
+### Features
+
+- Add filter
+
+## beta-0.1.0
+
+### Misc
+
+- Ignore `.vscode`
