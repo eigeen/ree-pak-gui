@@ -6,10 +6,11 @@ import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import Unfonts from 'unplugin-fonts/vite'
 import tailwindcss from '@tailwindcss/vite'
+import vueDevTools from 'vite-plugin-vue-devtools'
 // element-plus
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 // vuetify
-import Vuetify, { transformAssetUrls } from 'vite-plugin-vuetify'
+import Vuetify from 'vite-plugin-vuetify'
 
 import { fileURLToPath, URL } from 'node:url'
 
@@ -18,6 +19,7 @@ export default defineConfig({
   plugins: [
     vue(),
     vueJsx(),
+    vueDevTools(),
     AutoImport({
       resolvers: [ElementPlusResolver()]
     }),
