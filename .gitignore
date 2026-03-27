@@ -31,3 +31,8 @@ coverage
 
 /.vscode
 *.exe
+
+/assets
+/ree-pak-tools
+AGENTS.md
+/openspec
