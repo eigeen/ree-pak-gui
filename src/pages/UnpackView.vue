@@ -1,178 +1,193 @@
 <template>
-  <el-container class="main-container">
-    <el-aside class="aside-outer">
-      <div class="aside-container">
-        <v-card class="pa-4 elevation-3 rounded-lg tool-chunk">
-          <div class="text-subtitle-1">{{ t('unpack.fileList') }}</div>
-          <FileNameTable v-model="workStore.unpack.fileList"></FileNameTable>
-        </v-card>
-        <v-card class="pa-4 elevation-3 rounded-lg tool-chunk">
-          <div class="text-subtitle-1">{{ t('unpack.pakFiles') }}</div>
+  <section class="space-y-6">
+    <div class="space-y-1">
+      <p class="section-eyebrow">Unpack Workflow</p>
+      <h2 class="section-title">{{ t('menu.unpack') }}</h2>
+      <p class="section-copy">保留 pak 加载、文件树浏览、筛选与解包流程，仅替换外围 UI 体系。</p>
+    </div>
+
+    <div class="grid gap-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
+      <aside class="space-y-6">
+        <section class="app-panel flex flex-col gap-4 p-5">
+          <div>
+            <p class="section-eyebrow">{{ t('unpack.fileList') }}</p>
+            <h3 class="section-title">{{ t('unpack.fileList') }}</h3>
+          </div>
+          <FileNameTable v-model="unpackState.fileList" />
+        </section>
+
+        <section class="app-panel flex flex-col gap-4 p-5">
+          <div>
+            <p class="section-eyebrow">{{ t('unpack.pakFiles') }}</p>
+            <h3 class="section-title">{{ t('unpack.pakFiles') }}</h3>
+          </div>
           <PakFiles
-            :pak-list="pakData"
             :enable-add="enableAddPaks"
-            @open="handleOpen"
+            :pak-list="pakData"
             @close="handleClose"
-            @order="handleOrder"
             @close-all="handleCloseAll"
-          ></PakFiles>
-        </v-card>
-        <v-card class="pa-4 elevation-3 rounded-lg tool-chunk">
-          <v-text-field
-            v-model="workStore.unpack.filterText"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-            :label="t('unpack.filterKeyword')"
-          ></v-text-field>
-          <v-checkbox
-            v-model="workStore.unpack.filterUseRegex"
-            :label="t('unpack.regex')"
-            density="compact"
-            color="primary"
-            hide-details
-          ></v-checkbox>
-          <v-btn
-            class="text-none"
-            prepend-icon="mdi-filter-variant"
-            :disabled="workStore.unpack.filterText === filterTextApply"
-            @click="updateFilter"
-            >{{ t('unpack.applyFilter') }}</v-btn
-          >
-        </v-card>
-      </div>
-    </el-aside>
+            @open="handleOpen"
+            @order="handleOrder"
+          />
+        </section>
 
-    <div class="main-content">
-      <v-card
-        class="pa-2 elevation-3 rounded-lg tree-card"
-        :class="{ 'with-preview': isPreviewExpanded }"
+        <section class="app-panel flex flex-col gap-4 p-5">
+          <div>
+            <p class="section-eyebrow">Filter</p>
+            <h3 class="section-title">{{ t('unpack.filterKeyword') }}</h3>
+          </div>
+
+          <div class="space-y-3">
+            <Input v-model="unpackState.filterText" :placeholder="t('unpack.filterKeyword')" />
+
+            <label
+              class="flex items-center gap-3 rounded-2xl border border-border/70 bg-secondary/25 px-4 py-3"
+            >
+              <input v-model="unpackState.filterUseRegex" class="size-4" type="checkbox" />
+              <span class="text-sm font-medium text-foreground">{{ t('unpack.regex') }}</span>
+            </label>
+
+            <Button
+              variant="outline"
+              :disabled="unpackState.filterText === filterTextApply"
+              @click="updateFilter"
+            >
+              <Filter class="size-4" />
+              {{ t('unpack.applyFilter') }}
+            </Button>
+          </div>
+        </section>
+      </aside>
+
+      <div
+        class="grid gap-4"
+        :class="isPreviewExpanded ? '2xl:grid-cols-[minmax(0,1fr)_24rem]' : ''"
       >
-        <!-- 渲染确认覆盖层 -->
-        <div v-if="showOverlay" class="overlay" @click.stop>
-          <div class="overlay-content">
-            <v-btn
-              :disabled="loadingTree"
-              :loading="loadingTree"
-              class="load-btn text-none"
-              color="primary"
-              @click="doRender"
-            >
-              <v-icon icon="mdi-refresh" class="mr-2"></v-icon>
+        <section class="app-panel relative flex min-h-[42rem] flex-col p-3 sm:p-4">
+          <div
+            v-if="showOverlay"
+            class="absolute inset-3 z-20 flex items-center justify-center rounded-[1.25rem] bg-background/70 backdrop-blur-sm"
+            @click.stop
+          >
+            <Button :disabled="loadingTree" @click="doRender">
+              <RefreshCw class="size-4" :class="loadingTree ? 'animate-spin' : ''" />
               {{ t('unpack.loadFileTree') }}
-            </v-btn>
+            </Button>
           </div>
-        </div>
 
-        <!-- empty content hint -->
-        <div
-          v-if="pakData.length === 0"
-          class="flex flex-col items-center justify-center h-full text-center"
-        >
-          <v-icon icon="mdi-file-outline" size="64" color="grey-lighten-1" class="mb-4"></v-icon>
-          <p class="text-grey-lighten-1 text-h6">尚未添加文件</p>
-          <p class="text-grey-lighten-1 text-body-2">点击左侧按钮或拖拽文件到此处添加</p>
-        </div>
-        <!-- file tree -->
-        <div v-else class="tree-panel">
-          <FileTree
-            class="file-tree"
-            ref="fileTreeComponent"
-            @node-click="handleNodeClick"
-            :data="treeData"
-            :filter-text="filterTextApply"
-            :regex-mode="workStore.unpack.filterUseRegex"
-          ></FileTree>
-          <div class="tree-actions">
-            <v-btn
-              class="text-none"
-              color="primary"
-              prepend-icon="mdi-export"
-              @click="doExtraction"
-              :disabled="!enableExtract"
-              >{{ t('unpack.extract') }}</v-btn
+          <div v-if="pakData.length === 0" class="empty-state flex-1">
+            <FileArchive class="size-12 text-muted-foreground" />
+            <p class="text-base font-semibold text-foreground">尚未添加文件</p>
+            <p class="section-copy">点击左侧按钮或拖拽文件到此处添加。</p>
+          </div>
+
+          <template v-else>
+            <div
+              class="flex flex-1 flex-col overflow-hidden rounded-[1.15rem] border border-border/70 bg-secondary/25"
             >
-          </div>
+              <div class="min-h-0 flex-1 overflow-hidden p-3">
+                <FileTree
+                  ref="fileTreeComponent"
+                  :data="treeData"
+                  :filter-text="filterTextApply"
+                  :regex-mode="unpackState.filterUseRegex"
+                  class="h-full"
+                  @node-click="handleNodeClick"
+                />
+              </div>
+
+              <div class="flex flex-wrap justify-end gap-3 border-t border-border/70 px-4 py-4">
+                <Button :disabled="!enableExtract" @click="doExtraction">
+                  <Download class="size-4" />
+                  {{ t('unpack.extract') }}
+                </Button>
+              </div>
+            </div>
+
+            <Button
+              size="icon"
+              variant="outline"
+              class="absolute right-3 top-3 z-10 rounded-full"
+              @click="togglePreviewPane"
+            >
+              <ChevronRight v-if="isPreviewExpanded" class="size-4" />
+              <ChevronLeft v-else class="size-4" />
+            </Button>
+          </template>
+        </section>
+
+        <div v-if="isPreviewExpanded" class="min-h-[42rem]">
+          <PreviewPane :file-name="previewFileName" :preview-uri="previewUri" />
         </div>
-
-        <!-- 悬浮展开按钮 -->
-        <v-btn
-          class="expand-btn"
-          :icon="isPreviewExpanded ? 'mdi-chevron-right' : 'mdi-chevron-left'"
-          :color="isPreviewExpanded ? 'grey' : 'primary'"
-          variant="elevated"
-          size="small"
-          @click="togglePreviewPane"
-        ></v-btn>
-      </v-card>
-
-      <!-- 预览窗格 -->
-      <div v-if="isPreviewExpanded" class="preview-content">
-        <PreviewPane :preview-uri="previewUri" :file-name="previewFileName"></PreviewPane>
       </div>
     </div>
-  </el-container>
 
-  <v-dialog v-model="showProgressPanel" persistent>
-    <v-card>
-      <v-card-text class="pa-8">
-        <div class="text-center text-h6 mb-4">
-          {{ t('unpack.extractingFiles') }}
-          <span v-if="!unpackWorking">{{ t('unpack.done') }}</span>
-        </div>
-        <v-progress-linear
-          :color="progressValue >= 100 ? 'green' : 'primary'"
-          height="12px"
-          :model-value="progressValue"
-          rounded
-          class="mb-2"
-        ></v-progress-linear>
-        <div class="text-body-1 mb-4">
-          {{ finishFileCount }} / {{ totalFileCount }} {{ t('unpack.files') }}
-        </div>
-        <div class="text-body-2">{{ t('unpack.extracting') }}</div>
-        <div class="text-body-2">{{ currentFile }}</div>
-      </v-card-text>
-      <div class="progress-actions">
-        <v-btn
-          class="ma-4 text-none"
-          :color="unpackWorking ? 'error' : 'primary'"
-          @click="handleCloseProgress"
-        >
-          {{ unpackWorking ? t('unpack.terminate') : t('unpack.close') }}
-        </v-btn>
-      </div>
-    </v-card>
-  </v-dialog>
+    <Dialog v-model:open="showProgressPanel">
+      <DialogContent
+        class="max-w-lg rounded-[1.5rem] border-white/60 bg-background/96"
+        :show-close-button="false"
+      >
+        <DialogHeader>
+          <DialogTitle>{{ t('unpack.extractingFiles') }}</DialogTitle>
+          <DialogDescription>
+            <span v-if="!unpackWorking">{{ t('unpack.done') }}</span>
+            <span v-else>处理中，请稍候。</span>
+          </DialogDescription>
+        </DialogHeader>
 
-  <v-dialog v-model="showConfirmTermination" max-width="400" persistent>
-    <v-card class="pa-2">
-      <v-card-title class="text-h6">{{ t('unpack.confirmTermination') }}</v-card-title>
-      <v-card-text>{{ t('unpack.confirmTerminationText') }} </v-card-text>
-      <v-card-actions>
-        <v-spacer></v-spacer>
-        <v-btn color="grey" text @click="showConfirmTermination = false">{{
-          t('unpack.cancel')
-        }}</v-btn>
-        <v-btn color="error" text @click="handleConfirmTermination">{{
-          t('unpack.confirm')
-        }}</v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+        <div class="space-y-4">
+          <Progress :model-value="progressValue" class="h-2.5 rounded-full" />
+          <p class="text-sm text-muted-foreground">
+            {{ finishFileCount }} / {{ totalFileCount }} {{ t('unpack.files') }}
+          </p>
+          <div class="space-y-1">
+            <p class="text-sm font-medium text-foreground">{{ t('unpack.extracting') }}</p>
+            <p class="truncate text-sm text-muted-foreground">{{ currentFile }}</p>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button :variant="unpackWorking ? 'destructive' : 'outline'" @click="handleCloseProgress">
+            {{ unpackWorking ? t('unpack.terminate') : t('unpack.close') }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <AlertDialog v-model:open="showConfirmTermination">
+      <AlertDialogContent class="rounded-[1.5rem] border-white/60 bg-background/96">
+        <AlertDialogHeader>
+          <AlertDialogTitle>{{ t('unpack.confirmTermination') }}</AlertDialogTitle>
+          <AlertDialogDescription>{{ t('unpack.confirmTerminationText') }}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{{ t('unpack.cancel') }}</AlertDialogCancel>
+          <AlertDialogAction @click="handleConfirmTermination">
+            {{ t('unpack.confirm') }}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { open as dialogOpen } from '@tauri-apps/plugin-dialog'
-import { getCurrentWebview } from '@tauri-apps/api/webview'
-import type { UnlistenFn } from '@tauri-apps/api/event'
 import { Channel, convertFileSrc } from '@tauri-apps/api/core'
-import { getCurrentWindow, ProgressBarStatus, LogicalSize } from '@tauri-apps/api/window'
+import type { UnlistenFn } from '@tauri-apps/api/event'
+import { LogicalSize, ProgressBarStatus, getCurrentWindow } from '@tauri-apps/api/window'
+import { getCurrentWebview } from '@tauri-apps/api/webview'
+import { open as dialogOpen } from '@tauri-apps/plugin-dialog'
 import { exists } from '@tauri-apps/plugin-fs'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  FileArchive,
+  Filter,
+  RefreshCw
+} from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-const { t } = useI18n()
-
 import {
   pak_close,
   pak_extract_all,
@@ -188,99 +203,98 @@ import type {
   RenderTreeNode,
   UnpackProgressEvent
 } from '@/api/tauri/pak'
-import PakFiles from '@/components/PakFiles.vue'
-import FileTree, { type TreeData } from '@/components/FileTree.vue'
-import PreviewPane from '@/components/PreviewPane.vue'
-import { FilePathList } from '@/api/tauri/filelist'
-import { ShowError, ShowWarn } from '@/utils/message'
-import { useWorkStore } from '@/store/work'
-import { fileListService } from '@/service/filelist'
 import { getPreviewFile } from '@/api/tauri/utils'
+import FileTree, { type TreeData } from '@/components/FileTree.vue'
+import FileNameTable from '@/components/FileNameTable/FileNameTable.vue'
+import PakFiles from '@/components/PakFiles.vue'
+import PreviewPane from '@/components/PreviewPane.vue'
+import { fileListService } from '@/service/filelist'
+import { useWorkStore } from '@/store/work'
+import { ShowError, ShowWarn } from '@/utils/message'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Progress } from '@/components/ui/progress'
 
+const { t } = useI18n()
 const workStore = useWorkStore()
+type UnpackState = {
+  fileList: string
+  paks: string[]
+  filterText: string
+  filterUseRegex: boolean
+}
+const unpackState = computed({
+  get: () => workStore.unpack as unknown as UnpackState,
+  set: (value: UnpackState) => {
+    ;(workStore as any).unpack = value
+  }
+})
 
-// 过滤器输入（应用输入）
 const filterTextApply = ref('')
-// 已加载的pak
 const pakData = ref<PakInfo[]>([])
 const initialLoaded = ref(false)
-// 树视图数据
 const treeData = ref<RenderTreeNode | null>(null)
-// show overlay
 const showOverlay = ref(false)
-// is tree loading
 const loadingTree = ref(false)
-// 预览窗格展开状态
 const isPreviewExpanded = ref(false)
-// 原始窗口大小
 const originalWindowSize = ref<{ width: number; height: number } | null>(null)
-// 预览状态
 const previewUri = ref('')
 const previewFileName = ref('')
-// const fileNameTablePath = ref('')
-// 解包进度条
 const unpackWorking = ref(false)
 const showProgressPanel = ref(false)
 const currentFile = ref('')
 const totalFileCount = ref(0)
 const finishFileCount = ref(0)
+const showConfirmTermination = ref(false)
+
 const progressValue = computed(() =>
   totalFileCount.value === 0 ? 0 : (finishFileCount.value / totalFileCount.value) * 100
 )
-const showConfirmTermination = ref(false)
-// 是否允许添加Pak文件
-const enableAddPaks = computed(() => {
-  return workStore.unpack.fileList !== ''
-})
 
-const fileTreeComponent = ref<InstanceType<typeof FileTree>>()
-// const paks = ref<Map<string, PakId>>(new Map());
-// const canRenderTree = ref(false);
-// // 启用FileList选择
-// const enableFileListSelect = computed(() => pakData.value.length > 0);
-// 启用树渲染按键
-// const enableTreeRender = computed(() => treeData.value ? treeData > 0 : false);
-// 启用解压按键
+const enableAddPaks = computed(() => unpackState.value.fileList !== '')
 const enableExtract = computed(() => treeData.value !== null)
 
-// watch(paks, () => canRenderTree.value = true);
+const fileTreeComponent = ref<InstanceType<typeof FileTree>>()
 
-// 文件变化时更新
 watch(pakData, async () => {
-  console.debug('pakData changed', pakData.value)
   treeData.value = null
-  // sync to work store, only when initial loaded
   if (initialLoaded.value) {
-    workStore.unpack.paks = pakData.value.map((pak) => pak.path)
+    unpackState.value.paks = pakData.value.map((pak) => pak.path)
   }
 })
 
-// auto render tree
 watch(
-  () => [pakData.value, workStore.unpack.fileList],
+  () => [pakData.value, unpackState.value.fileList],
   async () => {
-    if (workStore.unpack.fileList && pakData.value.length > 0) {
+    if (unpackState.value.fileList && pakData.value.length > 0) {
       showOverlay.value = true
       loadingTree.value = false
     }
   }
 )
 
-// 更新过滤器
 const updateFilter = () => {
-  workStore.unpack.filterText = workStore.unpack.filterText.trim()
-  filterTextApply.value = workStore.unpack.filterText
+  unpackState.value.filterText = unpackState.value.filterText.trim()
+  filterTextApply.value = unpackState.value.filterText
 }
-
-// function convertNode(fileTreeNode: FileTreeNode): TreeData {
-//   const children = Array.from(Object.values(fileTreeNode.children)).map(convertNode);
-//   return {
-//     label: fileTreeNode.info.relativePath,
-//     hash: fileTreeNode.info.hash,
-//     isDir: fileTreeNode.info.isDir,
-//     children,
-//   };
-// }
 
 async function handleOpen() {
   try {
@@ -293,10 +307,11 @@ async function handleOpen() {
         }
       ]
     })
+
     if (!result) {
-      console.log('No file selected')
       return
     }
+
     if (typeof result === 'string') {
       result = [result]
     }
@@ -304,6 +319,7 @@ async function handleOpen() {
     for (const filePath of result) {
       await pak_open(filePath)
     }
+
     await reloadData()
   } catch (error) {
     ShowError(t('global.failedLoadSettings', { error: String(error) }))
@@ -314,33 +330,25 @@ async function handleOpen() {
 async function handleClose(index: number) {
   try {
     const pak = pakData.value[index]
-    if (!pak) {
-      return
-    }
+    if (!pak) return
 
-    console.log('Closing Pak', pak.path)
     await pak_close(pak.id)
-
     await reloadData()
   } catch (error) {
     ShowError(error)
   }
 }
 
-// 点击 Render 按钮后的事件回调
 async function doRender() {
   loadingTree.value = true
   try {
-    // 载入文件名列表
-    const file = fileListService.getFileByIdent(workStore.unpack.fileList)
+    const file = fileListService.getFileByIdent(unpackState.value.fileList)
     if (!file) {
-      throw new Error(`Name list file not found: ${workStore.unpack.fileList}`)
+      throw new Error(`Name list file not found: ${unpackState.value.fileList}`)
     }
 
     await fileListService.loadFilePathList(file.source.filePath)
-    // 渲染树
-    const result = await pak_read_file_tree_optimized()
-    treeData.value = result
+    treeData.value = await pak_read_file_tree_optimized()
     showOverlay.value = false
   } catch (error) {
     ShowError(error)
@@ -350,13 +358,11 @@ async function doRender() {
 }
 
 const handleOrder = async () => {
-  // reload pak list
   await reloadData()
 }
 
 async function handleCloseAll() {
   try {
-    console.log('Closing all paks')
     for (const pak of pakData.value) {
       await pak_close(pak.id)
     }
@@ -368,15 +374,15 @@ async function handleCloseAll() {
 
 async function doExtraction() {
   try {
-    // 请求解压目录
     let selected = await dialogOpen({
       directory: true,
       multiple: false
     })
+
     if (!selected) {
-      console.log('No directory selected')
       return
     }
+
     if (Array.isArray(selected)) {
       selected = selected[0]
     }
@@ -387,9 +393,10 @@ async function doExtraction() {
       extractAll: false,
       extractFiles: fileTreeComponent.value?.getCheckedNodes() ?? []
     }
-    // console.log('Extract options', options)
+
     const window = getCurrentWindow()
     const onEvent = new Channel<UnpackProgressEvent>()
+
     onEvent.onmessage = (event) => {
       if (event.event === 'workStart') {
         totalFileCount.value = event.data.count
@@ -445,10 +452,11 @@ async function reloadData() {
   pakData.value = await getLoadedPaks()
 }
 
-let unlisten: UnlistenFn
+let unlisten: UnlistenFn | undefined
 
 async function startListenToDrop() {
-  console.debug('start listen to drop')
+  if (unlisten) return
+
   unlisten = await getCurrentWebview().onDragDropEvent(async (event: any) => {
     if (event.payload.type === 'drop') {
       await dropInAddPaks(event.payload.paths)
@@ -457,8 +465,8 @@ async function startListenToDrop() {
 }
 
 async function stopListenToDrop() {
-  console.debug('stop listen to drop')
-  unlisten?.()
+  await unlisten?.()
+  unlisten = undefined
 }
 
 function resetProgress() {
@@ -472,40 +480,31 @@ async function handleCloseProgress() {
     showConfirmTermination.value = true
     return
   }
+
   resetProgress()
   showProgressPanel.value = false
 }
 
 async function handleConfirmTermination() {
   await pak_terminate_extraction()
-
   unpackWorking.value = false
   showConfirmTermination.value = false
   resetProgress()
   showProgressPanel.value = false
-  console.log('Termination confirmed')
   ShowWarn(t('global.extractionTerminated'))
 }
 
-// 切换预览窗格
 async function togglePreviewPane() {
   const window = getCurrentWindow()
 
   try {
     if (!isPreviewExpanded.value) {
-      // 保存当前窗口大小
       const size = await window.innerSize()
-      // 获取缩放
       const scale = await window.scaleFactor()
-      console.debug('window scale', scale)
       originalWindowSize.value = { width: size.width, height: size.height }
-
-      // 展开窗口，增加 400px 宽度
       await window.setSize(new LogicalSize(size.width + 400 / scale, size.height / scale))
-
       isPreviewExpanded.value = true
     } else {
-      // 恢复原始窗口大小
       if (originalWindowSize.value) {
         const scale = await window.scaleFactor()
         await window.setSize(
@@ -515,7 +514,6 @@ async function togglePreviewPane() {
           )
         )
       }
-
       isPreviewExpanded.value = false
     }
   } catch (error) {
@@ -527,14 +525,12 @@ function parseId(id: string): JsSafeHash {
   return id.split(',').map((str) => parseInt(str, 10)) as JsSafeHash
 }
 
-async function handleNodeClick(data: TreeData, _node: any, _event: MouseEvent) {
+async function handleNodeClick(data: TreeData) {
   try {
-    // 只有在预览窗格展开时才处理预览
     if (!isPreviewExpanded.value) {
       return
     }
 
-    // 如果是目录（有子节点），清空预览
     if (data.children && data.children.length > 0) {
       previewUri.value = ''
       previewFileName.value = ''
@@ -543,33 +539,25 @@ async function handleNodeClick(data: TreeData, _node: any, _event: MouseEvent) {
 
     const hash = parseId(data.id)
     const previewFile = await getPreviewFile(hash)
-
-    const fileUri = convertFileSrc(previewFile, 'asset')
-    console.debug('preview file', data.label)
-
-    // 更新预览状态
-    previewUri.value = fileUri
+    previewUri.value = convertFileSrc(previewFile, 'asset')
     previewFileName.value = data.label
-  } catch (error) {
-    // 预览失败时清空状态
+  } catch {
     previewUri.value = ''
     previewFileName.value = ''
   }
 }
 
-// 处理文件拖拽功能
 watch(
-  () => enableAddPaks,
-  (allowAdd) => {
+  () => enableAddPaks.value,
+  async (allowAdd) => {
     if (allowAdd) {
-      startListenToDrop()
+      await startListenToDrop()
     } else {
-      stopListenToDrop()
+      await stopListenToDrop()
     }
   }
 )
 
-// 预览窗格关闭时清空预览状态
 watch(isPreviewExpanded, (expanded) => {
   if (!expanded) {
     previewUri.value = ''
@@ -583,35 +571,26 @@ async function loadWorkRecords() {
     return
   }
 
-  // initial load
-  if (pakData.value.length === 0 && workStore.unpack.paks.length > 0) {
-    // load paks
-    // check if all paks are exist
+  if (pakData.value.length === 0 && unpackState.value.paks.length > 0) {
     const existsList = await Promise.all(
-      workStore.unpack.paks.map(async (path) => {
-        return await exists(path)
-      })
+      unpackState.value.paks.map(async (path: string) => exists(path))
     )
-    const allExists = existsList.every((exist) => exist)
+    const allExists = existsList.every(Boolean)
 
     if (allExists) {
-      // all paks are exist, load them
-      for (const path of workStore.unpack.paks) {
+      for (const path of unpackState.value.paks) {
         await pak_open(path)
       }
     }
   }
 
   initialLoaded.value = true
-  // reload data to get current state
   await reloadData()
-  // sync to work store
-  workStore.unpack.paks = pakData.value.map((pak) => pak.path)
+  unpackState.value.paks = pakData.value.map((pak) => pak.path)
 }
 
 onMounted(async () => {
   await startListenToDrop()
-  // 先尝试恢复工作现场（内部会调用reloadData）
   await loadWorkRecords()
 })
 
@@ -619,121 +598,3 @@ onUnmounted(async () => {
   await stopListenToDrop()
 })
 </script>
-
-<style scoped lang="scss">
-.main-container {
-  height: 100%;
-}
-
-.aside-outer {
-  width: 300px;
-}
-
-.aside-container {
-  display: flex;
-  flex-direction: column;
-  row-gap: 1rem;
-  // margin: 0 10px;
-  margin-right: 10px;
-}
-
-.block-text {
-  display: inline-block;
-  align-self: normal;
-}
-
-.tool-chunk {
-  display: flex;
-  flex-flow: column;
-  row-gap: 10px;
-}
-
-.main-content {
-  height: 100%;
-  width: 100%;
-  padding: 0 0.5rem 1rem 0.5rem;
-  display: flex;
-  gap: 0.5rem;
-
-  .tree-card {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    width: 100%;
-    position: relative;
-
-    &.with-preview {
-      width: calc(100% - 400px);
-    }
-  }
-
-  .tree-panel {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: auto;
-    padding: 10px;
-
-    .file-tree {
-      flex-grow: 1;
-      overflow: auto;
-    }
-  }
-
-  .preview-content {
-    width: 400px;
-    height: 100%;
-  }
-}
-
-.progress-actions {
-  display: flex;
-  justify-content: right;
-  margin: 8px;
-}
-
-.tree-actions {
-  margin-top: 20px;
-}
-
-.v-card-text {
-  .text-body-2 {
-    display: block;
-    height: 1.5em;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
-.overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(192, 192, 192, 0.5);
-  backdrop-filter: blur(2px);
-  z-index: 10;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.overlay-content {
-  padding: 24px;
-}
-
-.load-btn {
-  min-width: 160px;
-}
-
-.expand-btn {
-  position: absolute;
-  top: 50%;
-  right: -16px;
-  transform: translateY(-50%);
-  z-index: 15;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-</style>

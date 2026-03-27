@@ -1,181 +1,155 @@
 <template>
-  <div class="path-scanner">
-    <!-- 中置容器 -->
-    <div class="content-container mx-auto">
-      <!-- 标题 -->
-      <div class="text-h5 mb-4">{{ t('pathScanner.title') }}</div>
+  <div class="mx-auto flex max-w-4xl flex-col gap-6">
+    <div class="space-y-2">
+      <p class="section-eyebrow">Tool</p>
+      <h3 class="section-title">{{ t('pathScanner.title') }}</h3>
+      <p class="section-copy">{{ t('pathScanner.description') }}</p>
+    </div>
 
-      <!-- 描述栏 -->
-      <div class="text-body-1 mb-2">{{ t('pathScanner.description') }}</div>
-      <v-alert color="info" variant="tonal" class="mb-2">
-        <div class="text-body-2">
-          <v-icon size="small" class="mr-1">mdi-information</v-icon>
-          {{ t('pathScanner.lightVersionTip') }}
-          <a
-            href="#"
-            @click="openUrl('https://github.com/eigeen/ree-path-searcher')"
-            class="text-primary text-decoration-none"
-          >
-            {{ t('pathScanner.standaloneVersion') }}
-          </a>
-          {{ t('pathScanner.betterPerformance') }}
+    <div class="app-panel-muted flex items-start gap-3 p-4">
+      <div
+        class="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary"
+      >
+        <Info class="size-4" />
+      </div>
+      <p class="text-sm leading-6 text-muted-foreground">
+        {{ t('pathScanner.lightVersionTip') }}
+        <button
+          class="mx-1 font-medium text-primary transition hover:text-primary/80"
+          type="button"
+          @click="openUrl('https://github.com/eigeen/ree-path-searcher')"
+        >
+          {{ t('pathScanner.standaloneVersion') }}
+        </button>
+        {{ t('pathScanner.betterPerformance') }}
+      </p>
+    </div>
+
+    <div class="grid gap-6">
+      <section class="app-panel p-5">
+        <div class="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <p class="section-eyebrow">{{ t('pathScanner.pakFiles') }}</p>
+            <h4 class="section-title">{{ t('pathScanner.pakFiles') }}</h4>
+          </div>
+          <Button :disabled="scanning" @click="selectPakFiles">
+            <FolderPlus class="size-4" />
+            {{ t('pathScanner.selectPakFiles') }}
+          </Button>
         </div>
-      </v-alert>
 
-      <v-container>
-        <v-row>
-          <!-- Pak 文件选择 -->
-          <v-col cols="12">
-            <v-card outlined>
-              <v-card-title class="text-subtitle-1">{{ t('pathScanner.pakFiles') }}</v-card-title>
-              <v-card-text>
-                <v-btn
-                  color="primary"
-                  block
-                  @click="selectPakFiles"
-                  :disabled="scanning"
-                  class="mb-3 text-none"
-                >
-                  {{ t('pathScanner.selectPakFiles') }}
-                </v-btn>
-                <v-list density="compact" max-height="200" style="overflow-y: auto">
-                  <v-list-item v-for="(file, index) in pakFiles" :key="index" class="text-caption">
-                    <v-list-item-title>{{ file }}</v-list-item-title>
-                    <template v-slot:append>
-                      <v-btn
-                        icon="mdi-close"
-                        size="x-small"
-                        @click="removePakFile(index)"
-                        :disabled="scanning"
-                      />
-                    </template>
-                  </v-list-item>
-                </v-list>
-              </v-card-text>
-            </v-card>
-          </v-col>
-        </v-row>
+        <div class="app-panel-muted p-3">
+          <div v-if="pakFiles.length === 0" class="empty-state min-h-32">
+            <p class="text-sm font-medium text-foreground">{{ t('pathScanner.selectPakFiles') }}</p>
+            <p class="section-copy">支持选择多个 `.pak` 文件参与扫描。</p>
+          </div>
 
-        <!-- 已知路径列表选择 -->
-        <v-row class="mt-4">
-          <v-col cols="12">
-            <v-card outlined>
-              <v-card-title class="text-subtitle-1">{{
-                t('pathScanner.knownPathList')
-              }}</v-card-title>
-              <v-card-text>
-                <FileNameTableSelector v-model="selectedFileList" :items="comboItems" />
-              </v-card-text>
-            </v-card>
-          </v-col>
-        </v-row>
-
-        <!-- 进度显示 -->
-        <v-row v-if="scanning || scanResult" class="mt-4">
-          <v-col cols="12">
-            <v-card outlined>
-              <v-card-title class="text-subtitle-1">{{ t('pathScanner.scanStatus') }}</v-card-title>
-              <v-card-text>
-                <v-progress-linear
-                  v-if="scanning"
-                  indeterminate
-                  color="primary"
-                  height="20"
-                  class="mb-3"
-                >
-                  <template v-slot:default="{ value }">
-                    <small class="text-white">{{ Math.ceil(value) }}%</small>
-                  </template>
-                </v-progress-linear>
-
-                <div v-if="progressMessage" class="text-body-2 text-grey-darken-1 mb-2">
-                  {{ progressMessage }}
-                </div>
-
-                <!-- 结果显示 -->
-                <div v-if="scanResult && !scanning">
-                  <div class="text-subtitle-2 mb-2">
-                    {{ t('pathScanner.scanComplete') }} {{ scanResult.length }}
-                    {{ t('pathScanner.foundPaths') }}
-                  </div>
-                  <v-textarea
-                    :model-value="scanResult.join('\n')"
-                    readonly
-                    rows="10"
-                    variant="outlined"
-                    class="text-caption"
-                    hide-details
-                  />
-                  <v-btn color="secondary" @click="copyResults" class="mt-2 text-none">{{
-                    t('pathScanner.copyResults')
-                  }}</v-btn>
-                </div>
-              </v-card-text>
-            </v-card>
-          </v-col>
-        </v-row>
-
-        <!-- 操作按钮 -->
-        <v-row class="mt-4">
-          <v-col cols="12" class="d-flex justify-end gap-3">
-            <v-btn v-if="scanning" class="text-none" color="error" @click="stopScan">{{
-              t('pathScanner.stopScan')
-            }}</v-btn>
-            <v-btn
-              v-if="!scanning"
-              class="text-none"
-              color="primary"
-              @click="startScan"
-              :disabled="!canStartScan"
+          <div v-else class="space-y-2">
+            <div
+              v-for="(file, index) in pakFiles"
+              :key="`${file}-${index}`"
+              class="flex items-center gap-3 rounded-2xl border border-border/70 bg-background/85 px-3 py-3"
             >
-              {{ t('pathScanner.startScan') }}
-            </v-btn>
-          </v-col>
-        </v-row>
-      </v-container>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-sm font-medium text-foreground">{{ file }}</p>
+              </div>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                class="rounded-full"
+                :disabled="scanning"
+                @click="removePakFile(index)"
+              >
+                <X class="size-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="app-panel p-5">
+        <div class="mb-4">
+          <p class="section-eyebrow">{{ t('pathScanner.knownPathList') }}</p>
+          <h4 class="section-title">{{ t('pathScanner.knownPathList') }}</h4>
+        </div>
+        <FileNameTableSelector v-model="selectedFileList" :items="comboItems" />
+      </section>
+
+      <section v-if="scanning || scanResult" class="app-panel p-5">
+        <div class="mb-4">
+          <p class="section-eyebrow">{{ t('pathScanner.scanStatus') }}</p>
+          <h4 class="section-title">{{ t('pathScanner.scanStatus') }}</h4>
+        </div>
+
+        <div class="space-y-4">
+          <Progress v-if="scanning" :model-value="45" class="h-2.5 rounded-full" />
+          <p v-if="progressMessage" class="text-sm text-muted-foreground">{{ progressMessage }}</p>
+
+          <div v-if="scanResult && !scanning" class="space-y-3">
+            <p class="text-sm font-medium text-foreground">
+              {{ t('pathScanner.scanComplete') }} {{ scanResult.length }}
+              {{ t('pathScanner.foundPaths') }}
+            </p>
+            <Textarea
+              :model-value="scanResult.join('\n')"
+              class="min-h-64 font-mono text-xs"
+              readonly
+            />
+            <Button variant="outline" @click="copyResults">
+              <Copy class="size-4" />
+              {{ t('pathScanner.copyResults') }}
+            </Button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="flex justify-end gap-3">
+      <Button v-if="scanning" variant="destructive" @click="stopScan">
+        <Square class="size-4" />
+        {{ t('pathScanner.stopScan') }}
+      </Button>
+      <Button v-else :disabled="!canStartScan" @click="startScan">
+        <Search class="size-4" />
+        {{ t('pathScanner.startScan') }}
+      </Button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { PathScanner } from '@/lib/pathScanner'
-import { terminatePathScan, type PathScanOptions } from '@/api/tauri/tools'
-import { ShowError, ShowInfo } from '@/utils/message'
+import { computed, onMounted, ref } from 'vue'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { openUrl } from '@tauri-apps/plugin-opener'
+import { Copy, FolderPlus, Info, Search, Square, X } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
+import { PathScanner } from '@/lib/pathScanner'
+import { terminatePathScan, type PathScanOptions } from '@/api/tauri/tools'
 import FileNameTableSelector from '@/components/FileNameTable/FileNameTableSelector.vue'
 import { useFileListStore } from '@/store/filelist'
-import { useI18n } from 'vue-i18n'
+import { ShowError, ShowInfo } from '@/utils/message'
+import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
+import { Textarea } from '@/components/ui/textarea'
 
 const { t } = useI18n()
 
-// 文件选择状态
 const pakFiles = ref<string[]>([])
 const selectedFileList = ref<string>('')
-
-// 文件列表状态
 const fileListStore = useFileListStore()
-
-// 扫描状态
 const scanning = ref(false)
 const progressMessage = ref('')
 const scanResult = ref<string[] | null>(null)
 
 let pathScanner: PathScanner | null = null
 
-// 计算是否可以开始扫描
-const canStartScan = computed(() => {
-  return pakFiles.value.length > 0
-})
+const canStartScan = computed(() => pakFiles.value.length > 0)
 
-// 重置状态
 const resetState = () => {
   progressMessage.value = ''
   scanResult.value = null
 }
 
-// 文件选择方法
 const selectPakFiles = async () => {
   try {
     const selected = await openDialog({
@@ -198,12 +172,10 @@ const selectPakFiles = async () => {
   }
 }
 
-// 移除文件
 const removePakFile = (index: number) => {
   pakFiles.value.splice(index, 1)
 }
 
-// 扫描操作
 const startScan = async () => {
   if (!canStartScan.value) return
 
@@ -219,14 +191,12 @@ const startScan = async () => {
     pathScanner = new PathScanner((event) => {
       switch (event.event) {
         case 'startFile':
-          let data = event.data
-          progressMessage.value = `Scanning file ${data.current} / ${data.total}`
+          progressMessage.value = `Scanning file ${event.data.current} / ${event.data.total}`
           break
         case 'finish':
           if (event.data.success) {
             scanResult.value = event.data.foundPaths
             progressMessage.value = 'Scan finished'
-            console.log('scanResult', scanResult.value)
           } else {
             progressMessage.value = event.data.error ?? 'Unknown Error'
           }
@@ -234,6 +204,7 @@ const startScan = async () => {
           break
       }
     })
+
     await pathScanner.scan(options)
   } catch (error) {
     scanning.value = false
@@ -243,7 +214,6 @@ const startScan = async () => {
 
 const stopScan = async () => {
   if (pathScanner) {
-    // await pathScanner.terminate()
     await terminatePathScan()
   }
   scanning.value = false
@@ -251,7 +221,7 @@ const stopScan = async () => {
 }
 
 const copyResults = async () => {
-  if (!scanResult.value || scanResult.value.length === 0) {
+  if (!scanResult.value?.length) {
     return
   }
 
@@ -263,41 +233,34 @@ const copyResults = async () => {
   }
 }
 
-// 获取文件列表选项
 const localSources = computed(() => {
-  const itemsMap: { [identifier: string]: any } = {}
+  const itemsMap: Record<string, any> = {}
+
   for (const identifier in fileListStore.localFile) {
     const localFile = fileListStore.localFile[identifier]
-    if (!localFile) continue
-    itemsMap[identifier] = {
-      ...localFile.source
+    if (localFile) {
+      itemsMap[identifier] = { ...localFile.source }
     }
   }
+
   for (const fileName in fileListStore.downloadedFile) {
     const downloaded = fileListStore.downloadedFile[fileName]
     const source = downloaded?.source
-    if (!source) continue
-    const identifier = source.identifier
-    if (identifier in itemsMap) {
-      continue
-    }
-    itemsMap[identifier] = {
-      ...source
+    if (source && !(source.identifier in itemsMap)) {
+      itemsMap[source.identifier] = { ...source }
     }
   }
 
-  const sources = Object.values(itemsMap)
-  sources.sort((a: any, b: any) => a.identifier.localeCompare(b.identifier))
-  return sources
+  return Object.values(itemsMap).sort((a: any, b: any) => a.identifier.localeCompare(b.identifier))
 })
 
 const comboItems = computed(() =>
-  localSources.value.map((item: any) => {
-    return { label: item.identifier, value: item.identifier }
-  })
+  localSources.value.map((item: any) => ({
+    label: item.identifier,
+    value: item.identifier
+  }))
 )
 
-// 初始化文件列表
 onMounted(async () => {
   try {
     await fileListStore.refreshLocalSource()
@@ -306,26 +269,3 @@ onMounted(async () => {
   }
 })
 </script>
-
-<style scoped lang="scss">
-.path-scanner {
-  height: 100%;
-  overflow-y: auto;
-  padding: 0 2rem;
-}
-
-.content-container {
-  max-width: 600px;
-  width: 100%;
-}
-
-.v-col {
-  padding-left: 0;
-  padding-right: 0;
-}
-
-.v-list {
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 4px;
-}
-</style>

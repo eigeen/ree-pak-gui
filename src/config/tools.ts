@@ -1,11 +1,12 @@
 import type { Component } from 'vue'
 import { defineAsyncComponent } from 'vue'
+import { Search } from 'lucide-vue-next'
 
 // 工具路由接口
 export interface ToolRoute {
   id: string // 工具ID
   title: string // 工具标题(i18n key)
-  icon?: string // 工具图标
+  icon?: Component // 工具图标
   component: Component // 工具组件
 }
 
@@ -14,7 +15,7 @@ const toolsRegistry: ToolRoute[] = [
   {
     id: 'path-scan',
     title: 'pathScanner.title',
-    icon: 'mdi-folder-search',
+    icon: Search,
     component: defineAsyncComponent(() => import('@/components/tools/PathScanner.vue'))
   }
 ]

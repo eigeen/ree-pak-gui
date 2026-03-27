@@ -1,10 +1,14 @@
 <template>
-  <div class="settings-switch">
-    <div class="info">
-      <span class="title text-grey-darken-4">{{ title }}</span>
-      <span class="description text-grey-darken-2">{{ description }}</span>
+  <div
+    class="flex items-start justify-between gap-4 rounded-2xl border border-border/70 bg-secondary/25 p-4"
+  >
+    <div class="space-y-1">
+      <h3 class="text-sm font-semibold tracking-tight text-foreground">{{ title }}</h3>
+      <p class="text-sm leading-6 text-muted-foreground">{{ description }}</p>
     </div>
-    <slot name="default"></slot>
+    <div class="shrink-0">
+      <slot />
+    </div>
   </div>
 </template>
 
@@ -16,25 +20,3 @@ interface Props {
 
 defineProps<Props>()
 </script>
-
-<style scoped lang="scss">
-.settings-switch {
-  display: flex;
-  flex-direction: row;
-  margin: 8px 0;
-}
-
-.info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-
-  .title {
-    font-size: 16px;
-  }
-
-  .description {
-    font-size: 12px;
-  }
-}
-</style>

@@ -92,7 +92,9 @@ export class FileListAPI {
             pending -= 1
             if (pending === 0 && !resolved) {
               reject(
-                new Error(`Failed to fetch file list manifest from all sources: ${String(lastError)}`)
+                new Error(
+                  `Failed to fetch file list manifest from all sources: ${String(lastError)}`
+                )
               )
             }
           })

@@ -1,30 +1,27 @@
 <template>
-  <v-autocomplete
-    label="Path List"
-    v-model="selectedValue"
-    :items="items"
-    item-title="label"
-    item-value="value"
-    density="comfortable"
-    variant="outlined"
-    persistent-hint
-    :hide-details="hintData === null"
-  >
-  </v-autocomplete>
+  <div class="space-y-2">
+    <label class="text-sm font-medium text-foreground">Path List</label>
+    <div class="relative">
+      <select
+        v-model="selectedValue"
+        class="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm shadow-xs outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
+      >
+        <option value="">请选择文件名表</option>
+        <option v-for="item in items" :key="item.value" :value="item.value">
+          {{ item.label }}
+        </option>
+      </select>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-
 export interface Option {
   label: string
   value: string
 }
 
-const selectedValue = defineModel<string>()
-const props = defineProps<{ items: Option[] }>()
+const selectedValue = defineModel<string>({ default: '' })
 
-const hintData = ref<string | null>(null)
+defineProps<{ items: Option[] }>()
 </script>
-
-<style scoped></style>

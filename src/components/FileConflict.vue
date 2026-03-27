@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, watch } from 'vue'
+import { AlertTriangle, ChevronDown, ChevronRight, Trash2 } from 'lucide-vue-next'
 import type { ConflictFile } from '@/lib/packer'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 
 const conflicts = defineModel<ConflictFile[]>('conflicts')
 
-// 本地状态
 const expandedFiles = ref<Set<string>>(new Set())
 const localConflicts = ref<ConflictFile[]>([])
 
-// 监听props变化，同步到本地状态
 watch(
   conflicts,
   (newConflicts) => {
@@ -16,13 +17,12 @@ watch(
 
     localConflicts.value = newConflicts.map((conflict) => ({
       ...conflict,
-      selectedSource: conflict.selectedSource ?? conflict.sources.length - 1 // 默认选择最后一个来源
+      selectedSource: conflict.selectedSource ?? conflict.sources.length - 1
     }))
   },
   { immediate: true }
 )
 
-// 方法
 const toggleExpanded = (relativePath: string) => {
   if (expandedFiles.value.has(relativePath)) {
     expandedFiles.value.delete(relativePath)
@@ -31,23 +31,18 @@ const toggleExpanded = (relativePath: string) => {
   }
 }
 
-const isExpanded = (relativePath: string) => {
-  return expandedFiles.value.has(relativePath)
-}
+const isExpanded = (relativePath: string) => expandedFiles.value.has(relativePath)
 
 const formatFileSize = (bytes: number) => {
   if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  const value = bytes / Math.pow(k, i)
-  const formattedValue = i === 0 ? Math.round(value) : parseFloat(value.toFixed(2))
-
-  return formattedValue + ' ' + sizes[i]
+  const units = ['B', 'KB', 'MB', 'GB']
+  const index = Math.floor(Math.log(bytes) / Math.log(1024))
+  const value = bytes / 1024 ** index
+  return `${index === 0 ? Math.round(value) : value.toFixed(2)} ${units[index]}`
 }
 
-const formatDate = (date: Date) => {
-  return date.toLocaleString('zh-CN', {
+const formatDate = (date: Date) =>
+  date.toLocaleString('zh-CN', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -55,75 +50,81 @@ const formatDate = (date: Date) => {
     minute: '2-digit',
     second: '2-digit'
   })
-}
 </script>
 
 <template>
-  <div>
-    <div class="text-body-1 mb-4">检测到以下文件存在冲突，请选择要保留的文件版本：</div>
+  <div class="space-y-4">
+    <p class="section-copy">检测到以下文件存在冲突，请选择要保留的文件版本。</p>
 
-    <div class="max-h-[500px] overflow-y-auto">
-      <div v-for="conflict in localConflicts" :key="conflict.relativePath" class="mb-2">
-        <!-- 文件路径行 -->
-        <div class="flex items-start align-center gap-2 bg-grey-lighten-5 rounded">
-          <v-btn
-            :icon="isExpanded(conflict.relativePath) ? 'mdi-chevron-down' : 'mdi-chevron-right'"
-            variant="text"
-            size="small"
+    <div class="editor-scrollbar max-h-[30rem] space-y-3 overflow-y-auto pr-2">
+      <div
+        v-for="conflict in localConflicts"
+        :key="conflict.relativePath"
+        class="rounded-[1.25rem] border border-border/70 bg-secondary/25 p-4"
+      >
+        <div class="flex items-start gap-3">
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            class="mt-0.5 rounded-full"
             @click="toggleExpanded(conflict.relativePath)"
-          ></v-btn>
+          >
+            <ChevronDown v-if="isExpanded(conflict.relativePath)" class="size-4" />
+            <ChevronRight v-else class="size-4" />
+          </Button>
 
-          <v-icon icon="mdi-file-alert" color="warning" size="small"></v-icon>
+          <div
+            class="flex size-9 shrink-0 items-center justify-center rounded-2xl border border-destructive/25 bg-destructive/10 text-destructive"
+          >
+            <AlertTriangle class="size-4" />
+          </div>
 
-          <div class="flex-1 min-w-0">
-            <span class="text-body-1 font-medium break-all">{{ conflict.relativePath }}</span>
-            <div class="flex gap-4 text-caption text-grey-darken-1 mt-1">
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <p class="break-all text-sm font-semibold text-foreground">
+                {{ conflict.relativePath }}
+              </p>
+              <Badge variant="outline">{{ conflict.sources.length }} 个来源</Badge>
+            </div>
+            <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
               <span v-if="conflict.size">大小: {{ formatFileSize(conflict.size) }}</span>
-              <span v-if="conflict.modifiedDate"
-                >修改时间: {{ formatDate(conflict.modifiedDate) }}</span
-              >
+              <span v-if="conflict.modifiedDate">
+                修改时间: {{ formatDate(conflict.modifiedDate) }}
+              </span>
             </div>
           </div>
-
-          <v-chip size="small" color="warning" variant="outlined" class="flex-shrink-0">
-            {{ conflict.sources.length }} 个来源
-          </v-chip>
         </div>
 
-        <!-- 展开的文件来源详情 -->
-        <v-expand-transition>
-          <div v-if="isExpanded(conflict.relativePath)" class="ml-4 border-l-1 pl-4">
-            <v-radio-group
-              v-model="conflict.selectedSource"
-              density="compact"
-              class="mt-2"
-              hide-details
-            >
-              <!-- 固定选项：移除该文件 -->
-              <div class="mb-2">
-                <v-radio :value="-1" class="mb-1" hide-details>
-                  <template #label>
-                    <div class="flex items-center gap-2">
-                      <v-icon icon="mdi-delete" color="error" size="small"></v-icon>
-                      <span class="text-body-2 font-medium text-error">移除该文件</span>
-                    </div>
-                  </template>
-                </v-radio>
-              </div>
+        <div
+          v-if="isExpanded(conflict.relativePath)"
+          class="mt-4 space-y-2 border-l border-border pl-5"
+        >
+          <label
+            class="flex cursor-pointer items-start gap-3 rounded-2xl border border-border/70 bg-background/90 px-3 py-3"
+          >
+            <input v-model="conflict.selectedSource" :value="-1" class="mt-1 size-4" type="radio" />
+            <div class="flex items-center gap-2 text-sm font-medium text-destructive">
+              <Trash2 class="size-4" />
+              <span>移除该文件</span>
+            </div>
+          </label>
 
-              <!-- 文件来源选项 -->
-              <div v-for="(source, index) in conflict.sources" :key="index" class="mb-2">
-                <v-radio :value="index" class="mb-1" hide-details>
-                  <template #label>
-                    <div class="flex-1 min-w-0">
-                      <div class="text-body-2 font-medium break-all">{{ source.sourcePath }}</div>
-                    </div>
-                  </template>
-                </v-radio>
-              </div>
-            </v-radio-group>
-          </div>
-        </v-expand-transition>
+          <label
+            v-for="(source, index) in conflict.sources"
+            :key="index"
+            class="flex cursor-pointer items-start gap-3 rounded-2xl border border-border/70 bg-background/90 px-3 py-3"
+          >
+            <input
+              v-model="conflict.selectedSource"
+              :value="index"
+              class="mt-1 size-4"
+              type="radio"
+            />
+            <div class="min-w-0 flex-1">
+              <p class="break-all text-sm font-medium text-foreground">{{ source.sourcePath }}</p>
+            </div>
+          </label>
+        </div>
       </div>
     </div>
   </div>

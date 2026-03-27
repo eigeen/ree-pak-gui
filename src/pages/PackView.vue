@@ -1,78 +1,99 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref, toRefs } from 'vue'
-import { ShowError, ShowWarn } from '@/utils/message'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import type { UnlistenFn } from '@tauri-apps/api/event'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { exists, stat } from '@tauri-apps/plugin-fs'
+import {
+  CheckCircle2,
+  CircleAlert,
+  Folder,
+  FolderOpen,
+  FolderPlus,
+  PackagePlus,
+  Square,
+  Trash2
+} from 'lucide-vue-next'
 import FileConflict from '@/components/FileConflict.vue'
 import HoverBubble from '@/components/HoverBubble.vue'
 import { useWorkStore, type FileItem } from '@/store/work'
-import {
-  Packer,
-  type ConflictFile,
-  type ExportConfig,
-  type ExportResult,
-  type PackProgress
-} from '@/lib/packer'
-
+import { Packer, type ConflictFile, type ExportResult, type PackProgress } from '@/lib/packer'
+import { ShowError } from '@/utils/message'
 import { useI18n } from 'vue-i18n'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Progress } from '@/components/ui/progress'
+
 const { t } = useI18n()
-
 const workStore = useWorkStore()
+type PackState = {
+  exportConfig: {
+    mode: 'individual' | 'single'
+    autoDetectRoot: boolean
+    exportDirectory: string
+    fastMode: boolean
+  }
+  inputFiles: FileItem[]
+}
+const packState = computed({
+  get: () => workStore.pack as unknown as PackState,
+  set: (value: PackState) => {
+    ;(workStore as any).pack = value
+  }
+})
 
-const { exportConfig, inputFiles } = toRefs(workStore.pack)
-
-// 创建Packer实例
 const packer = new Packer(
   (p: PackProgress) => {
-    // 进度更新回调
     if (p.totalFileCount === p.finishFileCount) {
-      // 导出完成
       p.currentFile = ''
     }
     progress.value = p
   },
   (result: ExportResult) => {
-    // 结果更新回调
     exportResult.value = result
   }
 )
 
-// 导出进度
 const progress = ref<PackProgress>({
   working: false,
   currentFile: '',
   totalFileCount: 0,
   finishFileCount: 0
 })
+
 const progressValue = computed(() => {
   if (progress.value.totalFileCount === 0) return 0
   return (progress.value.finishFileCount / progress.value.totalFileCount) * 100
 })
-// 导出结果
+
 const exportResult = ref<ExportResult>({
   success: false,
   files: [],
   error: ''
 })
 
-// 冲突处理
 const conflictDialogVisible = ref(false)
 const conflictFiles = ref<ConflictFile[]>([])
 
-// 计算属性
 const enableExport = computed(() => {
-  if (inputFiles.value.length === 0) return false
-
-  if (exportConfig.value.mode === 'single' && !exportConfig.value.exportDirectory) {
+  if (packState.value.inputFiles.length === 0) return false
+  if (
+    packState.value.exportConfig.mode === 'single'
+    && !packState.value.exportConfig.exportDirectory
+  ) {
     return false
   }
-
   return true
 })
 
-// Add files or folders
 const addFiles = async (paths: string[]) => {
   try {
     const addList: FileItem[] = []
@@ -83,107 +104,90 @@ const addFiles = async (paths: string[]) => {
         continue
       }
 
-      // check if exists in inputFiles
-      if (inputFiles.value.some((f) => f.path === path)) {
+      if (packState.value.inputFiles.some((file: FileItem) => file.path === path)) {
         continue
       }
 
-      const st = await stat(path)
+      const fileStat = await stat(path)
       addList.push({
         path,
-        isFile: st.isFile
+        isFile: fileStat.isFile
       })
     }
 
-    inputFiles.value.push(...addList)
+    packState.value.inputFiles.push(...addList)
 
-    // fast mode
-    if (exportConfig.value.fastMode) {
+    if (packState.value.exportConfig.fastMode) {
       await handleExport()
       handleCloseAll()
     }
-  } catch (e) {
-    ShowError(e)
+  } catch (error) {
+    ShowError(error)
   }
 }
 
-// 处理添加文件
 const handleAddViaDialog = async (pak: boolean) => {
   const results = await openDialog({
     multiple: true,
     directory: !pak,
     filters: pak ? [{ name: 'Pak Files', extensions: ['pak'] }] : undefined
   })
-  if (!results) return
 
-  await addFiles(results)
+  if (!results) return
+  await addFiles(Array.isArray(results) ? results : [results])
 }
 
 const handleCloseAll = () => {
-  inputFiles.value = []
+  packState.value.inputFiles = []
 }
 
-// 处理选择导出目录
 const handleSelectDirectory = async () => {
   const result = await openDialog({
     directory: true
   })
+
   if (!result) return
-
-  exportConfig.value.exportDirectory = result
+  packState.value.exportConfig.exportDirectory = result
 }
 
-// 处理移除文件
 const handleRemoveFile = (index: number) => {
-  console.log('Remove file', index)
-  inputFiles.value.splice(index, 1)
+  packState.value.inputFiles.splice(index, 1)
 }
 
-// 处理导出
 const handleExport = async () => {
-  await packer.handleExport(inputFiles.value, exportConfig.value)
+  await packer.handleExport(packState.value.inputFiles, packState.value.exportConfig)
 }
 
-// 终止导出操作
 const handleTerminateExport = async () => {
   await packer.terminateExport()
 }
 
-// 处理重置导出状态
 const handleResetExport = () => {
   packer.resetExport()
 }
 
-const dropInAddFiles = async (paths: string[]) => {
-  await addFiles(paths)
-}
-
-// 冲突处理方法
 const handleConflictResolve = () => {
-  // 从 conflictFiles 中提取解决方案
-  const resolutions: { [relativePath: string]: number } = {}
+  const resolutions: Record<string, number> = {}
   conflictFiles.value.forEach((conflict) => {
     resolutions[conflict.relativePath] = conflict.selectedSource
   })
 
   packer.setConflictResolutions(resolutions)
   conflictDialogVisible.value = false
-
-  // 继续导出过程
-  packer.proceedWithMergeExport(inputFiles.value, exportConfig.value)
+  packer.proceedWithMergeExport(packState.value.inputFiles, packState.value.exportConfig)
 }
 
 const handleConflictCancel = () => {
   conflictDialogVisible.value = false
-  // 重置导出状态
   handleResetExport()
 }
 
 let unlisten: UnlistenFn | undefined
+
 const startListenToDrop = async () => {
   unlisten = await getCurrentWebview().onDragDropEvent(async (event) => {
     if (event.payload.type === 'drop') {
-      await dropInAddFiles(event.payload.paths)
+      await addFiles(event.payload.paths)
     }
   })
 }
@@ -202,240 +206,226 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="h-full flex">
-    <!-- 左侧文件列表 -->
-    <div class="flex-1 h-full pr-2 pb-4">
-      <v-card class="pa-4 elevation-3 rounded-lg h-full">
-        <!-- 添加文件按钮 -->
-        <div class="flex gap-2 mb-4">
-          <v-btn
-            class="text-none"
-            color="primary"
-            prepend-icon="mdi-folder-plus"
-            @click="handleAddViaDialog(false)"
-          >
-            {{ t('pack.addFolder') }}
-          </v-btn>
-          <!-- <v-tooltip :text="t('pack.addPakTooltip')" location="top">
-            <template #activator="{ props }">
-              <v-btn
-                v-bind="props"
-                class="text-none"
-                color="primary"
-                prepend-icon="mdi-file-plus"
-                @click="handleAddViaDialog(true)"
-              >
-                {{ t('pack.addPak') }}
-              </v-btn>
-            </template>
-          </v-tooltip> -->
-          <v-btn class="text-none" prepend-icon="mdi-close-box-multiple" @click="handleCloseAll">
-            {{ t('pack.removeAll') }}
-          </v-btn>
+  <section class="space-y-6">
+    <div class="space-y-1">
+      <p class="section-eyebrow">Pack Workflow</p>
+      <h2 class="section-title">{{ t('menu.repack') }}</h2>
+      <p class="section-copy">批量收集目录后导出 pak 文件，保留原有工作流与拖拽行为。</p>
+    </div>
+
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <section class="app-panel flex min-h-[38rem] flex-col p-5">
+        <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p class="section-eyebrow">{{ t('pack.fileList') }}</p>
+            <h3 class="section-title">{{ t('pack.fileList') }}</h3>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <Button @click="handleAddViaDialog(false)">
+              <FolderPlus class="size-4" />
+              {{ t('pack.addFolder') }}
+            </Button>
+            <Button variant="outline" @click="handleCloseAll">
+              <Trash2 class="size-4" />
+              {{ t('pack.removeAll') }}
+            </Button>
+          </div>
         </div>
 
-        <!-- 文件列表 -->
-        <div class="text-subtitle-1">{{ t('pack.fileList') }}</div>
-        <div class="h-[calc(100vh-230px)] overflow-auto">
-          <!-- 空内容提示 -->
+        <div class="app-panel-muted flex min-h-0 flex-1 flex-col p-3">
+          <div v-if="packState.inputFiles.length === 0" class="empty-state flex-1">
+            <Folder class="size-12 text-muted-foreground" />
+            <p class="text-base font-semibold text-foreground">{{ t('pack.noFilesAdded') }}</p>
+            <p class="section-copy">{{ t('pack.noFilesAddedDesc') }}</p>
+          </div>
+
+          <div v-else class="editor-scrollbar flex-1 space-y-2 overflow-auto pr-1">
+            <div
+              v-for="(file, index) in packState.inputFiles"
+              :key="`${file.path}-${index}`"
+              class="flex items-center gap-3 rounded-[1rem] border border-border/70 bg-background/85 px-3 py-3"
+            >
+              <div
+                class="flex size-9 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary"
+              >
+                <Folder class="size-4" />
+              </div>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-sm font-medium text-foreground">{{ file.path }}</p>
+              </div>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                class="rounded-full"
+                @click="handleRemoveFile(index)"
+              >
+                <Trash2 class="size-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="app-panel flex flex-col gap-5 p-5">
+        <div>
+          <p class="section-eyebrow">{{ t('pack.exportSettings') }}</p>
+          <h3 class="section-title">{{ t('pack.exportSettings') }}</h3>
+        </div>
+
+        <div class="space-y-5">
+          <div class="space-y-3">
+            <p class="text-sm font-medium text-foreground">{{ t('pack.exportMode') }}</p>
+            <label
+              class="flex items-start gap-3 rounded-2xl border border-border/70 bg-secondary/25 px-4 py-3"
+            >
+              <input
+                v-model="packState.exportConfig.mode"
+                class="mt-1 size-4"
+                type="radio"
+                value="individual"
+              />
+              <div>
+                <p class="text-sm font-medium text-foreground">
+                  {{ t('pack.exportModeIndividual') }}
+                </p>
+              </div>
+            </label>
+          </div>
+
+          <div class="space-y-3">
+            <label
+              class="flex items-start justify-between gap-4 rounded-2xl border border-border/70 bg-secondary/25 px-4 py-3"
+            >
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <p class="text-sm font-medium text-foreground">{{ t('pack.autoDetectRoot') }}</p>
+                  <HoverBubble>{{ t('pack.autoDetectRootTooltip') }}</HoverBubble>
+                </div>
+              </div>
+              <input
+                v-model="packState.exportConfig.autoDetectRoot"
+                class="mt-1 size-4"
+                type="checkbox"
+              />
+            </label>
+
+            <label
+              class="flex items-start justify-between gap-4 rounded-2xl border border-border/70 bg-secondary/25 px-4 py-3"
+            >
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <p class="text-sm font-medium text-foreground">{{ t('pack.fastMode') }}</p>
+                  <HoverBubble>
+                    {{ t('pack.fastModeTooltipL1') }}<br />
+                    {{ t('pack.fastModeTooltipL2') }}
+                  </HoverBubble>
+                </div>
+              </div>
+              <input
+                v-model="packState.exportConfig.fastMode"
+                class="mt-1 size-4"
+                type="checkbox"
+              />
+            </label>
+          </div>
+
+          <div class="space-y-3">
+            <p class="text-sm font-medium text-foreground">{{ t('pack.exportDirectory') }}</p>
+            <div class="flex gap-2">
+              <Input
+                v-model="packState.exportConfig.exportDirectory"
+                :placeholder="t('pack.exportDirectoryPlaceholder')"
+              />
+              <Button size="icon" variant="outline" class="shrink-0" @click="handleSelectDirectory">
+                <FolderOpen class="size-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          <Button
+            v-if="!progress.working"
+            :disabled="!enableExport"
+            class="w-full"
+            @click="handleExport"
+          >
+            <PackagePlus class="size-4" />
+            {{ t('pack.export') }}
+          </Button>
+
+          <Button v-else variant="destructive" class="w-full" @click="handleTerminateExport">
+            <Square class="size-4" />
+            {{ t('pack.cancelExport') }}
+          </Button>
+
           <div
-            v-if="inputFiles.length === 0"
-            class="flex flex-col items-center justify-center h-full text-center"
+            v-if="progress.working || exportResult.success || exportResult.error"
+            class="space-y-3"
           >
-            <v-icon
-              icon="mdi-folder-outline"
-              size="64"
-              color="grey-lighten-1"
-              class="mb-4"
-            ></v-icon>
-            <p class="text-grey-lighten-1 text-h6">{{ t('pack.noFilesAdded') }}</p>
-            <p class="text-grey-lighten-1 text-body-2">{{ t('pack.noFilesAddedDesc') }}</p>
-          </div>
+            <Progress
+              v-if="progressValue > 0"
+              :model-value="progressValue"
+              class="h-2.5 rounded-full"
+            />
 
-          <div v-else class="h-full overflow-auto">
-            <v-list>
-              <v-list-item
-                v-for="(file, index) in inputFiles"
-                :key="index"
-                class="border-b border-gray-100"
-              >
-                <template #prepend>
-                  <v-icon icon="mdi-folder" color="blue"></v-icon>
-                </template>
+            <p v-if="progressValue > 0" class="text-sm text-muted-foreground">
+              {{ progress.finishFileCount }} / {{ progress.totalFileCount }}
+              {{ t('pack.filesCount') }}
+            </p>
 
-                {{ file.path }}
+            <div v-if="progress.currentFile" class="space-y-1">
+              <p class="text-sm font-medium text-foreground">{{ t('pack.exporting') }}</p>
+              <p class="break-all text-sm text-muted-foreground">{{ progress.currentFile }}</p>
+            </div>
 
-                <template #append>
-                  <v-btn
-                    icon="mdi-close"
-                    variant="text"
-                    size="small"
-                    @click="handleRemoveFile(index)"
-                  ></v-btn>
-                </template>
-              </v-list-item>
-            </v-list>
+            <div
+              v-if="exportResult.success && !progress.working"
+              class="space-y-3 rounded-2xl border border-primary/20 bg-primary/8 p-4"
+            >
+              <div class="flex items-center gap-2 text-primary">
+                <CheckCircle2 class="size-4" />
+                <span class="text-sm font-medium">{{ t('pack.exportSuccess') }}</span>
+              </div>
+
+              <div v-if="exportResult.fileTree" class="space-y-2">
+                <p class="text-sm font-medium text-foreground">{{ t('pack.fileStructure') }}</p>
+                <pre
+                  class="editor-scrollbar max-h-56 overflow-auto rounded-2xl border border-border/70 bg-background/90 p-3 text-xs leading-6"
+                  >{{ exportResult.fileTree }}</pre
+                >
+              </div>
+            </div>
+
+            <div
+              v-else-if="exportResult.error && !progress.working"
+              class="rounded-2xl border border-destructive/25 bg-destructive/10 p-4"
+            >
+              <div class="mb-2 flex items-center gap-2 text-destructive">
+                <CircleAlert class="size-4" />
+                <span class="text-sm font-medium">{{ t('pack.exportFailed') }}</span>
+              </div>
+              <p class="break-all text-sm text-destructive">{{ exportResult.error }}</p>
+            </div>
           </div>
         </div>
-      </v-card>
+      </section>
     </div>
 
-    <!-- 右侧导出设置 -->
-    <div class="w-[350px] flex flex-col gap-4 pl-2">
-      <!-- 导出配置 -->
-      <v-card class="pa-4 elevation-3 rounded-lg">
-        <div class="text-subtitle-1 mb-4">{{ t('pack.exportSettings') }}</div>
+    <Dialog v-model:open="conflictDialogVisible">
+      <DialogContent class="max-w-4xl rounded-[1.5rem] border-white/60 bg-background/96">
+        <DialogHeader>
+          <DialogTitle>{{ t('pack.fileConflictTitle') }}</DialogTitle>
+          <DialogDescription>为存在重复来源的文件选择最终保留版本。</DialogDescription>
+        </DialogHeader>
 
-        <!-- 导出模式 -->
-        <div class="mb-4">
-          <div class="text-body-2 mb-2">{{ t('pack.exportMode') }}</div>
-          <v-radio-group v-model="exportConfig.mode" density="compact" hide-details>
-            <v-radio
-              :label="t('pack.exportModeIndividual')"
-              value="individual"
-              density="compact"
-            ></v-radio>
-            <!-- <v-radio :label="t('pack.exportModeSingle')" value="single" density="compact"></v-radio> -->
-          </v-radio-group>
-        </div>
+        <FileConflict v-model:conflicts="conflictFiles" />
 
-        <!-- 导出配置 -->
-        <div class="mb-4">
-          <div class="flex items-center gap-2">
-            <v-checkbox
-              v-model="exportConfig.autoDetectRoot"
-              :label="t('pack.autoDetectRoot')"
-              density="compact"
-              color="primary"
-              hide-details
-            ></v-checkbox>
-            <HoverBubble>{{ t('pack.autoDetectRootTooltip') }}</HoverBubble>
-          </div>
-
-          <div class="flex items-center gap-2">
-            <v-checkbox
-              v-model="exportConfig.fastMode"
-              :label="t('pack.fastMode')"
-              density="compact"
-              color="primary"
-              hide-details
-            ></v-checkbox>
-            <HoverBubble>
-              {{ t('pack.fastModeTooltipL1') }}<br />
-              {{ t('pack.fastModeTooltipL2') }}
-            </HoverBubble>
-          </div>
-        </div>
-
-        <!-- 导出文件 -->
-        <div class="mb-4">
-          <div class="text-body-2 mb-2">{{ t('pack.exportDirectory') }}</div>
-          <div class="flex gap-2">
-            <v-text-field
-              v-model="exportConfig.exportDirectory"
-              variant="outlined"
-              density="comfortable"
-              hide-details
-              :placeholder="t('pack.exportDirectoryPlaceholder')"
-            ></v-text-field>
-            <v-btn icon="mdi-folder-open" variant="text" @click="handleSelectDirectory"></v-btn>
-          </div>
-        </div>
-
-        <!-- 导出按钮 -->
-        <v-btn
-          v-if="!progress.working"
-          class="text-none"
-          color="primary"
-          prepend-icon="mdi-export"
-          @click="handleExport"
-          :disabled="!enableExport"
-          block
-        >
-          {{ t('pack.export') }}
-        </v-btn>
-
-        <!-- 取消导出按钮 -->
-        <v-btn
-          v-if="progress.working"
-          class="text-none"
-          color="warning"
-          prepend-icon="mdi-stop"
-          @click="handleTerminateExport"
-          block
-        >
-          {{ t('pack.cancelExport') }}
-        </v-btn>
-
-        <!-- 导出报告信息 -->
-        <div v-if="progress.working || exportResult.success || exportResult.error" class="mt-4">
-          <v-progress-linear
-            v-if="progressValue > 0"
-            :color="progressValue >= 100 ? 'green' : 'primary'"
-            height="12px"
-            :model-value="progressValue"
-            rounded
-            class="mb-2"
-          ></v-progress-linear>
-
-          <!-- 进度信息 -->
-          <div v-if="progressValue > 0" class="text-body-2 mb-2">
-            {{ progress.finishFileCount }} / {{ progress.totalFileCount }}
-            {{ t('pack.filesCount') }}
-          </div>
-          <div v-if="progress.currentFile" class="text-body-2 mb-1">{{ t('pack.exporting') }}</div>
-          <div v-if="progress.currentFile" class="text-body-2 break-all mb-3">
-            {{ progress.currentFile }}
-          </div>
-
-          <!-- 导出结果 -->
-          <div v-if="exportResult.success && !progress.working" class="mt-4">
-            <div class="text-body-2 text-green-700 font-medium mb-2">
-              <v-icon icon="mdi-check-circle" color="green" size="small" class="mr-1"></v-icon>
-              {{ t('pack.exportSuccess') }}
-            </div>
-
-            <!-- 文件树显示 -->
-            <div v-if="exportResult.fileTree" class="mt-3">
-              <div class="text-body-2 font-medium mb-2">{{ t('pack.fileStructure') }}</div>
-              <pre
-                class="text-xs bg-gray-50 p-2 rounded border max-h-48 max-w-full overflow-auto font-mono whitespace-pre"
-                >{{ exportResult.fileTree }}</pre
-              >
-            </div>
-          </div>
-
-          <div v-else-if="exportResult.error && !progress.working" class="mt-4">
-            <div class="text-body-2 text-red-700 font-medium mb-2">
-              <v-icon icon="mdi-alert-circle" color="red" size="small" class="mr-1"></v-icon>
-              {{ t('pack.exportFailed') }}
-            </div>
-            <div class="text-body-2 break-all">{{ exportResult.error }}</div>
-          </div>
-        </div>
-      </v-card>
-    </div>
-
-    <!-- 文件冲突处理对话框 -->
-    <v-dialog v-model="conflictDialogVisible" max-width="800px" persistent>
-      <v-card>
-        <v-card-title class="text-h6 pa-4">
-          <v-icon icon="mdi-alert-circle" color="warning" class="mr-2"></v-icon>
-          {{ t('pack.fileConflictTitle') }}
-        </v-card-title>
-
-        <v-card-text class="pa-4">
-          <FileConflict v-model:conflicts="conflictFiles" />
-        </v-card-text>
-
-        <v-card-actions class="pa-4">
-          <v-spacer></v-spacer>
-          <v-btn color="grey" variant="text" @click="handleConflictCancel">{{
-            t('pack.cancel')
-          }}</v-btn>
-          <v-btn color="primary" @click="handleConflictResolve">{{ t('pack.confirm') }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-  </div>
+        <DialogFooter>
+          <Button variant="outline" @click="handleConflictCancel">{{ t('pack.cancel') }}</Button>
+          <Button @click="handleConflictResolve">{{ t('pack.confirm') }}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </section>
 </template>

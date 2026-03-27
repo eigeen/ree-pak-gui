@@ -1,27 +1,26 @@
 <template>
-  <v-app>
-    <v-main class="app-root">
-      <Menu class="fixed-menu"></Menu>
-      <div class="content">
-        <router-view />
-      </div>
-    </v-main>
-    <Settings></Settings>
-  </v-app>
+  <div class="app-shell">
+    <div class="relative z-10">
+      <Menu />
+      <main class="app-container pb-8 pt-6">
+        <RouterView />
+      </main>
+    </div>
+    <Settings />
+  </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { RouterView } from 'vue-router'
 import { useSettingsStore } from '@/store/settings'
+import { useWorkStore } from '@/store/work'
 import { ShowError, ShowWarn } from '@/utils/message'
-import { useWorkStore } from './store/work'
 
 const settingsStore = useSettingsStore()
 const workStore = useWorkStore()
 
 onMounted(async () => {
-  // initialize settings
   try {
     if (!settingsStore.settings) {
       await settingsStore.loadSettings()
@@ -31,45 +30,10 @@ onMounted(async () => {
     ShowWarn('Will use default settings')
   }
 
-  // load workspace records
   try {
     await workStore.loadWorkRecords()
   } catch (error) {
-    // ignore error
     console.error('Failed to load work records:', error)
   }
 })
 </script>
-
-<style lang="scss">
-html,
-body {
-  /* disable vuetify scrollbar */
-  overflow-y: auto !important;
-  background-color: #f5f5f5;
-}
-
-// html::-webkit-scrollbar {
-//   display: none;
-// }
-
-.app-root {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  background-color: #f5f5f5;
-}
-
-.fixed-menu {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-}
-
-.content {
-  margin: 64px 10px 0 10px;
-  flex: 1;
-}
-</style>

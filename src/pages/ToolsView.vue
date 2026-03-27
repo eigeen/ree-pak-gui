@@ -1,79 +1,35 @@
 <template>
-  <div class="tools-view">
-    <!-- 工具内容区域 -->
-    <div class="tool-container">
+  <section class="space-y-4">
+    <div class="space-y-1">
+      <p class="section-eyebrow">Tools</p>
+      <h2 class="section-title">{{ currentTool ? t(currentTool.title) : 'Unknown Tool' }}</h2>
+      <p class="section-copy">独立工具页保留业务能力，只替换视觉壳与交互原语。</p>
+    </div>
+
+    <div class="app-panel min-h-[calc(100vh-14rem)] p-4 sm:p-6">
       <component v-if="currentTool" :is="currentTool.component" :key="toolId" />
-      <div v-else class="tool-not-found">
-        <v-alert type="error" variant="tonal">
-          <template v-slot:title> 工具不存在 </template>
-          找不到ID为 "{{ toolId }}" 的工具
-        </v-alert>
+      <div v-else class="empty-state">
+        <p class="text-base font-semibold text-foreground">工具不存在</p>
+        <p class="section-copy">找不到 ID 为 "{{ toolId }}" 的工具。</p>
       </div>
     </div>
-  </div>
+  </section>
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent } from 'vue'
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { getToolById } from '@/config/tools'
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 
-// 获取当前工具ID
 const toolId = computed(() => route.params.toolId as string)
+const currentTool = computed(() => getToolById(toolId.value))
 
-// 获取当前工具配置
-const currentTool = computed(() => {
-  return getToolById(toolId.value)
-})
-
-// 面包屑导航项
-const breadcrumbItems = computed(() => [
-  {
-    title: '首页',
-    to: '/unpack'
-  },
-  {
-    title: '工具',
-    disabled: true
-  },
-  {
-    title: currentTool.value?.title || toolId.value,
-    disabled: true
-  }
-])
-
-// 如果工具不存在，重定向到首页
 if (!currentTool.value) {
   router.replace('/')
 }
 </script>
-
-<style scoped lang="scss">
-.tools-view {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.breadcrumb-nav {
-  flex: 0 0 auto;
-  padding: 12px 16px 8px;
-  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-}
-
-.tool-container {
-  flex: 1;
-  overflow: hidden;
-  padding: 16px;
-}
-
-.tool-not-found {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-}
-</style>

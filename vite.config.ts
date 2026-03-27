@@ -9,8 +9,6 @@ import tailwindcss from '@tailwindcss/vite'
 import vueDevTools from 'vite-plugin-vue-devtools'
 // element-plus
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
-// vuetify
-import Vuetify from 'vite-plugin-vuetify'
 
 import { fileURLToPath, URL } from 'node:url'
 
@@ -25,13 +23,6 @@ export default defineConfig({
     }),
     Components({
       resolvers: [ElementPlusResolver()]
-    }),
-    // https://github.com/vuetifyjs/vuetify-loader/tree/master/packages/vite-plugin#readme
-    Vuetify({
-      autoImport: true,
-      styles: {
-        configFile: 'src/styles/settings.scss'
-      }
     }),
     Unfonts({
       custom: {

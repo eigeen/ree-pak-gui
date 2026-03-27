@@ -1,16 +1,13 @@
 <script setup lang="ts">
-import type { ExtractFileInfo, JsSafeHash, RenderTreeNode } from '@/api/tauri/pak'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import type { ElTree, TreeNode } from 'element-plus'
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import type { ExtractFileInfo, JsSafeHash, RenderTreeNode } from '@/api/tauri/pak'
+import { Braces, File, FileCode2, FileText, Image, Link2, Package, Sparkles } from 'lucide-vue-next'
 
 export interface TreeData {
-  // 唯一ID
   id: string
-  // 显示名称
   label: string
-  // 子节点
   children: TreeData[]
-  // 属于哪个包
   belongsTo: string | undefined
 }
 
@@ -25,56 +22,39 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   (e: 'node-click', data: TreeData, node: TreeNode, event: MouseEvent): void
 }>()
-// const props = withDefaults(defineProps<Props>(), {
-//   data: (): RenderTreeNode[] => { return [] },
-// })
+
 const treeComponent = ref<InstanceType<typeof ElTree>>()
 const containerRef = ref<HTMLElement>()
 const treeHeight = ref(200)
-// 是否正在加载
-const loading = ref(false)
-// 是否显示覆盖层
-const showOverlay = ref(true)
-// 缓存的已转换的 TreeData
 const cachedTreeData = ref<TreeData[]>([])
-// 已过滤的数据
 const filteredData = ref<TreeData[]>([])
+
 let resizeObserver: ResizeObserver | null = null
-let lazyUpdateTimeout: number | undefined
 
-// 监听容器大小变化
 onMounted(() => {
-  if (containerRef.value) {
-    resizeObserver = new ResizeObserver((entries) => {
-      let parentHeight = 0
-      for (const entry of entries) {
-        const { height } = entry.contentRect
-        parentHeight = height
-      }
+  if (!containerRef.value) return
 
-      // 减去边框高度2和一个预留空间5
-      // 不留额外空间会导致缩小时外层容器不变化，导致无法缩小
-      treeHeight.value = Math.max(200, parentHeight - 7)
-    })
-    resizeObserver.observe(containerRef.value)
-  }
+  resizeObserver = new ResizeObserver((entries) => {
+    let parentHeight = 0
+    for (const entry of entries) {
+      parentHeight = entry.contentRect.height
+    }
+
+    treeHeight.value = Math.max(200, parentHeight - 8)
+  })
+
+  resizeObserver.observe(containerRef.value)
 })
 
-// 组件卸载时清理监听
 onUnmounted(() => {
-  if (resizeObserver) {
-    resizeObserver.disconnect()
-  }
-  clearTimeout(lazyUpdateTimeout)
+  resizeObserver?.disconnect()
 })
 
-// 监听过滤器数据，应用过滤器
 watch(
   () => [props.filterText, props.regexMode],
   () => doFilterTree()
 )
 
-// 监听输入数据，输入变化时准备重新生成树
 watch(
   () => props.data,
   (data) => {
@@ -86,53 +66,40 @@ watch(
 
     const treeData = createTreeData(data)
     cachedTreeData.value = [treeData]
-    if (props.filterText) {
-      doFilterTree()
-    } else {
-      filteredData.value = [treeData]
-    }
-  }
+    filteredData.value = props.filterText
+      ? filterTreeData(deepCopy([treeData]), getFilterObject())
+      : [treeData]
+  },
+  { immediate: true }
 )
 
-function doFilterTree() {
-  const filter = props.filterText ? props.filterText : ''
-  const regexMode = props.regexMode ?? false
-  console.log('applying filter', filter)
-
-  let filterObj = regexMode ? new RegExp(filter, 'i') : filter.toLowerCase()
-  filteredData.value = filterTreeData(deepCopy(cachedTreeData.value), filterObj)
+function getFilterObject() {
+  const filter = props.filterText ?? ''
+  return props.regexMode ? new RegExp(filter, 'i') : filter.toLowerCase()
 }
 
-// 从输入的树格式 RenderTreeNode 转换成显示用的 TreeData 格式
+function doFilterTree() {
+  filteredData.value = filterTreeData(deepCopy(cachedTreeData.value), getFilterObject())
+}
+
 function createTreeData(node: RenderTreeNode): TreeData {
-  let size: number = 0
-  if (node.uncompressedSize !== undefined) {
-    size = node.isCompressed ? node.uncompressedSize : node.compressedSize
-  } else {
-    size = 0
-  }
+  const size =
+    node.uncompressedSize !== undefined
+      ? node.isCompressed
+        ? node.uncompressedSize
+        : node.compressedSize
+      : 0
 
-  let id
-  if (node.hash) {
-    id = node.hash.toString()
-  } else {
-    id = `${node.name}_${Math.round(Math.random() * 10000000)}`
-  }
-
-  let data: TreeData = {
-    id: id,
+  return {
+    id: node.hash ? node.hash.toString() : `${node.name}_${Math.round(Math.random() * 10000000)}`,
     label: `${node.name} (${formatSize(size)})`,
-    children: node.children?.map((child) => createTreeData(child)), // 递归处理子节点
+    children: node.children?.map((child) => createTreeData(child)) ?? [],
     belongsTo: node.belongsTo
   }
-
-  return data
 }
 
 function formatSize(size: number): string {
-  if (size < 0) {
-    return 'Invalid'
-  }
+  if (size < 0) return 'Invalid'
 
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
   let index = 0
@@ -149,101 +116,64 @@ function deepCopy(data: TreeData[]): TreeData[] {
   return JSON.parse(JSON.stringify(data))
 }
 
-// // 关键词过滤
-// const filterTreeData = (data: TreeData[], text: string): TreeData[] => {
-//   if (!text) {
-//     return data
-//   }
-
-//   return data.map((node) => {
-//     const filteredChildren = filterTreeData(node.children, text);
-//     // 保留非空目录节点，包含过滤文本的叶子节点
-//     const filter = (node.isDir && filteredChildren.length > 0) || (!node.isDir && node.label.includes(text));
-
-//     if (filter) {
-//       return {
-//         ...node,
-//         children: filteredChildren,
-//       };
-//     }
-//     return null;
-//   }).filter((node): node is TreeData => node !== null);
-// }
-
-// 通过关键词过滤树的叶子结点，返回新的树
 function filterTreeData(data: TreeData[], filter: string | RegExp): TreeData[] {
   return data
     .map((node) => {
-      // 过滤子节点
       const filteredChildren = filterTreeData(node.children, filter)
 
-      // 判断当前节点是否包含关键词
       let isMatch = false
       if (typeof filter === 'string') {
-        isMatch = node.label.toLowerCase().includes(filter)
-      } else if (filter instanceof RegExp) {
+        isMatch = filter === '' || node.label.toLowerCase().includes(filter)
+      } else {
         isMatch = filter.test(node.label)
       }
 
-      // 如果当前节点匹配或有匹配的子节点，则保留该节点
       if (isMatch || filteredChildren.length > 0) {
         return {
           ...node,
-          children: filteredChildren // 只保留匹配的子节点
+          children: filteredChildren
         }
       }
 
-      // 如果当前节点和子节点都不匹配，则返回 null
       return null
     })
-    .filter((node) => node !== null) as TreeData[]
+    .filter((node): node is TreeData => node !== null)
 }
 
 function getCheckedNodes(): ExtractFileInfo[] {
   const nodes = treeComponent.value?.getCheckedNodes(true).filter((node) => !node.isDir)
-  if (!nodes) {
-    return []
-  }
+  if (!nodes) return []
 
-  let result: ExtractFileInfo[] = []
-  for (const node of nodes) {
-    result.push({
-      hash: parseId(node.id),
-      belongsTo: node.belongsTo
-    })
-  }
-
-  console.log('result', result)
-
-  return result
+  return nodes.map((node) => ({
+    hash: parseId(node.id),
+    belongsTo: node.belongsTo
+  }))
 }
 
 function parseId(id: string): JsSafeHash {
   return id.split(',').map((str) => parseInt(str, 10)) as JsSafeHash
 }
 
-const extIconMap: Record<string, string> = {
-  msg: 'mdi-text-box',
-  user: 'mdi-code-braces',
-  tex: 'mdi-image',
-  chain: 'mdi-link-variant',
-  chain2: 'mdi-link-variant',
-  pfb: 'mdi-package-variant',
-  efx: 'mdi-auto-fix',
-  mesh: 'mdi-vector-polygon'
+const extIconMap = {
+  msg: FileText,
+  user: Braces,
+  tex: Image,
+  chain: Link2,
+  chain2: Link2,
+  pfb: Package,
+  efx: Sparkles,
+  mesh: FileCode2
 }
 
-function getFileIcon(label: string): string {
+function getFileIcon(label: string) {
   const path = label.split('(').at(0)?.trim() ?? ''
   const pathComponents = path.split('.')
   if (pathComponents.length < 3) {
-    return 'mdi-file'
+    return File
   }
+
   const ext = pathComponents.at(-2)?.toLowerCase()
-  if (ext && extIconMap[ext]) {
-    return extIconMap[ext]
-  }
-  return 'mdi-file'
+  return (ext && extIconMap[ext as keyof typeof extIconMap]) || File
 }
 
 const treeProps = {
@@ -256,47 +186,26 @@ defineExpose({ getCheckedNodes })
 </script>
 
 <template>
-  <div class="tree-container" ref="containerRef">
+  <div ref="containerRef" class="h-full">
     <el-tree-v2
       ref="treeComponent"
-      class="tree"
-      :props="treeProps"
       :data="filteredData"
       :height="treeHeight"
+      :props="treeProps"
+      class="rounded-[1.15rem] bg-transparent"
+      show-checkbox
       @node-click="
         (data: TreeData, node: TreeNode, e: MouseEvent) => {
           emit('node-click', data, node, e)
         }
       "
-      show-checkbox
     >
       <template #default="{ node }">
-        <v-icon
-          v-if="node.isLeaf"
-          :icon="getFileIcon(node.label)"
-          class="prefix"
-          size="small"
-        ></v-icon>
-        <span>{{ node.label }}</span>
+        <div class="flex items-center gap-2 text-sm">
+          <component :is="getFileIcon(node.label)" v-if="node.isLeaf" class="size-4 text-primary" />
+          <span class="truncate">{{ node.label }}</span>
+        </div>
       </template>
     </el-tree-v2>
   </div>
 </template>
-
-<style scoped>
-.tree-container {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.tree {
-  flex: 1;
-  min-height: 0;
-}
-
-.prefix {
-  color: rgb(51, 133, 255);
-  margin-right: 4px;
-}
-</style>
