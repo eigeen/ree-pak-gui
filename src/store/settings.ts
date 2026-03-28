@@ -10,10 +10,26 @@ const SETTINGS_FILE_NAME = 'settings.json'
 type Settings = {
   version: string
   language?: string
+  preview: {
+    showTexturePreview: boolean
+  }
 }
 
 const defaultSettings: Settings = {
-  version: '1'
+  version: '1',
+  preview: {
+    showTexturePreview: true
+  }
+}
+
+function normalizeSettings(raw: Partial<Settings> | null | undefined): Settings {
+  return {
+    version: raw?.version ?? defaultSettings.version,
+    language: raw?.language,
+    preview: {
+      showTexturePreview: raw?.preview?.showTexturePreview ?? defaultSettings.preview.showTexturePreview
+    }
+  }
 }
 
 export const useSettingsStore = defineStore('settings', () => {
@@ -42,7 +58,7 @@ export const useSettingsStore = defineStore('settings', () => {
     if (settingsJson.version !== '1') {
       throw new Error(`Invalid settings file version ${settingsJson.version}`)
     }
-    settings.value = settingsJson
+    settings.value = normalizeSettings(settingsJson)
   }
 
   const saveSettings = async (byAutoSave = false) => {

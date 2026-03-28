@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-4">
-    <div class="app-panel-muted min-h-52 p-3">
+    <div class="min-h-52 border border-border/80 bg-[#151518] p-3">
       <draggable
         v-model="orderedPakList"
         item-key="path"
@@ -23,11 +23,11 @@
     </div>
 
     <div class="flex gap-3">
-      <TooltipProvider>
+      <TooltipProvider v-if="props.showOpenButton">
         <Tooltip>
           <TooltipTrigger as-child>
             <div class="flex-1">
-              <Button class="w-full rounded-xl" :disabled="!enableAdd" @click="$emit('open')">
+              <Button class="w-full rounded-md" :disabled="!enableAdd" @click="$emit('open')">
                 <FolderPlus class="size-4" />
                 {{ t('pakFiles.openPaks') }}
               </Button>
@@ -46,7 +46,7 @@
               <Button
                 size="icon"
                 variant="outline"
-                class="rounded-xl"
+                class="rounded-md"
                 :disabled="pakList.length === 0"
                 @click="$emit('closeAll')"
               >
@@ -78,6 +78,7 @@ const { t } = useI18n()
 export interface Props {
   pakList: PakInfo[]
   enableAdd: boolean
+  showOpenButton?: boolean
 }
 
 export interface OrderedData {
@@ -86,7 +87,8 @@ export interface OrderedData {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  enableAdd: true
+  enableAdd: true,
+  showOpenButton: true
 })
 
 const emit = defineEmits(['open', 'close', 'order', 'closeAll'])

@@ -22,6 +22,7 @@ export default {
         if (data.level === 'error') {
           ElMessage({
             showClose: true,
+            customClass: 'app-toast app-toast-path',
             message: data.message,
             type: 'error',
             duration: 5000

@@ -1,12 +1,12 @@
 <template>
-  <div class="app-panel flex h-full flex-col p-5">
-    <div class="mb-4">
+  <div class="flex h-full flex-col">
+    <div class="mb-3 border-b border-border/80 pb-3">
       <p class="section-eyebrow">Preview</p>
       <h3 class="section-title">{{ $t('preview.title') }}</h3>
     </div>
 
     <div
-      class="flex flex-1 items-center justify-center overflow-hidden rounded-[1.15rem] border border-border/70 bg-secondary/25 p-5"
+      class="flex flex-1 items-center justify-center overflow-hidden border border-border/80 bg-[#151518] p-4"
     >
       <div v-if="previewUri && isImage" class="flex h-full w-full flex-col items-center">
         <el-image
@@ -77,7 +77,6 @@ const isImage = computed(() => {
 .preview-image {
   height: min(60vh, 40rem);
   width: 100%;
-  border-radius: 1rem;
 }
 
 .preview-image :deep(.el-image__inner) {

@@ -34,11 +34,10 @@ const BUILTIN_PATH_TABLE: string[] = [
 export class FileListService {
   private static readonly NOTIFY_FILE_NAME = '_DONT_EDIT_FILES'
 
-  private store
   private remoteServers: string[] = []
 
-  constructor() {
-    this.store = useFileListStore()
+  private get store() {
+    return useFileListStore()
   }
 
   async refreshLocalSource(): Promise<void> {

@@ -1,8 +1,8 @@
 <template>
-  <div class="app-shell">
-    <div class="relative z-10">
+  <div class="app-shell dark">
+    <div class="desktop-shell">
       <Menu />
-      <main class="app-container pb-8 pt-6">
+      <main class="desktop-main">
         <RouterView />
       </main>
     </div>

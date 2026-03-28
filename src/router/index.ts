@@ -19,6 +19,11 @@ const router = createRouter({
       component: () => import('@/pages/PackView.vue')
     },
     {
+      path: '/settings',
+      name: 'SettingsView',
+      component: () => import('@/pages/SettingsView.vue')
+    },
+    {
       path: '/tools/:toolId',
       name: 'ToolsView',
       component: () => import('@/pages/ToolsView.vue'),

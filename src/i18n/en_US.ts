@@ -2,9 +2,18 @@ export default {
   messages: {
     menu: {
       slogan: 'REE Pak Tool',
+      file: 'File',
+      help: 'Help',
+      resources: 'Resources',
+      actions: 'Actions',
+      managePathLists: 'Manage Path Lists',
+      openPaks: 'Open Paks',
+      reloadTree: 'Load Tree',
       unpack: 'Unpack',
       repack: 'Repack',
-      tools: 'Tools'
+      tools: 'Tools',
+      settings: 'Settings',
+      openSettings: 'Open Settings'
     },
     unpack: {
       fileList: 'Path List',
@@ -115,6 +124,22 @@ export default {
       selectFilesFailed: 'Failed to select files: {error}',
       scanFailed: 'Scan failed: {error}',
       copyFailed: 'Copy failed: {error}'
+    },
+    settings: {
+      title: 'Settings',
+      globalTitle: 'Global Settings',
+      globalDescription: 'This page keeps global behavior switches and local persisted config.',
+      searchPlaceholder: 'Search settings',
+      sectionCommon: 'Commonly Used',
+      sectionFileExplorer: 'File Explorer',
+      previewSection: 'Preview',
+      previewTitle: 'Preview Options',
+      texturePreviewTitle: 'Show Texture Preview',
+      texturePreviewDescription: 'Whether to show Texture thumbnails in the file list.',
+      texturePreviewHint: 'Enabling this may affect preview performance.',
+      enabled: 'Enabled',
+      disabled: 'Disabled',
+      placeholderSection: 'This category is empty for now.'
     },
     global: {
       failedLoadSettings: 'Failed to load settings: {error}',

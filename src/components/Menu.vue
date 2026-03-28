@@ -1,102 +1,253 @@
 <template>
-  <header class="sticky top-0 z-40 px-4 pt-4 sm:px-6 lg:px-8">
-    <div
-      class="app-container rounded-[1.5rem] border border-white/60 bg-background/72 px-4 py-3 backdrop-blur-xl transition-all duration-300 sm:px-5"
-      :class="scrollY > 12 ? 'glass-ring shadow-[0_20px_50px_-36px_rgba(15,23,42,0.7)]' : ''"
-    >
-      <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div class="flex min-w-0 items-center gap-4">
-          <div
-            class="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary"
-          >
-            <PackageOpen class="size-5" />
-          </div>
-          <div class="min-w-0">
-            <p class="section-eyebrow">REE Pak GUI</p>
-            <div class="flex items-center gap-2">
-              <h1
-                class="truncate text-base font-semibold tracking-tight text-foreground sm:text-lg"
-              >
-                {{ t('menu.slogan') }}
-              </h1>
-              <Badge
-                variant="outline"
-                class="hidden border-accent/60 bg-accent/40 text-accent-foreground md:inline-flex"
-              >
-                shadcn-vue
-              </Badge>
-            </div>
-          </div>
+  <header class="desktop-header">
+    <div class="desktop-menubar">
+      <div class="flex min-w-0 items-center gap-5">
+        <div class="desktop-brand">
+          <PackageOpen class="size-4" />
+          <span>REE PAK</span>
+          <span class="desktop-brand-version">Workbench</span>
         </div>
 
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <nav class="flex flex-wrap items-center gap-2">
-            <RouterLink :class="navLinkClass('/unpack')" :to="{ name: 'UnpackView' }">
-              {{ t('menu.unpack') }}
-            </RouterLink>
-            <RouterLink :class="navLinkClass('/pack')" :to="{ name: 'PackView' }">
-              {{ t('menu.repack') }}
-            </RouterLink>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger as-child>
-                <Button variant="ghost" size="sm" class="rounded-full px-4">
-                  {{ t('menu.tools') }}
-                  <ChevronDown class="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" class="w-60 rounded-2xl">
-                <DropdownMenuItem
-                  v-for="tool in availableTools"
-                  :key="tool.id"
-                  class="cursor-pointer rounded-xl px-3 py-2"
-                  @select="router.push(`/tools/${tool.id}`)"
-                >
-                  <component :is="tool.icon" v-if="tool.icon" class="size-4" />
-                  <span>{{ t(tool.title) }}</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </nav>
-
-          <div class="flex items-center gap-2">
-            <Button
-              v-if="updateStore.updateVersion"
-              variant="outline"
-              size="sm"
-              class="relative rounded-full"
-              @click="showUpdateDialog"
-            >
-              <Download class="size-4" />
-              <span>{{ t('updateDialog.updateAvailable') }}</span>
-              <span class="absolute right-2.5 top-2.5 size-2 rounded-full bg-destructive" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              class="rounded-full"
-              @click="openUrl('https://github.com/eigeen/ree-pak-rs')"
-            >
-              <Github class="size-4" />
-            </Button>
-          </div>
+        <div class="desktop-command-nav">
+          <RouterLink :class="topNavClass('/unpack')" :to="{ name: 'UnpackView' }">
+            {{ t('menu.unpack') }}
+          </RouterLink>
+          <RouterLink :class="topNavClass('/pack')" :to="{ name: 'PackView' }">
+            {{ t('menu.repack') }}
+          </RouterLink>
+          <RouterLink :class="topNavClass('/settings')" :to="{ name: 'SettingsView' }">
+            {{ t('menu.settings') }}
+          </RouterLink>
         </div>
+      </div>
+
+      <div class="desktop-topbar-right">
+        <Button
+          v-if="updateStore.updateVersion"
+          variant="outline"
+          size="sm"
+          class="desktop-command-button relative"
+          @click="showUpdateDialog"
+        >
+          <Download class="size-3.5" />
+          <span>{{ t('updateDialog.updateAvailable') }}</span>
+          <span class="absolute right-2 top-1.5 size-1.5 rounded-full bg-destructive" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          class="desktop-icon-button"
+          @click="openUrl('https://github.com/eigeen/ree-pak-rs')"
+        >
+          <Github class="size-4" />
+        </Button>
       </div>
     </div>
 
+    <div v-if="!isSettingsView" class="desktop-window-toolbar">
+      <div class="flex min-w-0 items-center gap-1">
+        <template v-if="isUnpackView">
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <button class="desktop-menu-trigger" type="button">
+                {{ t('menu.resources') }}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" class="w-56 rounded-md border-border/80">
+              <DropdownMenuItem
+                class="cursor-pointer rounded-sm px-3 py-2"
+                @select="openPathListManager"
+              >
+                <Wrench class="size-4" />
+                <span>{{ t('menu.managePathLists') }}</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                class="cursor-pointer rounded-sm px-3 py-2"
+                @select="dispatchUnpackAction('open-paks')"
+              >
+                <FolderOpen class="size-4" />
+                <span>{{ t('menu.openPaks') }}</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <button class="desktop-menu-trigger" type="button">
+                {{ t('menu.actions') }}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" class="w-56 rounded-md border-border/80">
+              <DropdownMenuItem
+                class="cursor-pointer rounded-sm px-3 py-2"
+                @select="dispatchUnpackAction('render-tree')"
+              >
+                <RefreshCw class="size-4" />
+                <span>{{ t('menu.reloadTree') }}</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </template>
+
+        <template v-else-if="isPackView">
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <button class="desktop-menu-trigger" type="button">
+                {{ t('menu.resources') }}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" class="w-56 rounded-md border-border/80">
+              <DropdownMenuItem
+                class="cursor-pointer rounded-sm px-3 py-2"
+                @select="dispatchPackAction('add-folder')"
+              >
+                <FolderPlus class="size-4" />
+                <span>{{ t('pack.addFolder') }}</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                class="cursor-pointer rounded-sm px-3 py-2"
+                @select="dispatchPackAction('add-pak')"
+              >
+                <PackagePlus class="size-4" />
+                <span>{{ t('pack.addPak') }}</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                class="cursor-pointer rounded-sm px-3 py-2"
+                @select="dispatchPackAction('clear-files')"
+              >
+                <Trash2 class="size-4" />
+                <span>{{ t('pack.removeAll') }}</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <button class="desktop-menu-trigger" type="button">
+                {{ t('menu.actions') }}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" class="w-56 rounded-md border-border/80">
+              <DropdownMenuItem
+                class="cursor-pointer rounded-sm px-3 py-2"
+                @select="dispatchPackAction('select-export-directory')"
+              >
+                <FolderOpen class="size-4" />
+                <span>{{ t('pack.exportDirectory') }}</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                class="cursor-pointer rounded-sm px-3 py-2"
+                @select="dispatchPackAction('export')"
+              >
+                <Play class="size-4" />
+                <span>{{ t('pack.export') }}</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </template>
+
+        <template v-if="!isSettingsView">
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <button class="desktop-menu-trigger" type="button">
+                {{ t('menu.tools') }}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" class="w-60 rounded-md border-border/80">
+              <DropdownMenuItem
+                v-for="tool in availableTools"
+                :key="tool.id"
+                class="cursor-pointer rounded-sm px-3 py-2"
+                @select="router.push(`/tools/${tool.id}`)"
+              >
+                <component :is="tool.icon" v-if="tool.icon" class="size-4" />
+                <span>{{ t(tool.title) }}</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <button class="desktop-menu-trigger" type="button">
+                {{ t('menu.settings') }}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" class="w-56 rounded-md border-border/80">
+              <DropdownMenuItem
+                class="cursor-pointer rounded-sm px-3 py-2"
+                @select="router.push('/settings')"
+              >
+                <Settings class="size-4" />
+                <span>{{ t('menu.openSettings') }}</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <button class="desktop-menu-trigger" type="button">
+                {{ t('menu.help') }}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" class="w-56 rounded-md border-border/80">
+              <DropdownMenuItem
+                class="cursor-pointer rounded-sm px-3 py-2"
+                @select="showUpdateDialog"
+              >
+                <Download class="size-4" />
+                <span>{{ t('updateDialog.updateAvailable') }}</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                class="cursor-pointer rounded-sm px-3 py-2"
+                @select="openUrl('https://github.com/eigeen/ree-pak-rs')"
+              >
+                <Github class="size-4" />
+                <span>GitHub</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </template>
+      </div>
+
+      <div class="flex-1" />
+    </div>
+
+    <FileNameTable
+      ref="fileNameTable"
+      v-model="unpackState.fileList"
+      :show-manage-button="false"
+      :show-selector="false"
+      class="hidden"
+    />
     <UpdateDialog ref="updateDialog" />
   </header>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { openUrl } from '@tauri-apps/plugin-opener'
-import { ChevronDown, Download, Github, PackageOpen } from 'lucide-vue-next'
+import {
+  Download,
+  FolderOpen,
+  FolderPlus,
+  Github,
+  PackageOpen,
+  PackagePlus,
+  Play,
+  RefreshCw,
+  Settings,
+  Trash2,
+  Wrench
+} from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
 import { getAllTools } from '@/config/tools'
+import FileNameTable from '@/components/FileNameTable/FileNameTable.vue'
+import { useFileListStore } from '@/store/filelist'
 import { useUpdateStore } from '@/store/update'
+import { useWorkStore } from '@/store/work'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
@@ -109,32 +260,47 @@ import {
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
+const fileListStore = useFileListStore()
 const updateStore = useUpdateStore()
+const workStore = useWorkStore()
 
 const updateDialog = ref<{ popup: () => void } | null>(null)
-const scrollY = ref(0)
+const fileNameTable = ref<{ openManager: () => void } | null>(null)
 const availableTools = getAllTools()
 
-const navLinkClass = (path: string) =>
+const isUnpackView = computed(() => route.name === 'UnpackView')
+const isPackView = computed(() => route.name === 'PackView')
+const isSettingsView = computed(() => route.name === 'SettingsView')
+const unpackState = workStore.unpack
+const topNavClass = (path: string) =>
   cn(
-    buttonVariants({ variant: route.path === path ? 'default' : 'ghost', size: 'sm' }),
-    'rounded-full px-4'
+    buttonVariants({ variant: route.path === path ? 'secondary' : 'ghost', size: 'sm' }),
+    'desktop-command-button'
   )
 
-const showUpdateDialog = () => {
+function dispatchUnpackAction(action: 'open-paks' | 'render-tree') {
+  window.dispatchEvent(new CustomEvent(`unpack:${action}`))
+}
+
+function dispatchPackAction(
+  action: 'add-folder' | 'add-pak' | 'clear-files' | 'select-export-directory' | 'export'
+) {
+  window.dispatchEvent(new CustomEvent(`pack:${action}`))
+}
+
+function showUpdateDialog() {
   updateDialog.value?.popup()
 }
 
-const handleScroll = () => {
-  scrollY.value = window.scrollY
+function openPathListManager() {
+  fileNameTable.value?.openManager()
 }
 
-onMounted(() => {
-  window.addEventListener('scroll', handleScroll, { passive: true })
-  handleScroll()
-})
-
-onUnmounted(() => {
-  window.removeEventListener('scroll', handleScroll)
+onMounted(async () => {
+  try {
+    await fileListStore.refreshLocalSource()
+  } catch (error) {
+    console.error('Failed to refresh file lists:', error)
+  }
 })
 </script>

@@ -1,20 +1,28 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue'
-import type { ElTree, TreeNode } from 'element-plus'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import type { TreeNode } from 'element-plus'
+import type { TreeV2Instance } from 'element-plus/es/components/tree-v2/src/instance'
 import type { ExtractFileInfo, JsSafeHash, RenderTreeNode } from '@/api/tauri/pak'
 import { Braces, File, FileCode2, FileText, Image, Link2, Package, Sparkles } from 'lucide-vue-next'
 
 export interface TreeData {
   id: string
+  name: string
   label: string
+  path: string
+  parentId?: string
+  hash?: JsSafeHash
+  isDir: boolean
+  sizeText: string
   children: TreeData[]
   belongsTo: string | undefined
 }
 
-export interface Props {
+interface Props {
   data: RenderTreeNode | null
   filterText?: string
   regexMode?: boolean
+  currentNodeKey?: string
 }
 
 const props = defineProps<Props>()
@@ -23,7 +31,7 @@ const emit = defineEmits<{
   (e: 'node-click', data: TreeData, node: TreeNode, event: MouseEvent): void
 }>()
 
-const treeComponent = ref<InstanceType<typeof ElTree>>()
+const treeComponent = ref<TreeV2Instance>()
 const containerRef = ref<HTMLElement>()
 const treeHeight = ref(200)
 const cachedTreeData = ref<TreeData[]>([])
@@ -35,12 +43,9 @@ onMounted(() => {
   if (!containerRef.value) return
 
   resizeObserver = new ResizeObserver((entries) => {
-    let parentHeight = 0
-    for (const entry of entries) {
-      parentHeight = entry.contentRect.height
-    }
-
-    treeHeight.value = Math.max(200, parentHeight - 8)
+    const entry = entries[0]
+    if (!entry) return
+    treeHeight.value = Math.max(200, entry.contentRect.height - 8)
   })
 
   resizeObserver.observe(containerRef.value)
@@ -52,7 +57,17 @@ onUnmounted(() => {
 
 watch(
   () => [props.filterText, props.regexMode],
-  () => doFilterTree()
+  () => {
+    filteredData.value = filterTreeData(deepCopy(cachedTreeData.value), getFilterObject())
+  }
+)
+
+watch(
+  () => props.currentNodeKey,
+  (key) => {
+    if (!key) return
+    treeComponent.value?.setCurrentKey?.(key)
+  }
 )
 
 watch(
@@ -64,11 +79,11 @@ watch(
       return
     }
 
-    const treeData = createTreeData(data)
-    cachedTreeData.value = [treeData]
+    const nextTree = createTreeData(data)
+    cachedTreeData.value = [nextTree]
     filteredData.value = props.filterText
-      ? filterTreeData(deepCopy([treeData]), getFilterObject())
-      : [treeData]
+      ? filterTreeData(deepCopy([nextTree]), getFilterObject())
+      : [nextTree]
   },
   { immediate: true }
 )
@@ -78,22 +93,26 @@ function getFilterObject() {
   return props.regexMode ? new RegExp(filter, 'i') : filter.toLowerCase()
 }
 
-function doFilterTree() {
-  filteredData.value = filterTreeData(deepCopy(cachedTreeData.value), getFilterObject())
-}
-
-function createTreeData(node: RenderTreeNode): TreeData {
-  const size =
-    node.uncompressedSize !== undefined
-      ? node.isCompressed
-        ? node.uncompressedSize
-        : node.compressedSize
-      : 0
+function createTreeData(node: RenderTreeNode, parentPath = '', parentId?: string): TreeData {
+  const id = node.hash ? node.hash.toString() : `${parentPath}/${node.name}`
+  const path = parentPath ? `${parentPath}/${node.name}` : node.name
 
   return {
-    id: node.hash ? node.hash.toString() : `${node.name}_${Math.round(Math.random() * 10000000)}`,
-    label: `${node.name} (${formatSize(size)})`,
-    children: node.children?.map((child) => createTreeData(child)) ?? [],
+    id,
+    name: node.name,
+    label: node.name,
+    path,
+    parentId,
+    hash: node.hash,
+    isDir: node.isDir,
+    sizeText: formatSize(
+      node.uncompressedSize !== undefined
+        ? node.isCompressed
+          ? node.uncompressedSize
+          : node.compressedSize
+        : 0
+    ),
+    children: node.children?.map((child) => createTreeData(child, path, id)) ?? [],
     belongsTo: node.belongsTo
   }
 }
@@ -103,13 +122,14 @@ function formatSize(size: number): string {
 
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
   let index = 0
+  let current = size
 
-  while (size >= 1024 && index < units.length - 1) {
-    size /= 1024
+  while (current >= 1024 && index < units.length - 1) {
+    current /= 1024
     index++
   }
 
-  return `${size.toFixed(2)} ${units[index]}`
+  return `${current.toFixed(2)} ${units[index]}`
 }
 
 function deepCopy(data: TreeData[]): TreeData[] {
@@ -120,22 +140,19 @@ function filterTreeData(data: TreeData[], filter: string | RegExp): TreeData[] {
   return data
     .map((node) => {
       const filteredChildren = filterTreeData(node.children, filter)
+      const isMatch =
+        typeof filter === 'string'
+          ? filter === '' || node.path.toLowerCase().includes(filter)
+          : filter.test(node.path)
 
-      let isMatch = false
-      if (typeof filter === 'string') {
-        isMatch = filter === '' || node.label.toLowerCase().includes(filter)
-      } else {
-        isMatch = filter.test(node.label)
+      if (!isMatch && filteredChildren.length === 0) {
+        return null
       }
 
-      if (isMatch || filteredChildren.length > 0) {
-        return {
-          ...node,
-          children: filteredChildren
-        }
+      return {
+        ...node,
+        children: filteredChildren
       }
-
-      return null
     })
     .filter((node): node is TreeData => node !== null)
 }
@@ -145,7 +162,7 @@ function getCheckedNodes(): ExtractFileInfo[] {
   if (!nodes) return []
 
   return nodes.map((node) => ({
-    hash: parseId(node.id),
+    hash: node.hash ?? parseId(node.id),
     belongsTo: node.belongsTo
   }))
 }
@@ -165,9 +182,8 @@ const extIconMap = {
   mesh: FileCode2
 }
 
-function getFileIcon(label: string) {
-  const path = label.split('(').at(0)?.trim() ?? ''
-  const pathComponents = path.split('.')
+function getFileIcon(name: string) {
+  const pathComponents = name.split('.')
   if (pathComponents.length < 3) {
     return File
   }
@@ -182,30 +198,80 @@ const treeProps = {
   children: 'children'
 }
 
-defineExpose({ getCheckedNodes })
+const treeClass = computed(() => ['desktop-tree editor-scrollbar rounded-[0.7rem] bg-transparent'])
+
+function bringNodeIntoView(key: string) {
+  if (!key) return
+
+  const node = treeComponent.value?.getNode(key)
+  if (!node) return
+
+  const expandedKeys: string[] = []
+  let cursor = node.parent
+
+  while (cursor) {
+    expandedKeys.unshift(String(cursor.key))
+    cursor = cursor.parent
+  }
+
+  treeComponent.value?.setExpandedKeys(expandedKeys)
+  treeComponent.value?.setCurrentKey?.(key)
+  treeComponent.value?.scrollToNode(key, 'center')
+}
+
+function collapseAll() {
+  treeComponent.value?.setExpandedKeys([])
+}
+
+defineExpose({ bringNodeIntoView, collapseAll, getCheckedNodes })
 </script>
 
 <template>
   <div ref="containerRef" class="h-full">
     <el-tree-v2
       ref="treeComponent"
+      :current-node-key="currentNodeKey"
       :data="filteredData"
       :height="treeHeight"
       :props="treeProps"
-      class="rounded-[1.15rem] bg-transparent"
+      :class="treeClass"
+      highlight-current
+      node-key="id"
       show-checkbox
       @node-click="
-        (data: TreeData, node: TreeNode, e: MouseEvent) => {
-          emit('node-click', data, node, e)
-        }
+        (data: TreeData, node: TreeNode, e: MouseEvent) => emit('node-click', data, node, e)
       "
     >
       <template #default="{ node }">
-        <div class="flex items-center gap-2 text-sm">
-          <component :is="getFileIcon(node.label)" v-if="node.isLeaf" class="size-4 text-primary" />
-          <span class="truncate">{{ node.label }}</span>
+        <div class="flex w-full items-center gap-2 text-xs">
+          <component
+            :is="getFileIcon(node.data.name)"
+            v-if="node.isLeaf"
+            class="size-3.5 shrink-0 text-primary"
+          />
+          <span
+            v-else
+            class="size-3.5 shrink-0 rounded-[3px] border border-border/80 bg-secondary/80"
+          />
+          <span class="truncate">{{ node.data.label }}</span>
         </div>
       </template>
     </el-tree-v2>
   </div>
 </template>
+
+<style scoped>
+:deep(.el-tree) {
+  background-color: transparent;
+}
+
+:deep(.el-tree-node.is-current > .el-tree-node__content) {
+  color: var(--color-foreground);
+}
+
+:deep(.el-tree-node.is-current > .el-tree-node__content .text-primary),
+:deep(.el-tree-node.is-current > .el-tree-node__content .text-muted-foreground),
+:deep(.el-tree-node.is-current > .el-tree-node__content span) {
+  color: var(--color-foreground);
+}
+</style>

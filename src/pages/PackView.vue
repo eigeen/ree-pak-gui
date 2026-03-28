@@ -86,8 +86,8 @@ const conflictFiles = ref<ConflictFile[]>([])
 const enableExport = computed(() => {
   if (packState.value.inputFiles.length === 0) return false
   if (
-    packState.value.exportConfig.mode === 'single'
-    && !packState.value.exportConfig.exportDirectory
+    packState.value.exportConfig.mode === 'single' &&
+    !packState.value.exportConfig.exportDirectory
   ) {
     return false
   }
@@ -184,6 +184,27 @@ const handleConflictCancel = () => {
 
 let unlisten: UnlistenFn | undefined
 
+const handleWindowAddFolder = () => {
+  void handleAddViaDialog(false)
+}
+
+const handleWindowAddPak = () => {
+  void handleAddViaDialog(true)
+}
+
+const handleWindowClearFiles = () => {
+  handleCloseAll()
+}
+
+const handleWindowSelectExportDirectory = () => {
+  void handleSelectDirectory()
+}
+
+const handleWindowExport = () => {
+  if (!enableExport.value || progress.value.working) return
+  void handleExport()
+}
+
 const startListenToDrop = async () => {
   unlisten = await getCurrentWebview().onDragDropEvent(async (event) => {
     if (event.payload.type === 'drop') {
@@ -197,10 +218,20 @@ const stopListenToDrop = () => {
 }
 
 onMounted(async () => {
+  window.addEventListener('pack:add-folder', handleWindowAddFolder)
+  window.addEventListener('pack:add-pak', handleWindowAddPak)
+  window.addEventListener('pack:clear-files', handleWindowClearFiles)
+  window.addEventListener('pack:select-export-directory', handleWindowSelectExportDirectory)
+  window.addEventListener('pack:export', handleWindowExport)
   await startListenToDrop()
 })
 
 onUnmounted(() => {
+  window.removeEventListener('pack:add-folder', handleWindowAddFolder)
+  window.removeEventListener('pack:add-pak', handleWindowAddPak)
+  window.removeEventListener('pack:clear-files', handleWindowClearFiles)
+  window.removeEventListener('pack:select-export-directory', handleWindowSelectExportDirectory)
+  window.removeEventListener('pack:export', handleWindowExport)
   stopListenToDrop()
 })
 </script>

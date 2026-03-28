@@ -2,9 +2,18 @@ export default {
   messages: {
     menu: {
       slogan: 'REE Pak Tool',
+      file: '文件',
+      help: '帮助',
+      resources: '资源',
+      actions: '操作',
+      managePathLists: '管理路径列表',
+      openPaks: '打开 Pak',
+      reloadTree: '载入资源树',
       unpack: '解包',
       repack: '打包',
-      tools: '工具'
+      tools: '工具',
+      settings: '设置',
+      openSettings: '打开设置'
     },
     unpack: {
       fileList: '路径列表',
@@ -112,6 +121,22 @@ export default {
       selectFilesFailed: '选择文件失败: {error}',
       scanFailed: '扫描失败: {error}',
       copyFailed: '复制失败: {error}'
+    },
+    settings: {
+      title: '设置',
+      globalTitle: '全局设置',
+      globalDescription: '这里只维护全局行为开关与本地持久化配置。',
+      searchPlaceholder: '搜索设置',
+      sectionCommon: '常用设置',
+      sectionFileExplorer: '文件浏览器',
+      previewSection: '预览',
+      previewTitle: '预览选项',
+      texturePreviewTitle: '显示纹理预览',
+      texturePreviewDescription: '在文件列表中是否显示 Texture 缩略图。',
+      texturePreviewHint: '开启后可能影响预览性能。',
+      enabled: '已启用',
+      disabled: '已禁用',
+      placeholderSection: '这个分类先留空，后续再补具体设置项。'
     },
     global: {
       failedLoadSettings: '加载设置失败: {error}',

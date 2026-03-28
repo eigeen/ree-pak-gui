@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 export const ShowError = (message: any) => {
   ElMessage({
     showClose: true,
+    customClass: 'app-toast app-toast-path',
     message,
     type: 'error',
     duration: 5000
@@ -14,6 +15,7 @@ export const ShowError = (message: any) => {
 export const ShowWarn = (message: any) => {
   ElMessage({
     showClose: true,
+    customClass: 'app-toast app-toast-path',
     message,
     type: 'warning',
     duration: 5000
@@ -24,6 +26,7 @@ export const ShowWarn = (message: any) => {
 export const ShowInfo = (message: any) => {
   ElMessage({
     showClose: true,
+    customClass: 'app-toast app-toast-path',
     message,
     type: 'success',
     duration: 5000

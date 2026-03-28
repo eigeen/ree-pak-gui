@@ -34,6 +34,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 
 const { t } = useI18n()
 
+interface Props {
+  showManageButton?: boolean
+  showSelector?: boolean
+}
+
 type RemoteItemStatus =
   | 'downloadable'
   | 'latest'
@@ -51,6 +56,10 @@ interface RemoteFileListItem {
 
 const filelistStore = useFileListStore()
 const selectedValue = defineModel<string>({ default: '' })
+const props = withDefaults(defineProps<Props>(), {
+  showManageButton: true,
+  showSelector: true
+})
 
 const showMenu = ref(false)
 const fetchingRemote = ref(false)
@@ -227,6 +236,10 @@ async function handleDeleteLocal() {
   await handleRefreshLocal()
 }
 
+function openManager() {
+  showMenu.value = true
+}
+
 watch(showMenu, async (val) => {
   if (val && !hasFetchedRemote.value) {
     hasFetchedRemote.value = true
@@ -241,16 +254,23 @@ onMounted(async () => {
     ShowError(err)
   }
 })
+
+defineExpose({ openManager })
 </script>
 
 <template>
   <div class="space-y-4">
-    <Button class="w-full justify-center rounded-xl" variant="outline" @click="showMenu = true">
+    <Button
+      v-if="props.showManageButton"
+      class="w-full justify-center rounded-xl"
+      variant="outline"
+      @click="showMenu = true"
+    >
       <Wrench class="size-4" />
       {{ t('fileNameTable.manageFileList') }}
     </Button>
 
-    <FileNameTableSelector v-model="selectedValue" :items="comboItems" />
+    <FileNameTableSelector v-if="props.showSelector" v-model="selectedValue" :items="comboItems" />
   </div>
 
   <Dialog v-model:open="showMenu">
