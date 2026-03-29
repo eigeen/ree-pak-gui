@@ -317,11 +317,7 @@
   }
 
   .desktop-brand {
-    @apply inline-flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.22em] text-primary;
-  }
-
-  .desktop-brand-version {
-    @apply text-[11px] font-normal tracking-[0.14em] text-muted-foreground;
+    @apply inline-flex items-center gap-2 text-[12px] font-semibold tracking-[0.22em] text-primary;
   }
 
   .desktop-command-nav {
@@ -361,7 +357,7 @@
   }
 
   .desktop-toolbar {
-    @apply flex min-h-10 items-center gap-2 border-b border-border/80 bg-[#18181b] px-3 text-[13px];
+    @apply flex items-center border-b border-border/80 bg-[#18181b] text-[13px];
   }
 
   .desktop-subtoolbar {

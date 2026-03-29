@@ -3,34 +3,16 @@ import {
   Box,
   File,
   FileCode2,
+  FileImage,
+  FileMusic,
   Folder,
-  Image,
   Layers3,
-  Music4,
   Sparkles
 } from 'lucide-vue-next'
-
-export type ExplorerThemeKey =
-  | 'amber'
-  | 'blue'
-  | 'violet'
-  | 'emerald'
-  | 'rose'
-  | 'orange'
-  | 'cyan'
-  | 'slate'
-
-export type ExplorerFileTypeKey =
-  | 'folder'
-  | 'asset'
-  | 'texture'
-  | 'material'
-  | 'mesh'
-  | 'motlist'
-  | 'sound'
+import { getReAssetExtension } from '@/lib/reAssetPath'
 
 type ExplorerThemeDefinition = {
-  key: ExplorerThemeKey
+  key: string
   label: string
   accent: string
   hero: string
@@ -38,15 +20,14 @@ type ExplorerThemeDefinition = {
 }
 
 type ExplorerFileTypeDefinition = {
-  key: ExplorerFileTypeKey
+  key: string
   label: string
   icon: unknown
   extensions: string[]
-  defaultTheme: ExplorerThemeKey
-  configurable: boolean
+  themeKey: ExplorerThemeKey
 }
 
-export const explorerThemePresets: ExplorerThemeDefinition[] = [
+export const explorerThemePresets = [
   {
     key: 'amber',
     label: 'Amber',
@@ -103,66 +84,70 @@ export const explorerThemePresets: ExplorerThemeDefinition[] = [
     hero: '#d7dceb',
     surfaceGlow: 'rgba(139,150,172,0.16)'
   }
-]
+] as const satisfies readonly ExplorerThemeDefinition[]
 
-export const explorerFileTypes: ExplorerFileTypeDefinition[] = [
+export type ExplorerThemeKey = (typeof explorerThemePresets)[number]['key']
+
+export const explorerFileTypes = [
   {
     key: 'folder',
     label: 'Folder',
     icon: Folder,
     extensions: [],
-    defaultTheme: 'amber',
-    configurable: false
+    themeKey: 'amber'
   },
   {
     key: 'texture',
     label: 'Texture',
-    icon: Image,
+    icon: FileImage,
     extensions: ['tex'],
-    defaultTheme: 'violet',
-    configurable: true
+    themeKey: 'violet'
   },
   {
     key: 'material',
     label: 'Material',
     icon: Layers3,
     extensions: ['mdf2', 'mdf', 'mtl'],
-    defaultTheme: 'emerald',
-    configurable: true
+    themeKey: 'emerald'
   },
   {
     key: 'mesh',
     label: 'Mesh',
     icon: Box,
     extensions: ['mesh'],
-    defaultTheme: 'cyan',
-    configurable: true
+    themeKey: 'cyan'
   },
   {
     key: 'motlist',
     label: 'MotList',
     icon: Sparkles,
     extensions: ['mot', 'motlist'],
-    defaultTheme: 'rose',
-    configurable: true
+    themeKey: 'rose'
   },
   {
     key: 'sound',
     label: 'Sound',
-    icon: Music4,
+    icon: FileMusic,
     extensions: ['bnk', 'sbnk', 'pck', 'spck'],
-    defaultTheme: 'orange',
-    configurable: true
+    themeKey: 'orange'
+  },
+  {
+    key: 'prefab',
+    label: 'Prefab',
+    icon: Box,
+    extensions: ['pfb'],
+    themeKey: 'slate'
   },
   {
     key: 'asset',
     label: 'Asset',
     icon: File,
     extensions: [],
-    defaultTheme: 'blue',
-    configurable: true
+    themeKey: 'blue'
   }
-]
+] as const satisfies readonly ExplorerFileTypeDefinition[]
+
+export type ExplorerFileTypeKey = (typeof explorerFileTypes)[number]['key']
 
 const fileTypeByKey = new Map(explorerFileTypes.map((item) => [item.key, item]))
 const themeByKey = new Map(explorerThemePresets.map((item) => [item.key, item]))
@@ -172,8 +157,7 @@ const fallbackFileTypeDefinition: ExplorerFileTypeDefinition = {
   label: 'Asset',
   icon: File,
   extensions: [],
-  defaultTheme: 'blue',
-  configurable: true
+  themeKey: 'blue'
 }
 const fallbackThemeDefinition: ExplorerThemeDefinition = {
   key: 'blue',
@@ -189,23 +173,10 @@ for (const type of explorerFileTypes) {
   }
 }
 
-export const defaultExplorerTypeThemes = explorerFileTypes.reduce(
-  (result, type) => {
-    result[type.key] = type.defaultTheme
-    return result
-  },
-  {} as Record<ExplorerFileTypeKey, ExplorerThemeKey>
-)
+const knownExplorerExtensions = new Set(extensionToTypeKey.keys())
 
-export const configurableExplorerFileTypes = explorerFileTypes.filter((item) => item.configurable)
-
-export function getExplorerFileExtension(name: string): string {
-  if (typeof name !== 'string') {
-    return ''
-  }
-
-  const matched = /\.([^.]+)$/.exec(name.toLowerCase())
-  return matched?.[1] ?? ''
+export function getExplorerFileExtension(pathOrName: string): string {
+  return getReAssetExtension(pathOrName, knownExplorerExtensions)
 }
 
 export function resolveExplorerFileTypeKey(name: string, isDir: boolean): ExplorerFileTypeKey {
@@ -227,16 +198,10 @@ export function getExplorerThemeDefinition(themeKey: ExplorerThemeKey): Explorer
   return themeByKey.get(themeKey) ?? fallbackThemeDefinition
 }
 
-export function getExplorerResolvedThemeKey(
-  typeKey: ExplorerFileTypeKey,
-  overrides?: Partial<Record<ExplorerFileTypeKey, ExplorerThemeKey>>
-): ExplorerThemeKey {
-  return overrides?.[typeKey] ?? defaultExplorerTypeThemes[typeKey]
+export function getExplorerThemeKeyForType(typeKey: ExplorerFileTypeKey): ExplorerThemeKey {
+  return getExplorerFileTypeDefinition(typeKey).themeKey
 }
 
-export function getExplorerResolvedTheme(
-  typeKey: ExplorerFileTypeKey,
-  overrides?: Partial<Record<ExplorerFileTypeKey, ExplorerThemeKey>>
-): ExplorerThemeDefinition {
-  return getExplorerThemeDefinition(getExplorerResolvedThemeKey(typeKey, overrides))
+export function getExplorerThemeForType(typeKey: ExplorerFileTypeKey): ExplorerThemeDefinition {
+  return getExplorerThemeDefinition(getExplorerThemeKeyForType(typeKey))
 }

@@ -4,8 +4,7 @@
       <div class="flex min-w-0 items-center gap-5">
         <div class="desktop-brand">
           <PackageOpen class="size-4" />
-          <span>REE PAK</span>
-          <span class="desktop-brand-version">Workbench</span>
+          <span>REE Pak Tool</span>
         </div>
 
         <div class="desktop-command-nav">

@@ -18,6 +18,7 @@ interface UnpackWork {
   paks: string[]
   filterText: string
   filterUseRegex: boolean
+  explorerLayoutMode: 'tile' | 'details'
 }
 
 type PackWork = {
@@ -42,7 +43,8 @@ export const useWorkStore = defineStore('work', () => {
     fileList: '',
     paks: [],
     filterText: '',
-    filterUseRegex: false
+    filterUseRegex: false,
+    explorerLayoutMode: 'details'
   })
 
   const pack = ref<PackWork>({
@@ -71,7 +73,14 @@ export const useWorkStore = defineStore('work', () => {
     console.debug('work record', work)
 
     if (work.unpack) {
-      unpack.value = work.unpack
+      unpack.value = {
+        fileList: '',
+        paks: [],
+        filterText: '',
+        filterUseRegex: false,
+        explorerLayoutMode: 'details',
+        ...work.unpack
+      }
     }
     if (work.pack) {
       pack.value = work.pack

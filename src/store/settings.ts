@@ -4,11 +4,6 @@ import { exists, mkdir, readTextFile, writeTextFile } from '@tauri-apps/plugin-f
 import { join } from '@tauri-apps/api/path'
 import { getParentPath } from '@/utils/path'
 import { getLocalDir } from '@/lib/localDir'
-import {
-  defaultExplorerTypeThemes,
-  type ExplorerFileTypeKey,
-  type ExplorerThemeKey
-} from '@/lib/explorerTypeTheme'
 
 const SETTINGS_FILE_NAME = 'settings.json'
 
@@ -17,15 +12,13 @@ type Settings = {
   language?: string
   preview: {
     showTexturePreview: boolean
-    explorerTypeThemes: Record<ExplorerFileTypeKey, ExplorerThemeKey>
   }
 }
 
 const defaultSettings: Settings = {
   version: '1',
   preview: {
-    showTexturePreview: true,
-    explorerTypeThemes: defaultExplorerTypeThemes
+    showTexturePreview: true
   }
 }
 
@@ -35,11 +28,7 @@ function normalizeSettings(raw: Partial<Settings> | null | undefined): Settings 
     language: raw?.language,
     preview: {
       showTexturePreview:
-        raw?.preview?.showTexturePreview ?? defaultSettings.preview.showTexturePreview,
-      explorerTypeThemes: {
-        ...defaultSettings.preview.explorerTypeThemes,
-        ...(raw?.preview?.explorerTypeThemes ?? {})
-      }
+        raw?.preview?.showTexturePreview ?? defaultSettings.preview.showTexturePreview
     }
   }
 }

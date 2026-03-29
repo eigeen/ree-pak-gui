@@ -1,6 +1,6 @@
 <template>
   <div :class="props.showLabel ? 'space-y-2' : ''">
-    <label v-if="props.showLabel" class="text-sm font-medium text-foreground">Path List</label>
+    <label v-if="props.showLabel" class="text-sm font-medium text-foreground">路径列表</label>
 
     <Popover v-model:open="open">
       <PopoverTrigger as-child>
@@ -8,7 +8,7 @@
           variant="outline"
           role="combobox"
           :aria-expanded="open"
-          class="h-8 w-full justify-between rounded-md border-border/80 bg-background px-3 text-sm font-normal text-foreground shadow-none hover:bg-secondary/70"
+          class="h-8 mt-1 w-full justify-between rounded-md border-border/80 bg-background px-3 text-sm font-normal text-foreground shadow-none hover:bg-secondary/70"
         >
           <span class="truncate text-left">
             {{ selectedLabel || props.placeholder }}

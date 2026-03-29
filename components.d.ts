@@ -58,6 +58,7 @@ declare module 'vue' {
     DropdownMenuSubTrigger: typeof import('./src/components/ui/dropdown-menu/DropdownMenuSubTrigger.vue')['default']
     DropdownMenuTrigger: typeof import('./src/components/ui/dropdown-menu/DropdownMenuTrigger.vue')['default']
     ElImage: typeof import('element-plus/es')['ElImage']
+    ElImageViewer: typeof import('element-plus/es')['ElImageViewer']
     ElTreeV2: typeof import('element-plus/es')['ElTreeV2']
     FileConflict: typeof import('./src/components/FileConflict.vue')['default']
     FileNameTable: typeof import('./src/components/FileNameTable/FileNameTable.vue')['default']
@@ -107,8 +108,13 @@ declare module 'vue' {
     TooltipContent: typeof import('./src/components/ui/tooltip/TooltipContent.vue')['default']
     TooltipProvider: typeof import('./src/components/ui/tooltip/TooltipProvider.vue')['default']
     TooltipTrigger: typeof import('./src/components/ui/tooltip/TooltipTrigger.vue')['default']
+    UnpackExplorerDetailsView: typeof import('./src/components/unpack/UnpackExplorerDetailsView.vue')['default']
+    UnpackExplorerPane: typeof import('./src/components/unpack/UnpackExplorerPane.vue')['default']
+    UnpackExplorerTileView: typeof import('./src/components/unpack/UnpackExplorerTileView.vue')['default']
+    UnpackSidebarTabs: typeof import('./src/components/unpack/UnpackSidebarTabs.vue')['default']
     UpdateDialog: typeof import('./src/components/UpdateDialog.vue')['default']
     VirtualExplorerGrid: typeof import('./src/components/explorer/VirtualExplorerGrid.vue')['default']
+    VirtualExplorerList: typeof import('./src/components/explorer/VirtualExplorerList.vue')['default']
   }
 }
 
@@ -160,6 +166,7 @@ declare global {
   const DropdownMenuSubTrigger: typeof import('./src/components/ui/dropdown-menu/DropdownMenuSubTrigger.vue')['default']
   const DropdownMenuTrigger: typeof import('./src/components/ui/dropdown-menu/DropdownMenuTrigger.vue')['default']
   const ElImage: typeof import('element-plus/es')['ElImage']
+  const ElImageViewer: typeof import('element-plus/es')['ElImageViewer']
   const ElTreeV2: typeof import('element-plus/es')['ElTreeV2']
   const FileConflict: typeof import('./src/components/FileConflict.vue')['default']
   const FileNameTable: typeof import('./src/components/FileNameTable/FileNameTable.vue')['default']
@@ -209,6 +216,11 @@ declare global {
   const TooltipContent: typeof import('./src/components/ui/tooltip/TooltipContent.vue')['default']
   const TooltipProvider: typeof import('./src/components/ui/tooltip/TooltipProvider.vue')['default']
   const TooltipTrigger: typeof import('./src/components/ui/tooltip/TooltipTrigger.vue')['default']
+  const UnpackExplorerDetailsView: typeof import('./src/components/unpack/UnpackExplorerDetailsView.vue')['default']
+  const UnpackExplorerPane: typeof import('./src/components/unpack/UnpackExplorerPane.vue')['default']
+  const UnpackExplorerTileView: typeof import('./src/components/unpack/UnpackExplorerTileView.vue')['default']
+  const UnpackSidebarTabs: typeof import('./src/components/unpack/UnpackSidebarTabs.vue')['default']
   const UpdateDialog: typeof import('./src/components/UpdateDialog.vue')['default']
   const VirtualExplorerGrid: typeof import('./src/components/explorer/VirtualExplorerGrid.vue')['default']
+  const VirtualExplorerList: typeof import('./src/components/explorer/VirtualExplorerList.vue')['default']
 }
