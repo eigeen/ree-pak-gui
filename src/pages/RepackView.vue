@@ -35,7 +35,10 @@ import {
 } from '@/components/ui/dialog'
 import { DenseInput } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
+import { Switch } from '@/components/ui/switch'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 const { t } = useI18n()
 const workStore = useWorkStore()
@@ -134,12 +137,6 @@ const desktopMenuItems = computed<MenuGroup[]>(() => [
         label: t('pack.exportDirectory'),
         icon: FolderOpen,
         action: handleSelectDirectory
-      },
-      {
-        key: 'export',
-        label: t('pack.export'),
-        icon: Play,
-        action: handleToolbarExport
       }
     ]
   }
@@ -161,7 +158,8 @@ const exportModeLabel = computed(() =>
 const currentStatusDetail = computed(() => {
   if (progress.value.currentFile) return progress.value.currentFile
   if (exportResult.value.error) return exportResult.value.error
-  if (exportResult.value.success) return `${progress.value.finishFileCount} / ${progress.value.totalFileCount}`
+  if (exportResult.value.success)
+    return `${progress.value.finishFileCount} / ${progress.value.totalFileCount}`
   return packState.value.exportConfig.exportDirectory || '未设置导出目录'
 })
 
@@ -291,42 +289,65 @@ onUnmounted(() => {
           <div class="surface-sidebar flex h-full min-w-0 flex-col">
             <div class="desktop-toolbar h-10 justify-between px-3">
               <div>
-                <p class="section-eyebrow">Repack Workflow</p>
                 <h2 class="section-title">{{ t('menu.repack') }}</h2>
               </div>
-              <div class="flex items-center gap-1.5">
-                <Button size="sm" class="desktop-command-button" @click="handleAddViaDialog(false)">
-                  <FolderPlus class="size-4" />
-                  {{ t('pack.addFolder') }}
-                </Button>
-                <Button
-                  size="icon-sm"
-                  variant="outline"
-                  class="desktop-icon-button"
-                  :title="t('pack.addPakTooltip')"
-                  @click="handleAddViaDialog(true)"
-                >
-                  <PackagePlus class="size-4" />
-                </Button>
-                <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  class="desktop-icon-button"
-                  :disabled="packState.inputFiles.length === 0"
-                  @click="handleCloseAll"
-                >
-                  <Trash2 class="size-4" />
-                </Button>
-              </div>
-            </div>
+              <div class="flex items-center gap-1">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger as-child>
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        class="desktop-icon-button"
+                        @click="handleAddViaDialog(false)"
+                      >
+                        <FolderPlus class="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent class="text-sm">{{ t('pack.addFolder') }}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
 
-            <div class="desktop-subtoolbar justify-between">
-              <span>{{ t('pack.fileList') }}</span>
-              <span>{{ packState.inputFiles.length }} items</span>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger as-child>
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        class="desktop-icon-button"
+                        @click="handleAddViaDialog(true)"
+                      >
+                        <PackagePlus class="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent class="text-sm">{{ t('pack.addPak') }}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger as-child>
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        class="desktop-icon-button"
+                        :disabled="packState.inputFiles.length === 0"
+                        @click="handleCloseAll"
+                      >
+                        <Trash2 class="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent class="text-sm">{{ t('pack.removeAll') }}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
             </div>
 
             <div class="editor-scrollbar min-h-0 flex-1 overflow-auto p-3">
-              <div v-if="packState.inputFiles.length === 0" class="empty-state h-full border-0 bg-transparent">
+              <div
+                v-if="packState.inputFiles.length === 0"
+                class="empty-state h-full border-0 bg-transparent"
+              >
                 <Folder class="size-8 text-muted-foreground" />
                 <p class="text-sm font-medium text-foreground">{{ t('pack.noFilesAdded') }}</p>
                 <p class="section-copy">{{ t('pack.noFilesAddedDesc') }}</p>
@@ -345,7 +366,7 @@ onUnmounted(() => {
                     <Folder v-else class="size-4" />
                   </div>
                   <div class="min-w-0 flex-1">
-                    <p class="truncate text-ui-xs font-medium text-foreground">{{ file.path }}</p>
+                    <p class="truncate text-sm font-medium text-foreground">{{ file.path }}</p>
                     <p class="text-ui-2xs text-muted-foreground">
                       {{ file.isFile ? 'Pak' : 'Directory' }}
                     </p>
@@ -371,49 +392,44 @@ onUnmounted(() => {
             <ResizablePanel :default-size="56" :min-size="40">
               <div class="surface-panel flex h-full min-w-0 flex-col">
                 <div class="desktop-toolbar h-10 justify-between px-3">
-                  <div>
-                    <p class="section-eyebrow">{{ t('pack.exportSettings') }}</p>
-                    <h3 class="section-title">{{ t('pack.exportSettings') }}</h3>
-                  </div>
+                  <h3 class="section-title">{{ t('pack.exportSettings') }}</h3>
                 </div>
 
                 <div class="editor-scrollbar min-h-0 flex-1 space-y-4 overflow-auto p-3">
                   <section class="space-y-2">
                     <p class="section-eyebrow">{{ t('pack.exportMode') }}</p>
-                    <label
-                      class="surface-raised flex cursor-pointer items-start gap-3 rounded-[0.7rem] border border-border/80 px-3 py-2.5"
-                    >
-                      <input
-                        v-model="packState.exportConfig.mode"
-                        class="mt-0.5 size-4"
-                        type="radio"
-                        value="individual"
-                      />
-                      <div class="min-w-0">
-                        <p class="text-ui-xs font-medium text-foreground">
-                          {{ t('pack.exportModeIndividual') }}
-                        </p>
-                      </div>
-                    </label>
-                    <label
-                      class="surface-raised flex cursor-pointer items-start gap-3 rounded-[0.7rem] border border-border/80 px-3 py-2.5"
-                    >
-                      <input
-                        v-model="packState.exportConfig.mode"
-                        class="mt-0.5 size-4"
-                        type="radio"
-                        value="single"
-                      />
-                      <div class="min-w-0">
-                        <p class="text-ui-xs font-medium text-foreground">
-                          {{ t('pack.exportModeSingle') }}
-                        </p>
-                      </div>
-                    </label>
+                    <RadioGroup v-model="packState.exportConfig.mode" class="gap-2">
+                      <label
+                        class="surface-raised flex cursor-pointer items-start gap-3 rounded-[0.7rem] border border-border/80 px-3 py-2.5"
+                        for="repack-mode-individual"
+                      >
+                        <RadioGroupItem
+                          id="repack-mode-individual"
+                          value="individual"
+                          class="mt-0.5"
+                        />
+                        <div class="min-w-0">
+                          <p class="text-ui-xs font-medium text-foreground">
+                            {{ t('pack.exportModeIndividual') }}
+                          </p>
+                        </div>
+                      </label>
+                      <label
+                        class="surface-raised flex cursor-pointer items-start gap-3 rounded-[0.7rem] border border-border/80 px-3 py-2.5"
+                        for="repack-mode-single"
+                      >
+                        <RadioGroupItem id="repack-mode-single" value="single" class="mt-0.5" />
+                        <div class="min-w-0">
+                          <p class="text-ui-xs font-medium text-foreground">
+                            {{ t('pack.exportModeSingle') }}
+                          </p>
+                        </div>
+                      </label>
+                    </RadioGroup>
                   </section>
 
                   <section class="space-y-2">
-                    <p class="section-eyebrow">Options</p>
+                    <p class="section-eyebrow">选项</p>
                     <label
                       class="surface-raised flex cursor-pointer items-start justify-between gap-4 rounded-[0.7rem] border border-border/80 px-3 py-2.5"
                     >
@@ -425,11 +441,7 @@ onUnmounted(() => {
                           <HoverBubble>{{ t('pack.autoDetectRootTooltip') }}</HoverBubble>
                         </div>
                       </div>
-                      <input
-                        v-model="packState.exportConfig.autoDetectRoot"
-                        class="mt-0.5 size-4"
-                        type="checkbox"
-                      />
+                      <Switch v-model="packState.exportConfig.autoDetectRoot" />
                     </label>
 
                     <label
@@ -437,18 +449,16 @@ onUnmounted(() => {
                     >
                       <div class="space-y-1">
                         <div class="flex items-center gap-2">
-                          <p class="text-ui-xs font-medium text-foreground">{{ t('pack.fastMode') }}</p>
+                          <p class="text-ui-xs font-medium text-foreground">
+                            {{ t('pack.fastMode') }}
+                          </p>
                           <HoverBubble>
                             {{ t('pack.fastModeTooltipL1') }}<br />
                             {{ t('pack.fastModeTooltipL2') }}
                           </HoverBubble>
                         </div>
                       </div>
-                      <input
-                        v-model="packState.exportConfig.fastMode"
-                        class="mt-0.5 size-4"
-                        type="checkbox"
-                      />
+                      <Switch v-model="packState.exportConfig.fastMode" />
                     </label>
                   </section>
 
@@ -481,7 +491,12 @@ onUnmounted(() => {
                       {{ t('pack.export') }}
                     </Button>
 
-                    <Button v-else variant="destructive" class="w-full" @click="handleTerminateExport">
+                    <Button
+                      v-else
+                      variant="destructive"
+                      class="w-full"
+                      @click="handleTerminateExport"
+                    >
                       <Square class="size-4" />
                       {{ t('pack.cancelExport') }}
                     </Button>
@@ -535,7 +550,8 @@ onUnmounted(() => {
                         <p class="section-eyebrow">{{ t('pack.fileStructure') }}</p>
                         <pre
                           class="surface-console-panel editor-scrollbar max-h-56 overflow-auto rounded-[0.55rem] border border-border/70 p-3 text-ui-2xs"
-                        >{{ exportResult.fileTree }}</pre>
+                          >{{ exportResult.fileTree }}</pre
+                        >
                       </div>
                     </div>
 

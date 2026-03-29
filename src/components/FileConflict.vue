@@ -4,6 +4,7 @@ import { AlertTriangle, ChevronDown, ChevronRight, Trash2 } from 'lucide-vue-nex
 import type { ConflictFile } from '@/lib/packer'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 
 const conflicts = defineModel<ConflictFile[]>('conflicts')
 
@@ -99,31 +100,42 @@ const formatDate = (date: Date) =>
           v-if="isExpanded(conflict.relativePath)"
           class="mt-4 space-y-2 border-l border-border pl-5"
         >
-          <label
-            class="flex cursor-pointer items-start gap-3 rounded-2xl border border-border/70 bg-background/90 px-3 py-3"
+          <RadioGroup
+            :model-value="String(conflict.selectedSource)"
+            class="space-y-2"
+            @update:model-value="(value) => (conflict.selectedSource = Number(value))"
           >
-            <input v-model="conflict.selectedSource" :value="-1" class="mt-1 size-4" type="radio" />
-            <div class="flex items-center gap-2 text-sm font-medium text-destructive">
-              <Trash2 class="size-4" />
-              <span>移除该文件</span>
-            </div>
-          </label>
+            <label
+              class="flex cursor-pointer items-start gap-3 rounded-2xl border border-border/70 bg-background/90 px-3 py-3"
+              :for="`conflict-${conflict.relativePath}-remove`"
+            >
+              <RadioGroupItem
+                :id="`conflict-${conflict.relativePath}-remove`"
+                value="-1"
+                class="mt-1"
+              />
+              <div class="flex items-center gap-2 text-sm font-medium text-destructive">
+                <Trash2 class="size-4" />
+                <span>移除该文件</span>
+              </div>
+            </label>
 
-          <label
-            v-for="(source, index) in conflict.sources"
-            :key="index"
-            class="flex cursor-pointer items-start gap-3 rounded-2xl border border-border/70 bg-background/90 px-3 py-3"
-          >
-            <input
-              v-model="conflict.selectedSource"
-              :value="index"
-              class="mt-1 size-4"
-              type="radio"
-            />
-            <div class="min-w-0 flex-1">
-              <p class="break-all text-sm font-medium text-foreground">{{ source.sourcePath }}</p>
-            </div>
-          </label>
+            <label
+              v-for="(source, index) in conflict.sources"
+              :key="index"
+              class="flex cursor-pointer items-start gap-3 rounded-2xl border border-border/70 bg-background/90 px-3 py-3"
+              :for="`conflict-${conflict.relativePath}-${index}`"
+            >
+              <RadioGroupItem
+                :id="`conflict-${conflict.relativePath}-${index}`"
+                :value="String(index)"
+                class="mt-1"
+              />
+              <div class="min-w-0 flex-1">
+                <p class="break-all text-sm font-medium text-foreground">{{ source.sourcePath }}</p>
+              </div>
+            </label>
+          </RadioGroup>
         </div>
       </div>
     </div>

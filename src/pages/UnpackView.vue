@@ -51,7 +51,7 @@
                   </Button>
                 </div>
                 <label class="text-ui-xs mb-3 flex items-center gap-2 text-muted-foreground">
-                  <input v-model="unpackState.filterUseRegex" class="size-4" type="checkbox" />
+                  <Switch v-model="unpackState.filterUseRegex" />
                   <span>{{ t('unpack.regex') }}</span>
                 </label>
 
@@ -354,6 +354,7 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import { Progress } from '@/components/ui/progress'
+import { Switch } from '@/components/ui/switch'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 
 type UnpackState = {

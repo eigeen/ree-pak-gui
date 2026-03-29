@@ -325,8 +325,8 @@
   }
 
   .section-eyebrow {
-    @apply font-semibold uppercase tracking-[0.22em] text-muted-foreground;
-    font-size: var(--font-size-ui-tiny);
+    @apply font-semibold uppercase tracking-[0.1em] text-muted-foreground;
+    font-size: var(--font-size-ui-xs);
     line-height: 1.35;
   }
 
