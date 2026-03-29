@@ -32,7 +32,7 @@ const emit = defineEmits<{
       <div class="flex h-full min-h-0 flex-col">
         <div
           :class="[
-            'relative flex h-30 overflow-hidden bg-[#2a2d37]',
+            'explorer-grid-preview relative flex h-30 overflow-hidden',
             props.texturePreviewEnabled && props.renderers.getTexturePreview(item)
               ? 'items-stretch justify-stretch'
               : 'items-center justify-center px-3 py-3'
@@ -80,13 +80,13 @@ const emit = defineEmits<{
 
         <div class="flex min-h-0 flex-1 flex-col px-3 py-2.5">
           <p
-            class="line-clamp-2 min-h-[2.5rem] break-all text-[13px] font-semibold leading-5 text-foreground"
+            class="text-ui-xs line-clamp-2 min-h-[2.5rem] break-all font-semibold leading-5 text-foreground"
           >
             {{ item.name }}
           </p>
 
           <div
-            class="mt-auto flex items-center justify-between gap-3 pt-2 text-[10px] text-muted-foreground"
+            class="text-ui-tiny mt-auto flex items-center justify-between gap-3 pt-2 text-muted-foreground"
           >
             <span class="truncate">{{ props.renderers.getItemTypeLabel(item) }}</span>
             <template v-if="item.isDir">
@@ -129,7 +129,6 @@ const emit = defineEmits<{
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  color: rgb(255 255 255 / 0.74);
 }
 
 .asset-tile-preview :deep(.el-image__wrapper),

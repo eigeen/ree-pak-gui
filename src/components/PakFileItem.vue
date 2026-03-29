@@ -1,6 +1,6 @@
 <template>
   <div
-    class="flex items-center gap-3 border border-border/80 bg-[#101012] px-3 py-2.5"
+    class="surface-panel flex items-center gap-3 border border-border/80 px-3 py-2.5"
   >
     <GripVertical class="drag-handle size-4 shrink-0 text-muted-foreground" />
     <TooltipProvider>

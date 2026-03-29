@@ -90,19 +90,19 @@ function getRowStyle(start: number) {
 
 function getRowClass(item: TItem) {
   const baseClass =
-    'absolute left-0 top-0 w-full px-3 text-left transition-colors duration-150 hover:bg-[#1d2028]'
+    'explorer-list-row absolute left-0 top-0 w-full px-3 text-left'
   if (props.selectedKey !== item.id) {
     return `${baseClass} border-b border-border/45 text-foreground`
   }
 
-  return `${baseClass} z-10 border-b border-transparent bg-[#202838] text-foreground shadow-[inset_0_0_0_1px_rgba(122,162,255,0.28)]`
+  return `${baseClass} explorer-list-row-active z-10 border-b border-transparent text-foreground`
 }
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 flex-col overflow-hidden bg-[#101117]">
+  <div class="explorer-list-shell flex h-full min-h-0 flex-col overflow-hidden">
     <div
-      class="grid shrink-0 items-center gap-3 border-b border-border/70 bg-[#151822] px-3 py-2 text-[11px] font-semibold tracking-[0.12em] text-muted-foreground/85 uppercase"
+      class="explorer-list-header text-ui-2xs grid shrink-0 items-center gap-3 border-b border-border/70 px-3 py-2 font-semibold tracking-[0.12em] text-muted-foreground/85 uppercase"
       :style="columnStyle"
     >
       <slot name="header" />

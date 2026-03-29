@@ -27,7 +27,7 @@ export default {
       columnType: '类型',
       columnSize: '大小',
       columnDetails: '详细信息',
-      directorySummary: '{folders} 个文件夹 / {files} 个文件',
+      directorySummary: '包含 {folders} 个文件夹 / {files} 个文件',
       layoutTile: '平铺',
       layoutDetails: '详细列表',
       switchLayout: '切换显示方式',

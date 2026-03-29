@@ -3,7 +3,7 @@
     <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
       <ResizablePanelGroup direction="horizontal">
         <ResizablePanel :default-size="24" :max-size="42" :min-size="18">
-          <aside class="flex h-full min-w-0 flex-col bg-[#121214]">
+          <aside class="surface-sidebar flex h-full min-w-0 flex-col">
             <UnpackSidebarTabs v-model="sidebarTab" :tabs="sidebarTabs" />
 
             <div class="editor-scrollbar flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
@@ -48,7 +48,7 @@
                     <Filter class="size-4" />
                   </Button>
                 </div>
-                <label class="mb-3 flex items-center gap-2 text-[12px] text-muted-foreground">
+                <label class="text-ui-xs mb-3 flex items-center gap-2 text-muted-foreground">
                   <input v-model="unpackState.filterUseRegex" class="size-4" type="checkbox" />
                   <span>{{ t('unpack.regex') }}</span>
                 </label>
@@ -156,10 +156,10 @@
             <ResizableHandle class="bg-border/80 hover:bg-primary data-[dragging]:bg-primary" />
 
             <ResizablePanel :default-size="25" :max-size="42" :min-size="16">
-              <div class="flex h-full min-w-0 flex-col bg-[#09090b]">
+              <div class="surface-console flex h-full min-w-0 flex-col">
                 <div
                   ref="consoleContainer"
-                  class="editor-scrollbar min-h-0 min-w-0 flex-1 overflow-auto border border-border/60 bg-[#050507] px-3 py-2 font-mono text-[11px] leading-[1.45]"
+                  class="surface-console-panel text-ui-2xs editor-scrollbar min-h-0 min-w-0 flex-1 overflow-auto border border-border/60 px-3 py-2 font-mono"
                 >
                   <div
                     v-for="line in consoleLines"
@@ -978,11 +978,13 @@ function getExplorerHeroIconStyle(item: ExplorerEntry): CSSProperties {
 function getExplorerPreviewSurfaceStyle(item: ExplorerEntry): CSSProperties {
   if (texturePreviewEnabled.value && getTexturePreview(item)) {
     return {
-      background: '#1f2026'
+      background: 'color-mix(in oklch, var(--surface-toolbar) 92%, var(--surface-console))'
     }
   }
 
-  const base = item.isDir ? '#2b2d33' : '#262933'
+  const base = item.isDir
+    ? 'color-mix(in oklch, var(--surface-toolbar) 82%, var(--surface-panel))'
+    : 'color-mix(in oklch, var(--surface-toolbar) 90%, var(--surface-panel))'
 
   return {
     background: base

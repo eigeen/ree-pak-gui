@@ -45,6 +45,11 @@
 
 :root {
   --radius: 0.65rem;
+  --font-size-ui-tiny: 10px;
+  --font-size-ui-micro: 11px;
+  --font-size-ui-2xs: 12px;
+  --font-size-ui-xs: 13px;
+  --font-size-ui-sm: 14px;
   --background: oklch(0.98 0.006 255);
   --foreground: oklch(0.24 0.02 248);
   --card: oklch(0.995 0.003 255 / 96%);
@@ -76,41 +81,79 @@
   --sidebar-accent-foreground: oklch(0.26 0.02 248);
   --sidebar-border: oklch(0.88 0.01 255);
   --sidebar-ring: oklch(0.62 0.16 245);
+  --surface-canvas: oklch(0.99 0.003 255);
+  --surface-panel: oklch(0.965 0.006 255);
+  --surface-sidebar: oklch(0.955 0.007 255);
+  --surface-toolbar: oklch(0.945 0.008 255);
+  --surface-console: oklch(0.94 0.008 255);
 }
 
 .dark,
 [data-theme='dark'] {
-  --background: oklch(0.16 0.018 250.7);
-  --foreground: oklch(0.96 0.01 95.4);
-  --card: oklch(0.2 0.02 248.3 / 94%);
-  --card-foreground: oklch(0.96 0.01 95.4);
-  --popover: oklch(0.2 0.02 248.3);
-  --popover-foreground: oklch(0.96 0.01 95.4);
-  --primary: oklch(0.76 0.11 240);
-  --primary-foreground: oklch(0.19 0.018 250.7);
-  --secondary: oklch(0.24 0.014 248.3);
-  --secondary-foreground: oklch(0.95 0.01 95.4);
-  --muted: oklch(0.24 0.014 248.3);
-  --muted-foreground: oklch(0.74 0.015 242.2);
-  --accent: oklch(0.3 0.02 247);
-  --accent-foreground: oklch(0.96 0.01 95.4);
+  --background: oklch(0.235 0.004 264);
+  --foreground: oklch(0.84 0 0);
+  --card: oklch(0.275 0.004 264 / 96%);
+  --card-foreground: oklch(0.84 0 0);
+  --popover: oklch(0.275 0.004 264);
+  --popover-foreground: oklch(0.84 0 0);
+  --primary: oklch(0.61 0.12 246);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.29 0.004 264);
+  --secondary-foreground: oklch(0.84 0 0);
+  --muted: oklch(0.315 0.004 264);
+  --muted-foreground: oklch(0.64 0 0);
+  --accent: oklch(0.36 0.004 264);
+  --accent-foreground: oklch(0.9 0 0);
   --destructive: oklch(0.69 0.19 27.2);
-  --border: oklch(1 0 0 / 0.1);
-  --input: oklch(1 0 0 / 0.12);
-  --ring: oklch(0.76 0.11 240);
-  --chart-1: oklch(0.67 0.16 220.2);
-  --chart-2: oklch(0.73 0.11 176.5);
-  --chart-3: oklch(0.77 0.12 76.9);
-  --chart-4: oklch(0.69 0.14 25.9);
-  --chart-5: oklch(0.68 0.11 282.6);
-  --sidebar: oklch(0.19 0.02 248.3);
-  --sidebar-foreground: oklch(0.96 0.01 95.4);
-  --sidebar-primary: oklch(0.76 0.11 240);
-  --sidebar-primary-foreground: oklch(0.19 0.018 250.7);
-  --sidebar-accent: oklch(0.3 0.02 247);
-  --sidebar-accent-foreground: oklch(0.96 0.01 95.4);
-  --sidebar-border: oklch(1 0 0 / 0.1);
-  --sidebar-ring: oklch(0.76 0.11 240);
+  --border: oklch(0.39 0.004 264);
+  --input: oklch(0.39 0.004 264);
+  --ring: oklch(0.61 0.12 246);
+  --chart-1: oklch(0.63 0.12 246);
+  --chart-2: oklch(0.72 0.1 178);
+  --chart-3: oklch(0.79 0.14 78);
+  --chart-4: oklch(0.68 0.15 27);
+  --chart-5: oklch(0.71 0.1 304);
+  --sidebar: oklch(0.275 0.004 264);
+  --sidebar-foreground: oklch(0.84 0 0);
+  --sidebar-primary: oklch(0.61 0.12 246);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.36 0.004 264);
+  --sidebar-accent-foreground: oklch(0.9 0 0);
+  --sidebar-border: oklch(0.39 0.004 264);
+  --sidebar-ring: oklch(0.61 0.12 246);
+  --surface-canvas: oklch(0.235 0.004 264);
+  --surface-panel: oklch(0.255 0.004 264);
+  --surface-sidebar: oklch(0.275 0.004 264);
+  --surface-toolbar: oklch(0.29 0.004 264);
+  --surface-console: oklch(0.21 0.004 264);
+  --el-color-primary: color-mix(in srgb, rgb(0 122 204) 92%, white);
+  --el-color-primary-light-3: color-mix(in srgb, var(--el-color-primary) 78%, white);
+  --el-color-primary-light-5: color-mix(in srgb, var(--el-color-primary) 58%, white);
+  --el-color-primary-light-7: color-mix(in srgb, var(--el-color-primary) 34%, white);
+  --el-color-primary-light-8: color-mix(in srgb, var(--el-color-primary) 24%, white);
+  --el-color-primary-light-9: color-mix(in oklch, var(--color-primary) 14%, var(--surface-panel));
+  --el-text-color-regular: var(--color-foreground);
+  --el-text-color-placeholder: var(--color-muted-foreground);
+  --el-border-color: color-mix(in oklch, var(--color-border) 90%, transparent);
+  --el-border-color-light: color-mix(in oklch, var(--color-border) 72%, transparent);
+  --el-border-color-extra-light: color-mix(in oklch, var(--color-border) 52%, transparent);
+  --el-fill-color-blank: var(--surface-panel);
+  --el-fill-color-light: color-mix(in oklch, var(--surface-toolbar) 88%, var(--surface-panel));
+  --el-fill-color-lighter: color-mix(in oklch, var(--surface-toolbar) 72%, var(--surface-panel));
+  --el-checkbox-text-color: var(--color-foreground);
+  --el-checkbox-bg-color: color-mix(in oklch, var(--surface-panel) 92%, transparent);
+  --el-checkbox-input-border: 1px solid color-mix(in oklch, var(--color-border) 92%, transparent);
+  --el-checkbox-disabled-border-color: color-mix(in oklch, var(--color-border) 62%, transparent);
+  --el-checkbox-disabled-input-fill: color-mix(in oklch, var(--surface-toolbar) 92%, var(--surface-panel));
+  --el-checkbox-disabled-icon-color: color-mix(in oklch, var(--color-muted-foreground) 72%, transparent);
+  --el-checkbox-disabled-checked-input-fill: color-mix(in oklch, var(--color-primary) 12%, var(--surface-toolbar));
+  --el-checkbox-disabled-checked-input-border-color: color-mix(in oklch, var(--color-primary) 22%, var(--color-border));
+  --el-checkbox-disabled-checked-icon-color: color-mix(in oklch, var(--color-primary) 56%, white);
+  --el-checkbox-checked-text-color: var(--color-foreground);
+  --el-checkbox-checked-input-border-color: var(--color-primary);
+  --el-checkbox-checked-bg-color: var(--color-primary);
+  --el-checkbox-checked-icon-color: var(--color-primary-foreground);
+  --el-checkbox-input-border-color-hover: color-mix(in oklch, var(--color-primary) 78%, white);
   color-scheme: dark;
 }
 
@@ -166,19 +209,14 @@
   [data-theme='dark'] body {
     background-image:
       radial-gradient(
-        circle at 0 0,
-        color-mix(in oklch, var(--color-primary) 22%, transparent) 0,
-        transparent 28%
-      ),
-      radial-gradient(
-        circle at 100% 0,
-        color-mix(in oklch, var(--color-foreground) 5%, transparent) 0,
+        circle at 50% -10%,
+        color-mix(in oklch, var(--color-primary) 10%, transparent) 0,
         transparent 24%
       ),
       linear-gradient(
         180deg,
-        color-mix(in oklch, #18181b 82%, var(--color-background)) 0%,
-        #09090b 100%
+        color-mix(in oklch, var(--surface-toolbar) 28%, var(--color-background)) 0%,
+        var(--surface-canvas) 100%
       );
   }
 
@@ -242,15 +280,54 @@
   }
 
   .app-panel {
-    @apply rounded-[0.8rem] border border-border/80 bg-card/92 shadow-[0_14px_34px_-26px_rgba(0,0,0,0.85)] backdrop-blur;
+    @apply rounded-[0.8rem] border border-border/80 bg-card/92 shadow-[0_14px_34px_-26px_rgba(0,0,0,0.5)] backdrop-blur;
   }
 
   .app-panel-muted {
     @apply rounded-[0.8rem] border border-border/80 bg-secondary/60 shadow-[0_12px_28px_-24px_rgba(0,0,0,0.72)];
   }
 
+  .surface-canvas {
+    background: var(--surface-canvas);
+  }
+
+  .surface-panel {
+    background: var(--surface-panel);
+  }
+
+  .surface-sidebar {
+    background: var(--surface-sidebar);
+  }
+
+  .surface-toolbar {
+    background: var(--surface-toolbar);
+  }
+
+  .surface-console {
+    background: var(--surface-console);
+  }
+
+  .surface-console-panel {
+    background: color-mix(in oklch, var(--surface-console) 88%, black);
+  }
+
+  .surface-raised {
+    background: color-mix(in oklch, var(--surface-toolbar) 72%, var(--surface-panel));
+  }
+
+  .surface-interactive:hover {
+    background: color-mix(in oklch, var(--color-secondary) 82%, var(--surface-panel));
+  }
+
+  .surface-selected {
+    background: color-mix(in oklch, var(--color-primary) 16%, var(--surface-panel));
+    box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--color-primary) 36%, transparent);
+  }
+
   .section-eyebrow {
-    @apply text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground;
+    @apply font-semibold uppercase tracking-[0.22em] text-muted-foreground;
+    font-size: var(--font-size-ui-tiny);
+    line-height: 1.35;
   }
 
   .section-title {
@@ -297,11 +374,13 @@
   }
 
   .desktop-header {
-    @apply flex shrink-0 flex-col border-b border-border/80 bg-[#121214];
+    @apply flex shrink-0 flex-col border-b border-border/80;
+    background: var(--surface-panel);
   }
 
   .desktop-menubar {
-    @apply flex h-8 items-center justify-between gap-4 border-b border-border/80 bg-[#101012] px-3;
+    @apply flex h-8 items-center justify-between gap-4 border-b border-border/80 px-3;
+    background: color-mix(in oklch, var(--surface-panel) 86%, black);
   }
 
   .desktop-topbar {
@@ -309,7 +388,8 @@
   }
 
   .desktop-window-toolbar {
-    @apply flex items-center justify-between gap-3 border-b border-border/80 bg-[#161619] px-3;
+    @apply flex items-center justify-between gap-3 border-b border-border/80 px-3;
+    background: var(--surface-toolbar);
   }
 
   .desktop-topbar-right {
@@ -317,7 +397,9 @@
   }
 
   .desktop-brand {
-    @apply inline-flex items-center gap-2 text-[12px] font-semibold tracking-[0.22em] text-primary;
+    @apply inline-flex items-center gap-2 font-semibold tracking-[0.22em] text-primary;
+    font-size: var(--font-size-ui-xs);
+    line-height: 1.4;
   }
 
   .desktop-command-nav {
@@ -329,7 +411,9 @@
   }
 
   .desktop-command-button {
-    @apply h-8 rounded-md border border-transparent px-2.5 text-[13px];
+    @apply h-8 rounded-md border border-transparent px-2.5;
+    font-size: var(--font-size-ui-sm);
+    line-height: 1.45;
   }
 
   .desktop-icon-button {
@@ -337,11 +421,15 @@
   }
 
   .desktop-menu-trigger {
-    @apply inline-flex h-7 items-center rounded-sm px-2.5 text-[12px] text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground;
+    @apply inline-flex h-7 items-center rounded-sm px-2.5 text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground;
+    font-size: var(--font-size-ui-xs);
+    line-height: 1.4;
   }
 
   .desktop-pill {
-    @apply rounded-sm border-border/80 bg-secondary/65 px-2 py-0.5 text-[11px] tracking-[0.1em] uppercase;
+    @apply rounded-sm border-border/80 bg-secondary/65 px-2 py-0.5 tracking-[0.1em] uppercase;
+    font-size: var(--font-size-ui-micro);
+    line-height: 1.35;
   }
 
   .desktop-main {
@@ -353,23 +441,34 @@
   }
 
   .desktop-pane {
-    @apply border-border/80 bg-[#121214];
+    @apply border-border/80;
+    background: var(--surface-panel);
   }
 
   .desktop-toolbar {
-    @apply flex items-center border-b border-border/80 bg-[#18181b] text-[13px];
+    @apply flex items-center border-b border-border/80;
+    font-size: var(--font-size-ui-sm);
+    line-height: 1.45;
+    background: var(--surface-toolbar);
   }
 
   .desktop-subtoolbar {
-    @apply flex min-h-9 items-center border-b border-border/80 bg-[#121214] px-3 text-[12px] text-muted-foreground;
+    @apply flex min-h-9 items-center border-b border-border/80 px-3 text-muted-foreground;
+    font-size: var(--font-size-ui-xs);
+    line-height: 1.4;
+    background: var(--surface-panel);
   }
 
   .desktop-statusbar {
-    @apply flex h-7 shrink-0 items-center justify-between bg-primary px-3 text-[12px] font-medium text-primary-foreground;
+    @apply flex h-7 shrink-0 items-center justify-between bg-primary px-3 font-medium text-primary-foreground;
+    font-size: var(--font-size-ui-xs);
+    line-height: 1.4;
   }
 
   .desktop-side-tab {
-    @apply inline-flex h-8 items-center gap-2 border border-transparent px-2.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground;
+    @apply inline-flex h-8 items-center gap-2 border border-transparent px-2.5 text-muted-foreground transition-colors hover:text-foreground;
+    font-size: var(--font-size-ui-xs);
+    line-height: 1.4;
   }
 
   .desktop-side-tab-active {
@@ -384,7 +483,8 @@
     min-height: 24px;
     border-radius: 4px;
     padding-right: 6px;
-    font-size: 12px;
+    font-size: var(--font-size-ui-xs);
+    line-height: 1.4;
     color: var(--color-foreground);
   }
 
@@ -397,15 +497,106 @@
     color: var(--color-primary-foreground);
   }
 
+  .desktop-tree.el-tree--highlight-current .el-tree-node.is-current > .el-tree-node__content,
+  .desktop-tree .el-tree--highlight-current .el-tree-node.is-current > .el-tree-node__content {
+    background: color-mix(in oklch, var(--color-primary) 16%, var(--surface-panel));
+    color: var(--color-foreground);
+    box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--color-primary) 34%, transparent);
+  }
+
   .desktop-tree .el-checkbox__inner {
     border-radius: 3px;
-    background: transparent;
+    background: var(--el-checkbox-bg-color);
+    border-color: color-mix(in oklch, var(--color-border) 92%, transparent);
   }
 
   .desktop-tree .el-checkbox__input.is-checked .el-checkbox__inner,
   .desktop-tree .el-checkbox__input.is-indeterminate .el-checkbox__inner {
     background: var(--color-primary);
     border-color: var(--color-primary);
+  }
+
+  .desktop-tree .el-checkbox__input:hover .el-checkbox__inner,
+  .desktop-tree .el-checkbox__input.is-focus .el-checkbox__inner {
+    border-color: var(--el-checkbox-input-border-color-hover);
+  }
+
+  .el-checkbox {
+    color: var(--el-checkbox-text-color);
+  }
+
+  .el-checkbox__inner {
+    background-color: var(--el-checkbox-bg-color);
+    border-color: color-mix(in oklch, var(--color-border) 92%, transparent);
+  }
+
+  .el-checkbox__input.is-checked .el-checkbox__inner,
+  .el-checkbox__input.is-indeterminate .el-checkbox__inner {
+    background-color: var(--el-checkbox-checked-bg-color);
+    border-color: var(--el-checkbox-checked-input-border-color);
+  }
+
+  .el-checkbox__input:hover .el-checkbox__inner,
+  .el-checkbox__input.is-focus .el-checkbox__inner {
+    border-color: var(--el-checkbox-input-border-color-hover);
+  }
+
+  .el-checkbox__input.is-checked + .el-checkbox__label {
+    color: var(--el-checkbox-checked-text-color);
+  }
+
+  .explorer-list-shell {
+    background: var(--surface-panel);
+  }
+
+  .explorer-list-header {
+    background: var(--surface-toolbar);
+  }
+
+  .explorer-list-row {
+    transition:
+      background-color 150ms ease,
+      color 150ms ease,
+      box-shadow 150ms ease;
+  }
+
+  .explorer-list-row:hover {
+    background: color-mix(in oklch, var(--color-secondary) 82%, var(--surface-panel));
+  }
+
+  .explorer-list-row-active {
+    background: color-mix(in oklch, var(--color-primary) 16%, var(--surface-panel));
+    box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--color-primary) 34%, transparent);
+  }
+
+  .explorer-grid-card {
+    background: color-mix(in oklch, var(--surface-toolbar) 74%, var(--surface-panel));
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease,
+      box-shadow 150ms ease;
+  }
+
+  .explorer-grid-card:hover {
+    background: color-mix(in oklch, var(--surface-toolbar) 92%, var(--surface-panel));
+    border-color: color-mix(in oklch, var(--color-border) 88%, transparent);
+    box-shadow: 0 18px 30px -24px rgba(0, 0, 0, 0.72);
+  }
+
+  .explorer-grid-card-active {
+    background: color-mix(in oklch, var(--color-primary) 10%, var(--surface-toolbar));
+    border-color: color-mix(in oklch, var(--color-primary) 54%, transparent);
+    box-shadow:
+      0 0 0 1px color-mix(in oklch, var(--color-primary) 24%, transparent),
+      0 18px 40px -28px rgba(12, 18, 34, 0.72);
+  }
+
+  .explorer-grid-preview {
+    background: color-mix(in oklch, var(--surface-toolbar) 86%, var(--surface-panel));
+  }
+
+  .asset-count-chip {
+    color: color-mix(in oklch, var(--color-foreground) 72%, transparent);
   }
 
   .app-toast {
@@ -424,5 +615,30 @@
   .app-toast .el-message__icon {
     font-size: 18px;
     margin-top: 1px;
+  }
+
+  .text-ui-tiny {
+    font-size: var(--font-size-ui-tiny);
+    line-height: 1.35;
+  }
+
+  .text-ui-micro {
+    font-size: var(--font-size-ui-micro);
+    line-height: 1.35;
+  }
+
+  .text-ui-2xs {
+    font-size: var(--font-size-ui-2xs);
+    line-height: 1.4;
+  }
+
+  .text-ui-xs {
+    font-size: var(--font-size-ui-xs);
+    line-height: 1.4;
+  }
+
+  .text-ui-sm {
+    font-size: var(--font-size-ui-sm);
+    line-height: 1.45;
   }
 }

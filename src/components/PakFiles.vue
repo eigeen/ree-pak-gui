@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-4">
-    <div class="min-h-52 border border-border/80 bg-[#151518] p-3">
+    <div class="surface-raised min-h-52 border border-border/80 p-3">
       <draggable
         v-model="orderedPakList"
         item-key="path"

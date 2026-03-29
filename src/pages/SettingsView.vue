@@ -1,14 +1,14 @@
 <template>
-  <section class="desktop-page bg-[#1e1f24]">
+  <section class="desktop-page">
     <div class="flex min-h-0 flex-1 flex-col">
-      <header class="border-b border-border/80 bg-[#252932] px-5 py-3">
+      <header class="border-b border-border/80 bg-secondary/45 px-5 py-3 backdrop-blur-sm">
         <div class="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
           <Settings2 class="size-4 text-muted-foreground" />
           <span>{{ t('settings.title') }}</span>
         </div>
 
         <div class="relative max-w-none">
-          <Search class="pointer-events-none absolute left-2.5 top-2 size-4 text-[#8b949e]" />
+          <Search class="pointer-events-none absolute left-2.5 top-2 size-4 text-muted-foreground" />
           <DenseInput
             v-model="searchText"
             type="text"
@@ -20,7 +20,7 @@
 
       <div class="grid min-h-0 flex-1 grid-cols-[15.5rem_minmax(0,1fr)]">
         <aside
-          class="editor-scrollbar overflow-auto border-r border-border/80 bg-[#252932] px-3 py-3"
+          class="editor-scrollbar overflow-auto border-r border-border/80 bg-secondary/30 px-3 py-3"
         >
           <div v-for="section in filteredSections" :key="section.id" class="mb-1">
             <button
@@ -28,8 +28,8 @@
               class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors"
               :class="
                 activeSection === section.id
-                  ? 'bg-[#373c49] text-foreground'
-                  : 'text-muted-foreground hover:bg-[#2d313c] hover:text-foreground'
+                  ? 'bg-accent text-accent-foreground shadow-sm'
+                  : 'text-muted-foreground hover:bg-secondary/70 hover:text-foreground'
               "
               @click="scrollToSection(section.id)"
             >
@@ -39,7 +39,7 @@
           </div>
         </aside>
 
-        <main class="editor-scrollbar overflow-auto bg-[#1e1f24] px-9 py-6">
+        <main class="editor-scrollbar overflow-auto bg-background/10 px-9 py-6">
           <div class="mx-auto max-w-4xl">
             <div class="mb-8 flex items-start justify-between gap-4 border-b border-border/70 pb-4">
               <div>

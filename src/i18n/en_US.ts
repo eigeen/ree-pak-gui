@@ -27,7 +27,7 @@ export default {
       columnType: 'Type',
       columnSize: 'Size',
       columnDetails: 'Details',
-      directorySummary: '{folders} folders / {files} files',
+      directorySummary: 'Includes {folders} folders / {files} files',
       layoutTile: 'Tiles',
       layoutDetails: 'Details',
       switchLayout: 'Switch layout',

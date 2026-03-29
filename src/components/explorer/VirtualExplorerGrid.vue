@@ -116,12 +116,12 @@ function getRowStyle(start: number) {
 }
 
 function getCardClass(item: TItem) {
-  const baseClass = 'relative isolate group flex min-h-0 flex-col overflow-hidden rounded-[0.4rem] border-2 bg-[#22242c] text-left shadow-[0_14px_28px_-24px_rgba(0,0,0,0.95)] transition-[background-color,border-color,box-shadow] duration-150'
+  const baseClass = 'explorer-grid-card relative isolate group flex min-h-0 flex-col overflow-hidden rounded-[0.4rem] border-2 text-left shadow-[0_14px_28px_-24px_rgba(0,0,0,0.72)]'
   if (props.selectedKey !== item.id) {
-    return `${baseClass} border-transparent hover:border-[#505664] hover:bg-[#272a33] hover:shadow-[0_18px_30px_-24px_rgba(0,0,0,1)]`
+    return `${baseClass} border-transparent`
   }
 
-  return `${baseClass} border-[#8ba5ff]/70 bg-[#2a2d37] shadow-[0_0_0_1px_rgba(139,165,255,0.22),0_18px_40px_-28px_rgba(24,48,102,0.92)]`
+  return `${baseClass} explorer-grid-card-active`
 }
 </script>
 

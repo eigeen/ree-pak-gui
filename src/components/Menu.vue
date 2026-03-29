@@ -7,17 +7,7 @@
           <span>REE Pak Tool</span>
         </div>
 
-        <div class="desktop-command-nav">
-          <RouterLink :class="topNavClass('/unpack')" :to="{ name: 'UnpackView' }">
-            {{ t('menu.unpack') }}
-          </RouterLink>
-          <RouterLink :class="topNavClass('/pack')" :to="{ name: 'PackView' }">
-            {{ t('menu.repack') }}
-          </RouterLink>
-          <RouterLink :class="topNavClass('/settings')" :to="{ name: 'SettingsView' }">
-            {{ t('menu.settings') }}
-          </RouterLink>
-        </div>
+        <DesktopTabs v-model="topNavValue" :tabs="topNavTabs" />
       </div>
 
       <div class="desktop-topbar-right">
@@ -65,7 +55,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import {
@@ -81,14 +71,14 @@ import {
   Trash2,
   Wrench
 } from 'lucide-vue-next'
-import { cn } from '@/lib/utils'
 import { getAllTools } from '@/config/tools'
+import DesktopTabs, { type DesktopTabItem } from '@/components/DesktopTabs.vue'
 import DesktopMenuBar from '@/components/DesktopMenuBar.vue'
 import FileNameTable from '@/components/FileNameTable/FileNameTable.vue'
 import { useFileListStore } from '@/store/filelist'
 import { useUpdateStore } from '@/store/update'
 import { useWorkStore } from '@/store/work'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -105,11 +95,43 @@ const isUnpackView = computed(() => route.name === 'UnpackView')
 const isPackView = computed(() => route.name === 'PackView')
 const isSettingsView = computed(() => route.name === 'SettingsView')
 const unpackState = workStore.unpack
-const topNavClass = (path: string) =>
-  cn(
-    buttonVariants({ variant: route.path === path ? 'secondary' : 'ghost', size: 'sm' }),
-    'desktop-command-button'
-  )
+const topNavTabs = computed<DesktopTabItem[]>(() => [
+  {
+    value: 'unpack',
+    label: t('menu.unpack'),
+    to: { name: 'UnpackView' }
+  },
+  {
+    value: 'pack',
+    label: t('menu.repack'),
+    to: { name: 'PackView' }
+  },
+  {
+    value: 'settings',
+    label: t('menu.settings'),
+    to: { name: 'SettingsView' }
+  }
+])
+const topNavValue = computed({
+  get() {
+    if (route.name === 'PackView') {
+      return 'pack'
+    }
+
+    if (route.name === 'SettingsView') {
+      return 'settings'
+    }
+
+    return 'unpack'
+  },
+  set(value: string) {
+    const target = topNavTabs.value.find((tab) => tab.value === value)?.to
+
+    if (target) {
+      void router.push(target)
+    }
+  }
+})
 
 function dispatchUnpackAction(action: 'open-paks' | 'render-tree') {
   window.dispatchEvent(new CustomEvent(`unpack:${action}`))
