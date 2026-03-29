@@ -367,7 +367,7 @@ onUnmounted(() => {
                   </div>
                   <div class="min-w-0 flex-1">
                     <p class="truncate text-sm font-medium text-foreground">{{ file.path }}</p>
-                    <p class="text-ui-2xs text-muted-foreground">
+                    <p class="text-2xs text-muted-foreground">
                       {{ file.isFile ? 'Pak' : 'Directory' }}
                     </p>
                   </div>
@@ -409,7 +409,7 @@ onUnmounted(() => {
                           class="mt-0.5"
                         />
                         <div class="min-w-0">
-                          <p class="text-ui-xs font-medium text-foreground">
+                          <p class="text-xs font-medium text-foreground">
                             {{ t('pack.exportModeIndividual') }}
                           </p>
                         </div>
@@ -420,7 +420,7 @@ onUnmounted(() => {
                       >
                         <RadioGroupItem id="repack-mode-single" value="single" class="mt-0.5" />
                         <div class="min-w-0">
-                          <p class="text-ui-xs font-medium text-foreground">
+                          <p class="text-xs font-medium text-foreground">
                             {{ t('pack.exportModeSingle') }}
                           </p>
                         </div>
@@ -435,7 +435,7 @@ onUnmounted(() => {
                     >
                       <div class="space-y-1">
                         <div class="flex items-center gap-2">
-                          <p class="text-ui-xs font-medium text-foreground">
+                          <p class="text-xs font-medium text-foreground">
                             {{ t('pack.autoDetectRoot') }}
                           </p>
                           <HoverBubble>{{ t('pack.autoDetectRootTooltip') }}</HoverBubble>
@@ -449,7 +449,7 @@ onUnmounted(() => {
                     >
                       <div class="space-y-1">
                         <div class="flex items-center gap-2">
-                          <p class="text-ui-xs font-medium text-foreground">
+                          <p class="text-xs font-medium text-foreground">
                             {{ t('pack.fastMode') }}
                           </p>
                           <HoverBubble>
@@ -527,14 +527,14 @@ onUnmounted(() => {
                       class="h-2 rounded-full"
                     />
 
-                    <p v-if="progressValue > 0" class="text-ui-xs text-muted-foreground">
+                    <p v-if="progressValue > 0" class="text-xs text-muted-foreground">
                       {{ progress.finishFileCount }} / {{ progress.totalFileCount }}
                       {{ t('pack.filesCount') }}
                     </p>
 
                     <div v-if="progress.currentFile" class="space-y-1">
                       <p class="section-eyebrow">{{ t('pack.exporting') }}</p>
-                      <p class="break-all text-ui-xs text-foreground">{{ progress.currentFile }}</p>
+                      <p class="break-all text-xs text-foreground">{{ progress.currentFile }}</p>
                     </div>
 
                     <div
@@ -543,13 +543,13 @@ onUnmounted(() => {
                     >
                       <div class="mb-2 flex items-center gap-2 text-primary">
                         <CheckCircle2 class="size-4" />
-                        <span class="text-ui-xs font-medium">{{ t('pack.exportSuccess') }}</span>
+                        <span class="text-xs font-medium">{{ t('pack.exportSuccess') }}</span>
                       </div>
 
                       <div v-if="exportResult.fileTree" class="space-y-2">
                         <p class="section-eyebrow">{{ t('pack.fileStructure') }}</p>
                         <pre
-                          class="surface-console-panel editor-scrollbar max-h-56 overflow-auto rounded-[0.55rem] border border-border/70 p-3 text-ui-2xs"
+                          class="surface-console-panel editor-scrollbar max-h-56 overflow-auto rounded-[0.55rem] border border-border/70 p-3 text-2xs"
                           >{{ exportResult.fileTree }}</pre
                         >
                       </div>
@@ -561,9 +561,9 @@ onUnmounted(() => {
                     >
                       <div class="mb-2 flex items-center gap-2 text-destructive">
                         <CircleAlert class="size-4" />
-                        <span class="text-ui-xs font-medium">{{ t('pack.exportFailed') }}</span>
+                        <span class="text-xs font-medium">{{ t('pack.exportFailed') }}</span>
                       </div>
-                      <p class="break-all text-ui-xs text-destructive">{{ exportResult.error }}</p>
+                      <p class="break-all text-xs text-destructive">{{ exportResult.error }}</p>
                     </div>
                   </div>
 

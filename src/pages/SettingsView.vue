@@ -43,7 +43,7 @@
           <div class="mx-auto max-w-4xl">
             <div class="mb-8 flex items-start justify-between gap-4 border-b border-border/70 pb-4">
               <div>
-                <h2 class="text-[2rem] font-semibold leading-none text-foreground">
+                <h2 class="text-3xl font-semibold leading-none text-foreground">
                   {{ t('settings.globalTitle') }}
                 </h2>
                 <p class="mt-4 text-sm text-muted-foreground">

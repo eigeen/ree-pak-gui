@@ -180,7 +180,10 @@ impl PakService {
         self.pak_group.lock().render_tree_combined()
     }
 
-    pub fn read_file_tree_optimized(&self, options: &RenderTreeOptions) -> Result<RenderTreeNode> {
+    pub fn read_file_tree_optimized(
+        &self,
+        options: &RenderTreeOptions,
+    ) -> Result<Vec<RenderTreeNode>> {
         let basic_tree = self.pak_group.lock().render_tree_combined()?;
         RenderTreeNode::try_from_file_tree(basic_tree, options)
     }
@@ -266,7 +269,9 @@ impl PakService {
                 let progress1 = progress.clone();
                 let result = extractor
                     .on_event(move |event| {
-                        if let ree_pak_core::extract::ExtractEvent::FileDone { hash, path, error } = event {
+                        if let ree_pak_core::extract::ExtractEvent::FileDone { hash, path, error } =
+                            event
+                        {
                             progress1.file_done(path.to_string_lossy().as_ref(), hash, error);
                         }
                     })

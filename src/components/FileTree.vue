@@ -19,7 +19,7 @@ export interface TreeData {
 }
 
 interface Props {
-  data: RenderTreeNode | null
+  data: RenderTreeNode[] | null
   filterText?: string
   regexMode?: boolean
   currentNodeKey?: string
@@ -80,9 +80,11 @@ watch(
       return
     }
 
-    const nextTree = createTreeData(data)
-    cachedFullTreeData.value = [nextTree]
-    cachedTreeData.value = [pruneFiles(nextTree)].filter((node): node is TreeData => Boolean(node))
+    const nextTree = data.map((node) => createTreeData(node))
+    cachedFullTreeData.value = nextTree
+    cachedTreeData.value = nextTree
+      .map((node) => pruneFiles(node))
+      .filter((node): node is TreeData => Boolean(node))
     filteredData.value = props.filterText
       ? filterTreeData(deepCopy(cachedTreeData.value), getFilterObject())
       : deepCopy(cachedTreeData.value)
@@ -260,7 +262,7 @@ defineExpose({ bringNodeIntoView, collapseAll, getCheckedNodes })
       "
     >
       <template #default="{ node }">
-        <div class="flex w-full items-center gap-2 text-xs">
+        <div class="flex w-full items-center gap-2 text-sm">
           <Folder class="size-3.5 shrink-0 text-amber-200" />
           <span class="truncate">{{ node.data.label }}</span>
         </div>

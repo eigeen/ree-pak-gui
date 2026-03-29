@@ -31,7 +31,11 @@ impl ToolsService {
         })
     }
 
-    pub fn scan_paths(&self, options: &PathScanOptions, progress_channel: PathScanProgressChannel) -> Result<()> {
+    pub fn scan_paths(
+        &self,
+        options: &PathScanOptions,
+        progress_channel: PathScanProgressChannel,
+    ) -> Result<()> {
         // Check if there's already a running scan
         if let Some(handle) = &*self.work_thread.lock()
             && !handle.is_finished()
@@ -89,9 +93,9 @@ impl ToolsService {
                     current_file += 1;
                     progress_clone.file_start(current_file, total_files as u32);
 
-                    let result = searcher
-                        .search_memory_dump(dump_file)
-                        .map_err(|e| anyhow::anyhow!("Failed to scan memory dump {}: {}", dump_file, e))?;
+                    let result = searcher.search_memory_dump(dump_file).map_err(|e| {
+                        anyhow::anyhow!("Failed to scan memory dump {}: {}", dump_file, e)
+                    })?;
 
                     found_paths.extend(
                         result

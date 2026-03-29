@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     channel::{
-        PackProgressChannel, PackProgressChannelInner, PathScanProgressChannel, PathScanProgressChannelInner,
-        UnpackProgressChannel, UnpackProgressChannelInner,
+        PackProgressChannel, PackProgressChannelInner, PathScanProgressChannel,
+        PathScanProgressChannelInner, UnpackProgressChannel, UnpackProgressChannelInner,
     },
     common::JsSafeHash,
     pak::{
@@ -78,7 +78,9 @@ pub fn pak_read_file_tree() -> Result<FileTree, String> {
 ///
 /// Should load file name list first.
 #[tauri::command]
-pub fn pak_read_file_tree_optimized(options: Option<RenderTreeOptions>) -> Result<RenderTreeNode, String> {
+pub fn pak_read_file_tree_optimized(
+    options: Option<RenderTreeOptions>,
+) -> Result<Vec<RenderTreeNode>, String> {
     let pak_service = PakService::get();
     warp_result_elapsed!(
         pak_service.read_file_tree_optimized(&options.unwrap_or_default()),
@@ -88,7 +90,10 @@ pub fn pak_read_file_tree_optimized(options: Option<RenderTreeOptions>) -> Resul
 
 /// Extract all loaded paks.
 #[tauri::command]
-pub fn pak_extract_all(options: ExtractOptions, on_event: UnpackProgressChannelInner) -> Result<(), String> {
+pub fn pak_extract_all(
+    options: ExtractOptions,
+    on_event: UnpackProgressChannelInner,
+) -> Result<(), String> {
     let pak_service = PakService::get();
     if options.extract_all {
         println!("Extracting all entries...");
@@ -118,10 +123,16 @@ pub fn pak_get_header(pak_path: &str) -> Result<PakHeaderInfo, String> {
 }
 
 #[tauri::command]
-pub fn pak_pack(sources: Vec<String>, output: String, on_event: PackProgressChannelInner) -> Result<(), String> {
+pub fn pak_pack(
+    sources: Vec<String>,
+    output: String,
+    on_event: PackProgressChannelInner,
+) -> Result<(), String> {
     let pak_service = PakService::get();
     let channel = PackProgressChannel::new(on_event);
-    pak_service.pack(&sources, &output, channel).map_err(|e| e.to_string())
+    pak_service
+        .pack(&sources, &output, channel)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -237,12 +248,17 @@ pub struct PathScanOptions {
 
 /// Path scanning command
 #[tauri::command]
-pub fn tools_scan_paths(options: PathScanOptions, on_event: PathScanProgressChannelInner) -> Result<(), String> {
+pub fn tools_scan_paths(
+    options: PathScanOptions,
+    on_event: PathScanProgressChannelInner,
+) -> Result<(), String> {
     let channel = PathScanProgressChannel::new(on_event);
 
     // Call path scanning service
     let tools_service = ToolsService::get();
-    tools_service.scan_paths(&options, channel).map_err(|e| e.to_string())
+    tools_service
+        .scan_paths(&options, channel)
+        .map_err(|e| e.to_string())
 }
 
 /// Terminate path scanning

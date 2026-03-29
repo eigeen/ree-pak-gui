@@ -45,11 +45,6 @@
 
 :root {
   --radius: 0.65rem;
-  --font-size-ui-tiny: 10px;
-  --font-size-ui-micro: 11px;
-  --font-size-ui-2xs: 12px;
-  --font-size-ui-xs: 13px;
-  --font-size-ui-sm: 14px;
   --background: oklch(0.98 0.006 255);
   --foreground: oklch(0.24 0.02 248);
   --card: oklch(0.995 0.003 255 / 96%);
@@ -326,8 +321,8 @@
 
   .section-eyebrow {
     @apply font-semibold uppercase tracking-[0.1em] text-muted-foreground;
-    font-size: var(--font-size-ui-xs);
-    line-height: 1.35;
+    font-size: 0.8125rem;
+    line-height: 1.125rem;
   }
 
   .section-title {
@@ -398,8 +393,8 @@
 
   .desktop-brand {
     @apply inline-flex items-center gap-2 font-semibold tracking-[0.22em] text-primary;
-    font-size: var(--font-size-ui-xs);
-    line-height: 1.4;
+    font-size: 0.8125rem;
+    line-height: 1.125rem;
   }
 
   .desktop-command-nav {
@@ -412,8 +407,8 @@
 
   .desktop-command-button {
     @apply h-8 rounded-md border border-transparent px-2.5;
-    font-size: var(--font-size-ui-sm);
-    line-height: 1.45;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
   }
 
   .desktop-icon-button {
@@ -422,14 +417,14 @@
 
   .desktop-menu-trigger {
     @apply inline-flex h-7 items-center rounded-sm px-2.5 text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground;
-    font-size: var(--font-size-ui-xs);
-    line-height: 1.4;
+    font-size: 0.8125rem;
+    line-height: 1.125rem;
   }
 
   .desktop-pill {
     @apply rounded-sm border-border/80 bg-secondary/65 px-2 py-0.5 tracking-[0.1em] uppercase;
-    font-size: var(--font-size-ui-micro);
-    line-height: 1.35;
+    font-size: 0.75rem;
+    line-height: 1rem;
   }
 
   .desktop-main {
@@ -447,28 +442,28 @@
 
   .desktop-toolbar {
     @apply flex items-center border-b border-border/80;
-    font-size: var(--font-size-ui-sm);
-    line-height: 1.45;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
     background: var(--surface-toolbar);
   }
 
   .desktop-subtoolbar {
     @apply flex min-h-9 items-center border-b border-border/80 px-3 text-muted-foreground;
-    font-size: var(--font-size-ui-xs);
-    line-height: 1.4;
+    font-size: 0.8125rem;
+    line-height: 1.125rem;
     background: var(--surface-panel);
   }
 
   .desktop-statusbar {
     @apply flex h-7 shrink-0 items-center justify-between bg-primary px-3 font-medium text-primary-foreground;
-    font-size: var(--font-size-ui-xs);
-    line-height: 1.4;
+    font-size: 0.8125rem;
+    line-height: 1.125rem;
   }
 
   .desktop-side-tab {
     @apply inline-flex h-8 items-center gap-2 border border-transparent px-2.5 text-muted-foreground transition-colors hover:text-foreground;
-    font-size: var(--font-size-ui-xs);
-    line-height: 1.4;
+    font-size: 0.8125rem;
+    line-height: 1.125rem;
   }
 
   .desktop-side-tab-active {
@@ -483,8 +478,8 @@
     min-height: 24px;
     border-radius: 4px;
     padding-right: 6px;
-    font-size: var(--font-size-ui-xs);
-    line-height: 1.4;
+    font-size: 0.8125rem;
+    line-height: 1.125rem;
     color: var(--color-foreground);
   }
 
@@ -607,38 +602,19 @@
   }
 
   .app-toast .el-message__content {
-    font-size: 15px;
-    line-height: 1.5;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
     word-break: break-all;
   }
 
   .app-toast .el-message__icon {
-    font-size: 18px;
+    font-size: 1.125rem;
+    line-height: 1.75rem;
     margin-top: 1px;
   }
 
-  .text-ui-tiny {
-    font-size: var(--font-size-ui-tiny);
-    line-height: 1.35;
-  }
-
-  .text-ui-micro {
-    font-size: var(--font-size-ui-micro);
-    line-height: 1.35;
-  }
-
-  .text-ui-2xs {
-    font-size: var(--font-size-ui-2xs);
-    line-height: 1.4;
-  }
-
-  .text-ui-xs {
-    font-size: var(--font-size-ui-xs);
-    line-height: 1.4;
-  }
-
-  .text-ui-sm {
-    font-size: var(--font-size-ui-sm);
-    line-height: 1.45;
+  .text-2xs {
+    font-size: 0.8125rem;
+    line-height: 1.125rem;
   }
 }

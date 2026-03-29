@@ -80,13 +80,13 @@ const emit = defineEmits<{
 
         <div class="flex min-h-0 flex-1 flex-col px-3 py-2.5">
           <p
-            class="text-ui-xs line-clamp-2 min-h-[2.5rem] break-all font-semibold leading-5 text-foreground"
+            class="text-sm line-clamp-2 min-h-[2.5rem] break-all font-semibold leading-5 text-foreground"
           >
             {{ item.name }}
           </p>
 
           <div
-            class="text-ui-tiny mt-auto flex items-center justify-between gap-3 pt-2 text-muted-foreground"
+            class="text-xs mt-auto flex items-center justify-between gap-3 pt-2 text-muted-foreground"
           >
             <span class="truncate">{{ props.renderers.getItemTypeLabel(item) }}</span>
             <template v-if="item.isDir">

@@ -63,7 +63,10 @@ impl UnpackProgressChannelImpl<UnpackProgressData> {
     }
 
     pub fn file_done(&self, path: &str, hash: u64, _err_msg: Option<String>) {
-        let finish_count = self.finish_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+        let finish_count = self
+            .finish_count
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+            + 1;
 
         let mut last_tick = self.last_tick.lock();
         if last_tick.elapsed() < self.steady_tick {
@@ -71,11 +74,14 @@ impl UnpackProgressChannelImpl<UnpackProgressData> {
         }
         *last_tick = Instant::now();
 
-        if let Err(e) = self.channel.send(WorkProgressEvent::FileDone(UnpackProgressData {
-            path: path.to_string(),
-            hash: JsSafeHash::from_u64(hash),
-            finish_count,
-        })) {
+        if let Err(e) = self
+            .channel
+            .send(WorkProgressEvent::FileDone(UnpackProgressData {
+                path: path.to_string(),
+                hash: JsSafeHash::from_u64(hash),
+                finish_count,
+            }))
+        {
             log::error!("Failed to send file done event: {}", e);
         }
     }
@@ -165,17 +171,23 @@ impl PackProgressChannelImpl<PackProgressData> {
     }
 
     pub fn file_done(&self, path: &str) {
-        let finish_count = self.finish_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+        let finish_count = self
+            .finish_count
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+            + 1;
 
         if !self.check_tick() {
             return;
         }
 
-        if let Err(e) = self.channel.send(WorkProgressEvent::FileDone(PackProgressData {
-            path: path.to_string(),
-            finish_count,
-            tree: None,
-        })) {
+        if let Err(e) = self
+            .channel
+            .send(WorkProgressEvent::FileDone(PackProgressData {
+                path: path.to_string(),
+                finish_count,
+                tree: None,
+            }))
+        {
             log::error!("Failed to send file done event: {}", e);
         }
     }
@@ -238,7 +250,10 @@ impl PathScanProgressChannelImpl {
     }
 
     pub fn file_start(&self, current: u32, total: u32) {
-        if let Err(e) = self.channel.send(PathScanProgressEvent::StartFile { current, total }) {
+        if let Err(e) = self
+            .channel
+            .send(PathScanProgressEvent::StartFile { current, total })
+        {
             log::error!("Failed to send path scan progress event: {}", e);
         }
     }

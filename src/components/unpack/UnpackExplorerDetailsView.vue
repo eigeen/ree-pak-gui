@@ -47,20 +47,20 @@ const columnTemplate =
           :style="props.renderers.getHeroIconStyle(item)"
         />
 
-        <span class="text-ui-xs truncate font-medium text-foreground">
+        <span class="text-sm truncate font-medium text-foreground">
           {{ item.name }}
         </span>
       </div>
 
-      <span class="text-ui-2xs truncate text-muted-foreground">
+      <span class="text-2xs truncate text-muted-foreground">
         {{ props.renderers.getItemTypeLabel(item) }}
       </span>
 
-      <span class="text-ui-2xs truncate text-right text-muted-foreground">
+      <span class="text-2xs truncate text-right text-muted-foreground">
         {{ item.isDir ? '—' : item.sizeText }}
       </span>
 
-      <span class="text-ui-2xs truncate text-muted-foreground">
+      <span class="text-2xs truncate text-muted-foreground">
         {{ props.renderers.getDetailText(item) }}
       </span>
     </template>

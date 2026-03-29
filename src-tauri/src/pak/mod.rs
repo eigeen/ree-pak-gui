@@ -58,18 +58,7 @@ impl Pak {
     }
 
     pub fn create_tree(&self, name_table: &FileNameTable) -> FileTree {
-        let mut root = FileTreeNode {
-            info: NodeInfo {
-                is_dir: true,
-                relative_path: "/".to_string(),
-                hash: None,
-                uncompressed_size: 0,
-                compressed_size: 0,
-                is_compressed: false,
-                belongs_to: None,
-            },
-            children: FxHashMap::default(),
-        };
+        let mut root_children = FxHashMap::default();
 
         let mut total_uncompressed_size = 0_u64;
         let mut total_compressed_size = 0_u64;
@@ -85,13 +74,12 @@ impl Pak {
                 .components()
                 .map(|c| c.as_os_str().to_str().unwrap())
                 .collect::<Vec<_>>();
-            let mut current_node = &mut root;
+            let mut current_node = &mut root_children;
 
             for (i, component) in components.iter().enumerate() {
                 let is_dir = i < components.len() - 1;
                 // create or get the child node
                 let child_node = current_node
-                    .children
                     .entry(component.to_string())
                     .or_insert_with(|| FileTreeNode {
                         info: NodeInfo {
@@ -116,12 +104,12 @@ impl Pak {
                     total_file_count += 1;
                 }
                 // move to the child node
-                current_node = child_node;
+                current_node = &mut child_node.children;
             }
         });
 
         FileTree {
-            root,
+            roots: root_children.into_values().collect(),
             uncompressed_size: total_uncompressed_size,
             compressed_size: total_compressed_size,
             file_count: total_file_count,

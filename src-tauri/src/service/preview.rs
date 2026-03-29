@@ -66,7 +66,8 @@ impl PreviewService {
         // check file type
         // example: path/to/file.tex.241106027 -> tex
         let ext = pak_entry_path.split('.').rev().nth(1).unwrap_or_default();
-        let file_type = PreviewFileType::from_extension(ext).ok_or(Error::PreviewFileNotSupported(ext.to_string()))?;
+        let file_type = PreviewFileType::from_extension(ext)
+            .ok_or(Error::PreviewFileNotSupported(ext.to_string()))?;
 
         // if preview file exists, return it
         if let Some(path) = self.get_existing_preview_file(&pak_entry_path) {

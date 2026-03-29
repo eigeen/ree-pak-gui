@@ -11,7 +11,7 @@ export interface PakInfo {
 }
 
 export interface FileTree {
-  root: FileTreeNode
+  roots: FileTreeNode[]
   uncompressedSize: number
   compressedSize: number
   fileCount: number
@@ -148,7 +148,7 @@ export function pak_read_file_tree(): Promise<FileTree> {
   return invoke('pak_read_file_tree')
 }
 
-export function pak_read_file_tree_optimized(options?: RenderTreeOptions): Promise<RenderTreeNode> {
+export function pak_read_file_tree_optimized(options?: RenderTreeOptions): Promise<RenderTreeNode[]> {
   return invoke('pak_read_file_tree_optimized', { options })
 }
 

@@ -13,7 +13,12 @@ pub fn message_box_error(message: &str) {
 
     let msg = to_utf16_with_nul(message);
     unsafe {
-        MessageBoxW(None, PCWSTR(msg.as_ptr()), w!("Ree Pak GUI Error"), MB_ICONERROR);
+        MessageBoxW(
+            None,
+            PCWSTR(msg.as_ptr()),
+            w!("Ree Pak GUI Error"),
+            MB_ICONERROR,
+        );
     }
 }
 
@@ -25,7 +30,10 @@ fn to_utf16_with_nul(s: &str) -> Vec<u16> {
 /// Extract all files from a zip archive to a directory.
 ///
 /// Returns a list of extracted file paths.
-pub fn zip_extract_all(input: impl AsRef<Path>, output_root: impl AsRef<Path>) -> Result<Vec<String>> {
+pub fn zip_extract_all(
+    input: impl AsRef<Path>,
+    output_root: impl AsRef<Path>,
+) -> Result<Vec<String>> {
     let input = input.as_ref();
     let output_root = output_root.as_ref();
 

@@ -12,7 +12,10 @@ pub enum Error {
     #[error("IO error: {0}")]
     UpstreamIO(#[from] std::io::Error),
     #[error("File IO error: path = {path}, source = {source}")]
-    FileIO { path: String, source: std::io::Error },
+    FileIO {
+        path: String,
+        source: std::io::Error,
+    },
     #[error("Tex error: {0}")]
     Tex(#[from] re_tex::error::Error),
     #[error("Image error: {0}")]

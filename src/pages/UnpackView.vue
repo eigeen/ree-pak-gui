@@ -50,7 +50,7 @@
                     <Filter class="size-4" />
                   </Button>
                 </div>
-                <label class="text-ui-xs mb-3 flex items-center gap-2 text-muted-foreground">
+                <label class="text-xs mb-3 flex items-center gap-2 text-muted-foreground">
                   <Switch v-model="unpackState.filterUseRegex" />
                   <span>{{ t('unpack.regex') }}</span>
                 </label>
@@ -161,7 +161,7 @@
               <div class="surface-console flex h-full min-w-0 flex-col">
                 <div
                   ref="consoleContainer"
-                  class="surface-console-panel text-ui-2xs editor-scrollbar min-h-0 min-w-0 flex-1 overflow-auto border border-border/60 px-3 py-2 font-mono"
+                  class="surface-console-panel text-2xs editor-scrollbar min-h-0 min-w-0 flex-1 overflow-auto border border-border/60 px-3 py-2 font-mono"
                 >
                   <div
                     v-for="line in consoleLines"
@@ -367,6 +367,8 @@ type UnpackState = {
 
 type SidebarTab = 'resources' | 'tree'
 
+const EXPLORER_ROOT_ID = '__explorer_root__'
+
 const { t } = useI18n()
 const workStore = useWorkStore()
 const settingsStore = useSettingsStore()
@@ -398,7 +400,7 @@ const sidebarTabs: UnpackSidebarTabItem[] = [
 ]
 const pakData = ref<PakInfo[]>([])
 const initialLoaded = ref(false)
-const treeData = ref<RenderTreeNode | null>(null)
+const treeData = ref<RenderTreeNode[] | null>(null)
 const showOverlay = ref(false)
 const loadingTree = ref(false)
 const currentDirectoryKey = ref('')
@@ -435,7 +437,7 @@ const texturePreviewEnabled = computed(
 )
 
 const explorerRoot = computed<ExplorerEntry | null>(() =>
-  treeData.value ? buildExplorerTree(treeData.value) : null
+  treeData.value ? buildExplorerRoot(treeData.value) : null
 )
 
 const explorerNodeMap = computed(() => {
@@ -483,7 +485,7 @@ const explorerEntries = computed(() => {
 
 const explorerViewResetKey = computed(
   () =>
-    `${treeData.value?.hash ?? 'root'}:${currentDirectoryKey.value}:${explorerSearchText.value}:${explorerLayoutMode.value}`
+    `${treeData.value?.length ?? 0}:${currentDirectoryKey.value}:${explorerSearchText.value}:${explorerLayoutMode.value}`
 )
 const explorerRenderers = computed<ExplorerRenderers>(() => ({
   getTexturePreview,
@@ -508,9 +510,15 @@ const bringTargetKey = computed(() => {
     return entry.isDir ? entry.id : (entry.parentId ?? currentDirectoryKey.value)
   }
 
-  return currentDirectoryKey.value
+  if (currentDirectoryKey.value && currentDirectoryKey.value !== EXPLORER_ROOT_ID) {
+    return currentDirectoryKey.value
+  }
+
+  return explorerRoot.value?.children[0]?.id ?? ''
 })
-const currentDirectoryPath = computed(() => currentDirectory.value?.path ?? 'Root')
+const currentDirectoryPath = computed(() =>
+  currentDirectory.value?.path ? currentDirectory.value.path : 'Root'
+)
 const statusText = computed(() => {
   if (unpackWorking.value) return 'Extracting'
   if (loadingTree.value) return 'Loading tree'
@@ -555,6 +563,10 @@ const breadcrumbDisplaySegments = computed(() => {
   let cursor = currentDirectory.value
 
   while (cursor) {
+    if (cursor.id === EXPLORER_ROOT_ID) {
+      break
+    }
+
     const labels = splitBreadcrumbLabel(cursor.name)
     for (let i = labels.length - 1; i >= 0; i -= 1) {
       segments.unshift({ id: cursor.id, label: labels[i] ?? cursor.name })
@@ -566,10 +578,6 @@ const breadcrumbDisplaySegments = computed(() => {
 })
 
 function splitBreadcrumbLabel(label: string): string[] {
-  if (label === '/') {
-    return ['/']
-  }
-
   const parts = label.split(/\s*\/\s*/).filter((part) => part.length > 0)
   return parts.length > 0 ? parts : [label]
 }
@@ -613,7 +621,7 @@ watch(explorerRoot, (root) => {
     : root.id
 
   if (!explorerNodeMap.value.has(treeFocusKey.value)) {
-    treeFocusKey.value = root.id
+    treeFocusKey.value = root.children[0]?.id ?? ''
   }
 })
 
@@ -627,7 +635,7 @@ watch(
 )
 
 watch(
-  () => [currentDirectory.value?.id ?? '', treeData.value?.hash ?? ''] as const,
+  () => [currentDirectory.value?.id ?? '', treeData.value?.length ?? 0] as const,
   () => {
     explorerLayoutMode.value = getDefaultExplorerLayout(currentDirectory.value)
   },
@@ -922,6 +930,19 @@ function buildExplorerTree(
     ),
     children: node.children?.map((child) => buildExplorerTree(child, path, id)) ?? [],
     belongsTo: node.belongsTo
+  }
+}
+
+function buildExplorerRoot(nodes: RenderTreeNode[]): ExplorerEntry {
+  return {
+    id: EXPLORER_ROOT_ID,
+    name: '',
+    label: 'Root',
+    path: '',
+    isDir: true,
+    sizeText: '',
+    children: nodes.map((node) => buildExplorerTree(node, '', EXPLORER_ROOT_ID)),
+    belongsTo: undefined
   }
 }
 

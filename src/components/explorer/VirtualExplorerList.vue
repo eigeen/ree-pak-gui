@@ -102,7 +102,7 @@ function getRowClass(item: TItem) {
 <template>
   <div class="explorer-list-shell flex h-full min-h-0 flex-col overflow-hidden">
     <div
-      class="explorer-list-header text-ui-2xs grid shrink-0 items-center gap-3 border-b border-border/70 px-3 py-2 font-semibold tracking-[0.12em] text-muted-foreground/85 uppercase"
+      class="explorer-list-header text-2xs grid shrink-0 items-center gap-3 border-b border-border/70 px-3 py-2 font-semibold tracking-[0.12em] text-muted-foreground/85 uppercase"
       :style="columnStyle"
     >
       <slot name="header" />
