@@ -92,7 +92,7 @@ const fileNameTable = ref<{ openManager: () => void } | null>(null)
 const availableTools = getAllTools()
 
 const isUnpackView = computed(() => route.name === 'UnpackView')
-const isPackView = computed(() => route.name === 'PackView')
+const isRepackView = computed(() => route.name === 'RepackView')
 const isSettingsView = computed(() => route.name === 'SettingsView')
 const unpackState = workStore.unpack
 const topNavTabs = computed<DesktopTabItem[]>(() => [
@@ -102,9 +102,9 @@ const topNavTabs = computed<DesktopTabItem[]>(() => [
     to: { name: 'UnpackView' }
   },
   {
-    value: 'pack',
+    value: 'repack',
     label: t('menu.repack'),
-    to: { name: 'PackView' }
+    to: { name: 'RepackView' }
   },
   {
     value: 'settings',
@@ -114,8 +114,8 @@ const topNavTabs = computed<DesktopTabItem[]>(() => [
 ])
 const topNavValue = computed({
   get() {
-    if (route.name === 'PackView') {
-      return 'pack'
+    if (route.name === 'RepackView') {
+      return 'repack'
     }
 
     if (route.name === 'SettingsView') {
@@ -197,7 +197,7 @@ const desktopMenuItems = computed(() => {
         ]
       }
     )
-  } else if (isPackView.value) {
+  } else if (isRepackView.value) {
     items.push(
       {
         key: 'resources',

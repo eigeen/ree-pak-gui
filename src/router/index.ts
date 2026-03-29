@@ -15,8 +15,8 @@ const router = createRouter({
     },
     {
       path: '/pack',
-      name: 'PackView',
-      component: () => import('@/pages/PackView.vue')
+      name: 'RepackView',
+      component: () => import('@/pages/RepackView.vue')
     },
     {
       path: '/settings',
