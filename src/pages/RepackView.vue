@@ -1,27 +1,27 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { UnlistenFn } from '@tauri-apps/api/event'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { exists, stat } from '@tauri-apps/plugin-fs'
 import {
   CheckCircle2,
-  CircleAlert,
   FileArchive,
   Folder,
   FolderOpen,
   FolderPlus,
   PackagePlus,
-  Play,
   Square,
   Trash2
 } from 'lucide-vue-next'
 import FileConflict from '@/components/FileConflict.vue'
 import HoverBubble from '@/components/HoverBubble.vue'
+import SystemLogPanel from '@/components/SystemLogPanel.vue'
 import type { MenuGroup } from '@/components/DesktopMenuBar.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
 import { useWorkStore, type FileItem } from '@/store/work'
 import { Packer, type ConflictFile, type ExportResult, type PackProgress } from '@/lib/packer'
+import type { PackedPak } from '@/api/tauri/pak'
 import { ShowError } from '@/utils/message'
 import { useI18n } from 'vue-i18n'
 import { Button } from '@/components/ui/button'
@@ -34,7 +34,6 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import { DenseInput } from '@/components/ui/input'
-import { Progress } from '@/components/ui/progress'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Switch } from '@/components/ui/switch'
@@ -42,6 +41,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 
 const { t } = useI18n()
 const workStore = useWorkStore()
+const EXPORT_RESULT_TREE_HEIGHT = 384
 
 type PackState = {
   exportConfig: {
@@ -51,6 +51,15 @@ type PackState = {
     fastMode: boolean
   }
   inputFiles: FileItem[]
+}
+
+type ExportTreeNode = {
+  id: string
+  label: string
+  type: 'pak' | 'directory' | 'file'
+  path: string
+  sizeText?: string
+  children?: ExportTreeNode[]
 }
 
 const packState = computed({
@@ -89,6 +98,7 @@ const exportResult = ref<ExportResult>({
   files: [],
   error: ''
 })
+const resultDialogVisible = ref(false)
 
 const conflictDialogVisible = ref(false)
 const conflictFiles = ref<ConflictFile[]>([])
@@ -155,13 +165,21 @@ const exportModeLabel = computed(() =>
     : t('pack.exportModeIndividual')
 )
 
-const currentStatusDetail = computed(() => {
-  if (progress.value.currentFile) return progress.value.currentFile
-  if (exportResult.value.error) return exportResult.value.error
-  if (exportResult.value.success)
-    return `${progress.value.finishFileCount} / ${progress.value.totalFileCount}`
-  return packState.value.exportConfig.exportDirectory || '未设置导出目录'
-})
+const exportFileCount = computed(() =>
+  exportResult.value.files.reduce((count, pak) => count + pak.files.length, 0)
+)
+
+const exportTreeData = computed(() => buildExportTree(exportResult.value.files))
+
+const exportTreeExpandedKeys = computed(() =>
+  exportFileCount.value < 100 ? collectExpandableNodeIds(exportTreeData.value) : []
+)
+
+const exportTreeProps = {
+  value: 'id',
+  label: 'label',
+  children: 'children'
+}
 
 const addFiles = async (paths: string[]) => {
   try {
@@ -251,12 +269,16 @@ const handleConflictCancel = () => {
   handleResetExport()
 }
 
-let unlisten: UnlistenFn | undefined
+watch(
+  () => exportResult.value.success,
+  (success) => {
+    if (success) {
+      resultDialogVisible.value = true
+    }
+  }
+)
 
-function handleToolbarExport() {
-  if (!enableExport.value || progress.value.working) return
-  void handleExport()
-}
+let unlisten: UnlistenFn | undefined
 
 const startListenToDrop = async () => {
   unlisten = await getCurrentWebview().onDragDropEvent(async (event) => {
@@ -277,6 +299,113 @@ onMounted(async () => {
 onUnmounted(() => {
   stopListenToDrop()
 })
+
+function buildExportTree(paks: PackedPak[]): ExportTreeNode[] {
+  return paks.map((pak, pakIndex) => {
+    const pakName = pak.path.split(/[/\\]/).pop() || pak.path
+    const rootNode: ExportTreeNode = {
+      id: `pak:${pakIndex}:${pak.path}`,
+      label: `${pakName} (${pak.files.length} files)`,
+      type: 'pak',
+      path: pak.path,
+      children: []
+    }
+
+    const directoryMap = new Map<string, ExportTreeNode>([['', rootNode]])
+
+    for (const file of pak.files) {
+      const normalizedPath = file.path.replace(/\\/g, '/').replace(/^\/+/, '')
+      const parts = normalizedPath.split('/').filter(Boolean)
+
+      if (parts.length === 0) continue
+
+      let currentPath = ''
+      let parentNode = rootNode
+
+      for (let i = 0; i < parts.length - 1; i += 1) {
+        const part = parts[i]
+        if (!part) continue
+        currentPath = currentPath ? `${currentPath}/${part}` : part
+
+        let directoryNode = directoryMap.get(currentPath)
+        if (!directoryNode) {
+          directoryNode = {
+            id: `dir:${pakIndex}:${currentPath}`,
+            label: part,
+            type: 'directory',
+            path: currentPath,
+            children: []
+          }
+          parentNode.children ??= []
+          parentNode.children.push(directoryNode)
+          directoryMap.set(currentPath, directoryNode)
+        }
+
+        parentNode = directoryNode
+      }
+
+      const fileName = parts[parts.length - 1]
+      if (!fileName) continue
+
+      parentNode.children ??= []
+      parentNode.children.push({
+        id: `file:${pakIndex}:${normalizedPath}`,
+        label: fileName,
+        type: 'file',
+        path: normalizedPath,
+        sizeText: formatFileSize(file.size)
+      })
+    }
+
+    sortExportTree(rootNode.children ?? [])
+    return rootNode
+  })
+}
+
+function sortExportTree(nodes: ExportTreeNode[]) {
+  nodes.sort((a, b) => {
+    if (a.type === 'file' && b.type !== 'file') return 1
+    if (a.type !== 'file' && b.type === 'file') return -1
+    return a.label.localeCompare(b.label)
+  })
+
+  for (const node of nodes) {
+    if (node.children) {
+      sortExportTree(node.children)
+    }
+  }
+}
+
+function collectExpandableNodeIds(nodes: ExportTreeNode[]): string[] {
+  const ids: string[] = []
+
+  const walk = (items: ExportTreeNode[]) => {
+    for (const item of items) {
+      if (item.children?.length) {
+        ids.push(item.id)
+        walk(item.children)
+      }
+    }
+  }
+
+  walk(nodes)
+  return ids
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes === 0) return '0 B'
+
+  const units = ['B', 'KB', 'MB', 'GB']
+  let index = 0
+  let current = bytes
+
+  while (current >= 1024 && index < units.length - 1) {
+    current /= 1024
+    index += 1
+  }
+
+  return `${current.toFixed(current >= 10 || index === 0 ? 0 : 2)} ${units[index]}`
+}
 </script>
 
 <template>
@@ -285,295 +414,256 @@ onUnmounted(() => {
       <PageToolbar :items="desktopMenuItems" />
 
       <ResizablePanelGroup direction="horizontal">
-        <ResizablePanel :default-size="64" :min-size="42">
-          <div class="surface-sidebar flex h-full min-w-0 flex-col">
-            <div class="desktop-toolbar h-10 justify-between px-3">
-              <div>
-                <h2 class="section-title">{{ t('menu.repack') }}</h2>
-              </div>
-              <div class="flex items-center gap-1">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger as-child>
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        class="desktop-icon-button"
-                        @click="handleAddViaDialog(false)"
-                      >
-                        <FolderPlus class="size-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent class="text-sm">{{ t('pack.addFolder') }}</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+        <ResizablePanel :default-size="26" :max-size="38" :min-size="20">
+          <aside class="surface-sidebar flex h-full min-w-0 flex-col">
+            <div class="editor-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-3">
+              <section class="space-y-3">
+                <div>
+                  <p class="section-eyebrow">{{ t('pack.exportSettings') }}</p>
+                  <h2 class="section-title">{{ t('menu.repack') }}</h2>
+                </div>
 
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger as-child>
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        class="desktop-icon-button"
-                        @click="handleAddViaDialog(true)"
-                      >
-                        <PackagePlus class="size-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent class="text-sm">{{ t('pack.addPak') }}</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger as-child>
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        class="desktop-icon-button"
-                        :disabled="packState.inputFiles.length === 0"
-                        @click="handleCloseAll"
-                      >
-                        <Trash2 class="size-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent class="text-sm">{{ t('pack.removeAll') }}</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            </div>
-
-            <div class="editor-scrollbar min-h-0 flex-1 overflow-auto p-3">
-              <div
-                v-if="packState.inputFiles.length === 0"
-                class="empty-state h-full border-0 bg-transparent"
-              >
-                <Folder class="size-8 text-muted-foreground" />
-                <p class="text-sm font-medium text-foreground">{{ t('pack.noFilesAdded') }}</p>
-                <p class="section-copy">{{ t('pack.noFilesAddedDesc') }}</p>
-              </div>
-
-              <div v-else class="space-y-2">
-                <div
-                  v-for="(file, index) in packState.inputFiles"
-                  :key="`${file.path}-${index}`"
-                  class="surface-raised flex items-center gap-3 rounded-[0.7rem] border border-border/80 px-3 py-2"
+                <RadioGroup
+                  v-model="packState.exportConfig.mode"
+                  class="flex flex-col gap-0.5 rounded-lg p-1 transition-colors hover:bg-[color-mix(in_oklch,var(--surface-toolbar)_76%,var(--surface-panel))]"
                 >
+                  <label
+                    :class="
+                      packState.exportConfig.mode === 'individual'
+                        ? 'flex min-h-10 items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors bg-[color-mix(in_oklch,var(--color-primary)_10%,transparent)] hover:bg-[color-mix(in_oklch,var(--color-primary)_14%,transparent)]'
+                        : 'flex min-h-10 items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors hover:bg-[color-mix(in_oklch,var(--surface-toolbar)_52%,transparent)]'
+                    "
+                    for="repack-mode-individual"
+                  >
+                    <RadioGroupItem id="repack-mode-individual" value="individual" class="mt-0.5" />
+                    <div class="min-w-0 flex-1">
+                      <p class="text-xs font-medium text-foreground">
+                        {{ t('pack.exportModeIndividual') }}
+                      </p>
+                    </div>
+                  </label>
+                  <label
+                    :class="
+                      packState.exportConfig.mode === 'single'
+                        ? 'flex min-h-10 items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors bg-[color-mix(in_oklch,var(--color-primary)_10%,transparent)] hover:bg-[color-mix(in_oklch,var(--color-primary)_14%,transparent)]'
+                        : 'flex min-h-10 items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors hover:bg-[color-mix(in_oklch,var(--surface-toolbar)_52%,transparent)]'
+                    "
+                    for="repack-mode-single"
+                  >
+                    <RadioGroupItem id="repack-mode-single" value="single" class="mt-0.5" />
+                    <div class="min-w-0 flex-1">
+                      <p class="text-xs font-medium text-foreground">
+                        {{ t('pack.exportModeSingle') }}
+                      </p>
+                    </div>
+                  </label>
+                </RadioGroup>
+
+                <div class="flex flex-col gap-0.5">
+                  <label
+                    class="flex min-h-12 items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-[color-mix(in_oklch,var(--surface-toolbar)_76%,var(--surface-panel))]"
+                  >
+                    <div class="min-w-0 flex-1 space-y-1">
+                      <div class="flex items-center gap-2">
+                        <p class="text-xs font-medium text-foreground">
+                          {{ t('pack.autoDetectRoot') }}
+                        </p>
+                        <HoverBubble>{{ t('pack.autoDetectRootTooltip') }}</HoverBubble>
+                      </div>
+                    </div>
+                    <Switch v-model="packState.exportConfig.autoDetectRoot" />
+                  </label>
+
+                  <label
+                    class="flex min-h-12 items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-[color-mix(in_oklch,var(--surface-toolbar)_76%,var(--surface-panel))]"
+                  >
+                    <div class="min-w-0 flex-1 space-y-1">
+                      <div class="flex items-center gap-2">
+                        <p class="text-xs font-medium text-foreground">
+                          {{ t('pack.fastMode') }}
+                        </p>
+                        <HoverBubble>
+                          {{ t('pack.fastModeTooltipL1') }}<br />
+                          {{ t('pack.fastModeTooltipL2') }}
+                        </HoverBubble>
+                      </div>
+                    </div>
+                    <Switch v-model="packState.exportConfig.fastMode" />
+                  </label>
+                </div>
+
+                <div class="space-y-2">
+                  <p class="section-eyebrow">{{ t('pack.exportDirectory') }}</p>
                   <div
-                    class="flex size-8 shrink-0 items-center justify-center rounded-[0.55rem] border border-border/70 bg-background/40 text-muted-foreground"
+                    class="flex min-h-12 items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-[color-mix(in_oklch,var(--surface-toolbar)_76%,var(--surface-panel))]"
                   >
-                    <FileArchive v-if="file.isFile" class="size-4" />
-                    <Folder v-else class="size-4" />
-                  </div>
-                  <div class="min-w-0 flex-1">
-                    <p class="truncate text-sm font-medium text-foreground">{{ file.path }}</p>
-                    <p class="text-2xs text-muted-foreground">
-                      {{ file.isFile ? 'Pak' : 'Directory' }}
-                    </p>
-                  </div>
-                  <Button
-                    size="icon-sm"
-                    variant="ghost"
-                    class="desktop-icon-button"
-                    @click="handleRemoveFile(index)"
-                  >
-                    <Trash2 class="size-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </ResizablePanel>
-
-        <ResizableHandle class="bg-border/80 hover:bg-primary data-[dragging]:bg-primary" />
-
-        <ResizablePanel :default-size="36" :min-size="24">
-          <ResizablePanelGroup direction="vertical">
-            <ResizablePanel :default-size="56" :min-size="40">
-              <div class="surface-panel flex h-full min-w-0 flex-col">
-                <div class="desktop-toolbar h-10 justify-between px-3">
-                  <h3 class="section-title">{{ t('pack.exportSettings') }}</h3>
-                </div>
-
-                <div class="editor-scrollbar min-h-0 flex-1 space-y-4 overflow-auto p-3">
-                  <section class="space-y-2">
-                    <p class="section-eyebrow">{{ t('pack.exportMode') }}</p>
-                    <RadioGroup v-model="packState.exportConfig.mode" class="gap-2">
-                      <label
-                        class="surface-raised flex cursor-pointer items-start gap-3 rounded-[0.7rem] border border-border/80 px-3 py-2.5"
-                        for="repack-mode-individual"
-                      >
-                        <RadioGroupItem
-                          id="repack-mode-individual"
-                          value="individual"
-                          class="mt-0.5"
-                        />
-                        <div class="min-w-0">
-                          <p class="text-xs font-medium text-foreground">
-                            {{ t('pack.exportModeIndividual') }}
-                          </p>
-                        </div>
-                      </label>
-                      <label
-                        class="surface-raised flex cursor-pointer items-start gap-3 rounded-[0.7rem] border border-border/80 px-3 py-2.5"
-                        for="repack-mode-single"
-                      >
-                        <RadioGroupItem id="repack-mode-single" value="single" class="mt-0.5" />
-                        <div class="min-w-0">
-                          <p class="text-xs font-medium text-foreground">
-                            {{ t('pack.exportModeSingle') }}
-                          </p>
-                        </div>
-                      </label>
-                    </RadioGroup>
-                  </section>
-
-                  <section class="space-y-2">
-                    <p class="section-eyebrow">选项</p>
-                    <label
-                      class="surface-raised flex cursor-pointer items-start justify-between gap-4 rounded-[0.7rem] border border-border/80 px-3 py-2.5"
-                    >
-                      <div class="space-y-1">
-                        <div class="flex items-center gap-2">
-                          <p class="text-xs font-medium text-foreground">
-                            {{ t('pack.autoDetectRoot') }}
-                          </p>
-                          <HoverBubble>{{ t('pack.autoDetectRootTooltip') }}</HoverBubble>
-                        </div>
-                      </div>
-                      <Switch v-model="packState.exportConfig.autoDetectRoot" />
-                    </label>
-
-                    <label
-                      class="surface-raised flex cursor-pointer items-start justify-between gap-4 rounded-[0.7rem] border border-border/80 px-3 py-2.5"
-                    >
-                      <div class="space-y-1">
-                        <div class="flex items-center gap-2">
-                          <p class="text-xs font-medium text-foreground">
-                            {{ t('pack.fastMode') }}
-                          </p>
-                          <HoverBubble>
-                            {{ t('pack.fastModeTooltipL1') }}<br />
-                            {{ t('pack.fastModeTooltipL2') }}
-                          </HoverBubble>
-                        </div>
-                      </div>
-                      <Switch v-model="packState.exportConfig.fastMode" />
-                    </label>
-                  </section>
-
-                  <section class="space-y-2">
-                    <p class="section-eyebrow">{{ t('pack.exportDirectory') }}</p>
-                    <div class="flex items-center gap-2">
+                    <div class="min-w-0 flex-1">
                       <DenseInput
                         v-model="packState.exportConfig.exportDirectory"
                         :placeholder="t('pack.exportDirectoryPlaceholder')"
                       />
-                      <Button
-                        size="icon-sm"
-                        variant="outline"
-                        class="desktop-icon-button shrink-0"
-                        @click="handleSelectDirectory"
-                      >
-                        <FolderOpen class="size-4" />
-                      </Button>
                     </div>
-                  </section>
-
-                  <section class="pt-1">
                     <Button
-                      v-if="!progress.working"
-                      :disabled="!enableExport"
-                      class="w-full"
-                      @click="handleExport"
+                      size="icon-sm"
+                      variant="ghost"
+                      class="desktop-icon-button shrink-0"
+                      @click="handleSelectDirectory"
                     >
-                      <PackagePlus class="size-4" />
-                      {{ t('pack.export') }}
+                      <FolderOpen class="size-4" />
                     </Button>
+                  </div>
+                </div>
 
-                    <Button
-                      v-else
-                      variant="destructive"
-                      class="w-full"
-                      @click="handleTerminateExport"
+                <Button
+                  v-if="!progress.working"
+                  :disabled="!enableExport"
+                  class="w-full"
+                  @click="handleExport"
+                >
+                  <PackagePlus class="size-4" />
+                  {{ t('pack.export') }}
+                </Button>
+
+                <Button v-else variant="destructive" class="w-full" @click="handleTerminateExport">
+                  <Square class="size-4" />
+                  {{ t('pack.cancelExport') }}
+                </Button>
+              </section>
+            </div>
+          </aside>
+        </ResizablePanel>
+
+        <ResizableHandle class="bg-border/80 hover:bg-primary data-[dragging]:bg-primary" />
+
+        <ResizablePanel :default-size="74" :min-size="48">
+          <ResizablePanelGroup direction="vertical">
+            <ResizablePanel :default-size="72" :min-size="44">
+              <div class="surface-panel flex h-full min-w-0 flex-col">
+                <div class="desktop-toolbar h-10 justify-between px-3">
+                  <div>
+                    <h3 class="section-title">输入文件</h3>
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger as-child>
+                          <Button
+                            size="icon-sm"
+                            variant="ghost"
+                            class="desktop-icon-button"
+                            @click="handleAddViaDialog(false)"
+                          >
+                            <FolderPlus class="size-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent class="text-sm">{{ t('pack.addFolder') }}</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger as-child>
+                          <Button
+                            size="icon-sm"
+                            variant="ghost"
+                            class="desktop-icon-button"
+                            @click="handleAddViaDialog(true)"
+                          >
+                            <PackagePlus class="size-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent class="text-sm">{{ t('pack.addPak') }}</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger as-child>
+                          <Button
+                            size="icon-sm"
+                            variant="ghost"
+                            class="desktop-icon-button"
+                            :disabled="packState.inputFiles.length === 0"
+                            @click="handleCloseAll"
+                          >
+                            <Trash2 class="size-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent class="text-sm">{{ t('pack.removeAll') }}</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </div>
+
+                <div class="editor-scrollbar min-h-0 flex-1 overflow-auto p-3">
+                  <div
+                    v-if="packState.inputFiles.length === 0"
+                    class="empty-state h-full border-0 bg-transparent"
+                  >
+                    <PackagePlus class="size-8 text-muted-foreground" />
+                    <p class="text-sm font-medium text-foreground">
+                      {{ t('pack.noFilesAdded') }}
+                    </p>
+                    <p class="section-copy">{{ t('pack.noFilesAddedDesc') }}</p>
+                  </div>
+
+                  <div v-else class="flex flex-col">
+                    <div
+                      class="grid grid-cols-[minmax(0,1.5fr)_minmax(88px,0.45fr)_minmax(0,1.8fr)_52px] items-center gap-3 border-b border-border/80 px-3 pb-2 text-[0.6875rem] text-muted-foreground"
                     >
-                      <Square class="size-4" />
-                      {{ t('pack.cancelExport') }}
-                    </Button>
-                  </section>
+                      <span class="truncate">{{ t('unpack.columnName') }}</span>
+                      <span class="truncate">{{ t('unpack.columnType') }}</span>
+                      <span class="truncate">{{ t('pack.fileList') }}</span>
+                      <span class="truncate text-right">{{ t('menu.actions') }}</span>
+                    </div>
+
+                    <div
+                      v-for="(file, index) in packState.inputFiles"
+                      :key="`${file.path}-${index}-main`"
+                      class="grid grid-cols-[minmax(0,1.5fr)_minmax(88px,0.45fr)_minmax(0,1.8fr)_52px] items-center gap-3 border-b border-border/45 px-3 py-2 transition-colors duration-150 hover:bg-[color-mix(in_oklch,var(--surface-toolbar)_58%,transparent)]"
+                    >
+                      <div class="flex min-w-0 items-center gap-2.5">
+                        <FileArchive
+                          v-if="file.isFile"
+                          class="size-4 shrink-0 text-[#f6b24f] [filter:drop-shadow(0_4px_8px_rgb(0_0_0_/_0.2))]"
+                        />
+                        <Folder
+                          v-else
+                          class="size-4 shrink-0 text-[#5db7ff] [filter:drop-shadow(0_4px_8px_rgb(0_0_0_/_0.2))]"
+                        />
+                        <span class="truncate text-sm font-medium text-foreground">
+                          {{ file.path.split(/[\\/]/).pop() || file.path }}
+                        </span>
+                      </div>
+
+                      <span class="truncate text-2xs text-muted-foreground">
+                        {{ file.isFile ? 'Pak' : 'Directory' }}
+                      </span>
+
+                      <span class="truncate text-2xs text-muted-foreground">
+                        {{ file.path }}
+                      </span>
+
+                      <div class="flex justify-end">
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          class="desktop-icon-button"
+                          @click="handleRemoveFile(index)"
+                        >
+                          <Trash2 class="size-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </ResizablePanel>
 
             <ResizableHandle class="bg-border/80 hover:bg-primary data-[dragging]:bg-primary" />
 
-            <ResizablePanel :default-size="44" :min-size="24">
-              <div class="surface-console flex h-full min-w-0 flex-col">
-                <div class="desktop-toolbar h-10 justify-between px-3">
-                  <div>
-                    <p class="section-eyebrow">Export Status</p>
-                    <h3 class="section-title">{{ statusText }}</h3>
-                  </div>
-                </div>
-
-                <div class="editor-scrollbar min-h-0 flex-1 space-y-3 overflow-auto p-3">
-                  <div
-                    v-if="progress.working || exportResult.success || exportResult.error"
-                    class="space-y-3"
-                  >
-                    <Progress
-                      v-if="progressValue > 0"
-                      :model-value="progressValue"
-                      class="h-2 rounded-full"
-                    />
-
-                    <p v-if="progressValue > 0" class="text-xs text-muted-foreground">
-                      {{ progress.finishFileCount }} / {{ progress.totalFileCount }}
-                      {{ t('pack.filesCount') }}
-                    </p>
-
-                    <div v-if="progress.currentFile" class="space-y-1">
-                      <p class="section-eyebrow">{{ t('pack.exporting') }}</p>
-                      <p class="break-all text-xs text-foreground">{{ progress.currentFile }}</p>
-                    </div>
-
-                    <div
-                      v-if="exportResult.success && !progress.working"
-                      class="rounded-[0.7rem] border border-primary/25 bg-primary/8 p-3"
-                    >
-                      <div class="mb-2 flex items-center gap-2 text-primary">
-                        <CheckCircle2 class="size-4" />
-                        <span class="text-xs font-medium">{{ t('pack.exportSuccess') }}</span>
-                      </div>
-
-                      <div v-if="exportResult.fileTree" class="space-y-2">
-                        <p class="section-eyebrow">{{ t('pack.fileStructure') }}</p>
-                        <pre
-                          class="surface-console-panel editor-scrollbar max-h-56 overflow-auto rounded-[0.55rem] border border-border/70 p-3 text-2xs"
-                          >{{ exportResult.fileTree }}</pre
-                        >
-                      </div>
-                    </div>
-
-                    <div
-                      v-else-if="exportResult.error && !progress.working"
-                      class="rounded-[0.7rem] border border-destructive/25 bg-destructive/10 p-3"
-                    >
-                      <div class="mb-2 flex items-center gap-2 text-destructive">
-                        <CircleAlert class="size-4" />
-                        <span class="text-xs font-medium">{{ t('pack.exportFailed') }}</span>
-                      </div>
-                      <p class="break-all text-xs text-destructive">{{ exportResult.error }}</p>
-                    </div>
-                  </div>
-
-                  <div v-else class="empty-state h-full border-0 bg-transparent">
-                    <PackagePlus class="size-8 text-muted-foreground" />
-                    <p class="text-sm font-medium text-foreground">等待导出</p>
-                    <p class="section-copy">配置模式与输出目录后，即可开始打包。</p>
-                  </div>
-                </div>
-              </div>
+            <ResizablePanel :default-size="28" :max-size="42" :min-size="16">
+              <SystemLogPanel title="System Log" />
             </ResizablePanel>
           </ResizablePanelGroup>
         </ResizablePanel>
@@ -586,7 +676,7 @@ onUnmounted(() => {
           <span>{{ exportModeLabel }}</span>
         </div>
         <div class="min-w-0 truncate text-right">
-          <span>{{ currentStatusDetail }}</span>
+          <span>{{ packState.exportConfig.exportDirectory || '未设置导出目录' }}</span>
         </div>
       </div>
     </div>
@@ -603,6 +693,48 @@ onUnmounted(() => {
         <DialogFooter>
           <Button variant="outline" @click="handleConflictCancel">{{ t('pack.cancel') }}</Button>
           <Button @click="handleConflictResolve">{{ t('pack.confirm') }}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog v-model:open="resultDialogVisible">
+      <DialogContent class="max-w-4xl rounded-[1rem] border-border/80 bg-background/96">
+        <DialogHeader>
+          <DialogTitle>{{ t('pack.exportSuccess') }}</DialogTitle>
+          <DialogDescription> 共导出 {{ exportFileCount }} 个文件。 </DialogDescription>
+        </DialogHeader>
+
+        <div
+          class="surface-console-panel h-[384px] overflow-hidden rounded-[0.8rem] border border-border/70 p-3"
+        >
+          <el-tree-v2
+            :data="exportTreeData"
+            :height="EXPORT_RESULT_TREE_HEIGHT"
+            :props="exportTreeProps"
+            node-key="id"
+            :default-expanded-keys="exportTreeExpandedKeys"
+            :expand-on-click-node="false"
+            class="desktop-tree rounded-[0.7rem] bg-transparent"
+          >
+            <template #default="{ data }">
+              <div class="flex min-w-0 flex-1 items-center gap-2 py-1">
+                <CheckCircle2 v-if="data.type === 'pak'" class="size-4 shrink-0 text-primary" />
+                <Folder
+                  v-else-if="data.type === 'directory'"
+                  class="size-4 shrink-0 text-sky-400"
+                />
+                <FileArchive v-else class="size-4 shrink-0 text-muted-foreground" />
+                <span class="min-w-0 truncate text-sm text-foreground">{{ data.label }}</span>
+                <span v-if="data.sizeText" class="shrink-0 text-2xs text-muted-foreground">
+                  {{ data.sizeText }}
+                </span>
+              </div>
+            </template>
+          </el-tree-v2>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" @click="resultDialogVisible = false">关闭</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

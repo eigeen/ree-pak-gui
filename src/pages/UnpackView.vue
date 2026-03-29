@@ -158,33 +158,7 @@
             <ResizableHandle class="bg-border/80 hover:bg-primary data-[dragging]:bg-primary" />
 
             <ResizablePanel :default-size="25" :max-size="42" :min-size="16">
-              <div class="surface-console flex h-full min-w-0 flex-col">
-                <div
-                  ref="consoleContainer"
-                  class="surface-console-panel text-2xs editor-scrollbar min-h-0 min-w-0 flex-1 overflow-auto border border-border/60 px-3 py-2 font-mono"
-                >
-                  <div
-                    v-for="line in consoleLines"
-                    :key="line.id"
-                    class="min-w-0 whitespace-pre-wrap break-all"
-                  >
-                    <span class="text-muted-foreground/70"
-                      >[{{ formatLogTime(line.createdAt) }}]</span
-                    >
-                    <span class="mx-1 font-semibold" :class="getLogLevelClass(line.level)">
-                      {{ getLogLevelLabel(line.level) }}
-                    </span>
-                    <span :class="getLogMessageClass(line.level)">{{ line.message }}</span>
-                  </div>
-
-                  <div
-                    v-if="consoleLines.length === 0"
-                    class="flex h-full items-center text-muted-foreground"
-                  >
-                    暂无 system 日志
-                  </div>
-                </div>
-              </div>
+              <SystemLogPanel title="System Log" />
             </ResizablePanel>
           </ResizablePanelGroup>
         </ResizablePanel>
@@ -271,12 +245,9 @@
 <script setup lang="ts">
 import {
   computed,
-  nextTick,
   onMounted,
   onUnmounted,
   ref,
-  shallowRef,
-  toRef,
   watch,
   type CSSProperties
 } from 'vue'
@@ -313,6 +284,7 @@ import type { MenuGroup } from '@/components/DesktopMenuBar.vue'
 import FileNameTable from '@/components/FileNameTable/FileNameTable.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
 import PakFiles from '@/components/PakFiles.vue'
+import SystemLogPanel from '@/components/SystemLogPanel.vue'
 import UnpackSidebarTabs, {
   type UnpackSidebarTabItem
 } from '@/components/unpack/UnpackSidebarTabs.vue'
@@ -331,7 +303,6 @@ import type {
 } from '@/lib/unpackExplorer'
 import { fileListService } from '@/service/filelist'
 import { useSettingsStore } from '@/store/settings'
-import { useSystemLogStore, type SystemLogEntry, type SystemLogLevel } from '@/store/system'
 import { useWorkStore } from '@/store/work'
 import { ShowError, ShowWarn } from '@/utils/message'
 import {
@@ -372,9 +343,6 @@ const EXPLORER_ROOT_ID = '__explorer_root__'
 const { t } = useI18n()
 const workStore = useWorkStore()
 const settingsStore = useSettingsStore()
-const systemLogStore = useSystemLogStore()
-const systemLogEntries = toRef(systemLogStore, 'entries')
-const isProductionBuild = import.meta.env.PROD
 
 const unpackState = computed({
   get: () => workStore.unpack as unknown as UnpackState,
@@ -412,8 +380,6 @@ const currentFile = ref('')
 const totalFileCount = ref(0)
 const finishFileCount = ref(0)
 const showConfirmTermination = ref(false)
-const consoleLines = shallowRef<SystemLogEntry[]>([])
-const consoleContainer = ref<HTMLElement | null>(null)
 const visibleExplorerEntries = ref<ExplorerEntry[]>([])
 const texturePreviewCache = ref<Record<string, string | null>>({})
 const texturePreviewPending = new Set<string>()
@@ -651,24 +617,6 @@ watch(
       await stopListenToDrop()
     }
   }
-)
-
-watch(
-  systemLogEntries,
-  async (entries) => {
-    const shouldStickToBottom = isConsoleNearBottom()
-    const visibleEntries = isProductionBuild
-      ? entries.filter((entry) => entry.level !== 'debug')
-      : entries
-
-    consoleLines.value = visibleEntries.slice(-160)
-
-    if (!shouldStickToBottom) return
-
-    await nextTick()
-    scrollConsoleToBottom()
-  },
-  { immediate: true }
 )
 
 const updateFilter = () => {
@@ -1181,64 +1129,6 @@ function closeImageViewer() {
     open: false,
     urls: [],
     index: 0
-  }
-}
-
-function formatLogTime(value: string) {
-  return new Date(value).toLocaleTimeString()
-}
-
-function isConsoleNearBottom() {
-  const element = consoleContainer.value
-  if (!element) return true
-
-  const distanceToBottom = element.scrollHeight - element.scrollTop - element.clientHeight
-  return distanceToBottom <= 24
-}
-
-function scrollConsoleToBottom() {
-  const element = consoleContainer.value
-  if (!element) return
-
-  element.scrollTop = element.scrollHeight
-}
-
-function getLogLevelLabel(level: SystemLogLevel) {
-  switch (level) {
-    case 'error':
-      return '[ERROR]'
-    case 'warn':
-      return '[WARN]'
-    case 'info':
-      return '[INFO]'
-    case 'debug':
-      return '[DEBUG]'
-  }
-}
-
-function getLogLevelClass(level: SystemLogLevel) {
-  switch (level) {
-    case 'error':
-      return 'text-destructive'
-    case 'warn':
-      return 'text-amber-400'
-    case 'info':
-      return 'text-sky-400'
-    case 'debug':
-      return 'text-emerald-400'
-  }
-}
-
-function getLogMessageClass(level: SystemLogLevel) {
-  switch (level) {
-    case 'error':
-      return 'text-destructive'
-    case 'warn':
-      return 'text-amber-200'
-    case 'info':
-      return 'text-foreground'
-    case 'debug':
-      return 'text-muted-foreground'
   }
 }
 

@@ -301,12 +301,7 @@ export class Packer {
         }
       }
 
-      this.updateProgress({ working: false })
-      this.updateResult({
-        success: true,
-        files: [], // 依赖workFinished事件设置正确的文件树
-        error: ''
-      })
+      // `pak_pack` 只负责启动后台打包线程，真实结果以后续 `workFinished` 事件为准。
     } catch (error) {
       this.updateProgress({ working: false })
       this.updateResult({
@@ -384,12 +379,7 @@ export class Packer {
 
       await pak_pack(processedSources, outputPath, channel)
 
-      this.updateProgress({ working: false })
-      this.updateResult({
-        success: true,
-        files: [], // 依赖workFinished事件设置正确的文件树
-        error: ''
-      })
+      // `pak_pack` 只负责启动后台打包线程，真实结果以后续 `workFinished` 事件为准。
     } catch (error) {
       this.updateProgress({ working: false })
       this.updateResult({

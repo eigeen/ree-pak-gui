@@ -133,7 +133,7 @@ export default {
     settings: {
       title: '设置',
       globalTitle: '全局设置',
-      globalDescription: '这里只维护全局行为开关与本地持久化配置。',
+      globalDescription: '',
       searchPlaceholder: '搜索设置',
       sectionCommon: '常用设置',
       sectionFileExplorer: '文件浏览器',

@@ -136,7 +136,7 @@ export default {
     settings: {
       title: 'Settings',
       globalTitle: 'Global Settings',
-      globalDescription: 'This page keeps global behavior switches and local persisted config.',
+      globalDescription: '',
       searchPlaceholder: 'Search settings',
       sectionCommon: 'Commonly Used',
       sectionFileExplorer: 'File Explorer',
