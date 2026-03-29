@@ -1,6 +1,7 @@
 import { ElMessage } from 'element-plus'
 import { listen } from '@tauri-apps/api/event'
 import type { App } from 'vue'
+import { useSystemLogStore } from '@/store/system'
 
 type LogLevel = 'error' | 'warn' | 'info' | 'debug'
 
@@ -14,11 +15,14 @@ type SystemEvent = {
 
 export default {
   install: (app: App) => {
+    const systemLogStore = useSystemLogStore()
+
     listen<SystemEvent>('system', (event) => {
       const eventType = event.payload.event
       const data = event.payload.data
-      console.debug('System event:', event.payload)
       if (eventType === 'log') {
+        systemLogStore.append(data.level, data.message)
+
         if (data.level === 'error') {
           ElMessage({
             showClose: true,
@@ -27,11 +31,8 @@ export default {
             type: 'error',
             duration: 5000
           })
-          console.error('System error:', data.message)
         }
       }
     })
-
-    console.debug('System plugin installed')
   }
 }

@@ -288,58 +288,27 @@
 
             <ResizablePanel :default-size="25" :max-size="42" :min-size="16">
               <div class="flex h-full min-w-0 flex-col bg-[#09090b]">
-                <div class="flex min-h-0 flex-1">
-                  <div class="w-[18rem] shrink-0 border-r border-border/80 p-4">
-                    <div
-                      class="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground"
-                    >
-                      <span>Information</span>
-                      <div class="h-px flex-1 bg-border/80" />
-                    </div>
-                    <div class="space-y-2 text-xs">
-                      <div class="flex items-center justify-between gap-3">
-                        <span class="text-muted-foreground">Packages Count</span>
-                        <span>{{ pakData.length }}</span>
-                      </div>
-                      <div class="flex items-center justify-between gap-3">
-                        <span class="text-muted-foreground">Folders Count</span>
-                        <span>{{ currentDirectoryStats.folderCount }}</span>
-                      </div>
-                      <div class="flex items-center justify-between gap-3">
-                        <span class="text-muted-foreground">Assets Count</span>
-                        <span>{{ currentDirectoryStats.fileCount }}</span>
-                      </div>
-                      <div class="flex items-center justify-between gap-3">
-                        <span class="text-muted-foreground">Selected</span>
-                        <span class="truncate">{{
-                          selectedEntry?.name ?? currentDirectory?.name ?? 'Root'
-                        }}</span>
-                      </div>
-                      <div class="flex items-center justify-between gap-3">
-                        <span class="text-muted-foreground">Preview</span>
-                        <span>{{ previewPanelEnabled ? 'Docked' : 'Hidden' }}</span>
-                      </div>
-                    </div>
+                <div
+                  ref="consoleContainer"
+                  class="editor-scrollbar min-h-0 min-w-0 flex-1 overflow-auto border border-border/60 bg-[#050507] px-3 py-2 font-mono text-[11px] leading-[1.45]"
+                >
+                  <div
+                    v-for="line in consoleLines"
+                    :key="line.id"
+                    class="min-w-0 whitespace-pre-wrap break-all"
+                  >
+                    <span class="text-muted-foreground/70">[{{ formatLogTime(line.createdAt) }}]</span>
+                    <span class="mx-1 font-semibold" :class="getLogLevelClass(line.level)">
+                      {{ getLogLevelLabel(line.level) }}
+                    </span>
+                    <span :class="getLogMessageClass(line.level)">{{ line.message }}</span>
                   </div>
 
                   <div
-                    class="editor-scrollbar min-w-0 flex-1 overflow-auto p-3 font-mono text-[11px] leading-5"
+                    v-if="consoleLines.length === 0"
+                    class="flex h-full items-center text-muted-foreground"
                   >
-                    <div
-                      v-for="(line, index) in consoleLines"
-                      :key="`${index}-${line}`"
-                      :class="
-                        line.startsWith('[ERR]')
-                          ? 'text-destructive'
-                          : line.startsWith('[WRN]')
-                            ? 'text-amber-400'
-                            : index === consoleLines.length - 1
-                              ? 'text-primary'
-                              : 'text-muted-foreground'
-                      "
-                    >
-                      {{ line }}
-                    </div>
+                    暂无 system 日志
                   </div>
                 </div>
               </div>
@@ -410,7 +379,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, toRef, watch } from 'vue'
 import { Channel, convertFileSrc } from '@tauri-apps/api/core'
 import type { UnlistenFn } from '@tauri-apps/api/event'
 import { ProgressBarStatus, getCurrentWindow } from '@tauri-apps/api/window'
@@ -453,6 +422,7 @@ import FileNameTable from '@/components/FileNameTable/FileNameTable.vue'
 import PakFiles from '@/components/PakFiles.vue'
 import PreviewPane from '@/components/PreviewPane.vue'
 import { fileListService } from '@/service/filelist'
+import { useSystemLogStore, type SystemLogEntry, type SystemLogLevel } from '@/store/system'
 import { useWorkStore } from '@/store/work'
 import { ShowError, ShowWarn } from '@/utils/message'
 import {
@@ -493,6 +463,9 @@ type SidebarTab = 'resources' | 'tree'
 
 const { t } = useI18n()
 const workStore = useWorkStore()
+const systemLogStore = useSystemLogStore()
+const systemLogEntries = toRef(systemLogStore, 'entries')
+const isProductionBuild = import.meta.env.PROD
 
 const unpackState = computed({
   get: () => workStore.unpack as unknown as UnpackState,
@@ -521,10 +494,8 @@ const totalFileCount = ref(0)
 const finishFileCount = ref(0)
 const showConfirmTermination = ref(false)
 const lastRefreshAt = ref<Date | null>(null)
-const consoleLines = ref<string[]>([
-  '[INF] Workbench ready.',
-  '[INF] Waiting for pak files and a path list.'
-])
+const consoleLines = shallowRef<SystemLogEntry[]>([])
+const consoleContainer = ref<HTMLElement | null>(null)
 
 const progressValue = computed(() =>
   totalFileCount.value === 0 ? 0 : (finishFileCount.value / totalFileCount.value) * 100
@@ -576,16 +547,6 @@ const explorerEntries = computed(() => {
       if (a.isDir !== b.isDir) return a.isDir ? -1 : 1
       return a.name.localeCompare(b.name)
     })
-})
-
-const currentDirectoryStats = computed(() => {
-  const dir = currentDirectory.value
-  if (!dir) return { folderCount: 0, fileCount: 0 }
-
-  return {
-    folderCount: dir.children.filter((item) => item.isDir).length,
-    fileCount: dir.children.filter((item) => !item.isDir).length
-  }
 })
 
 const activeTreeNodeKey = computed(() => selectedEntry.value?.id ?? currentDirectoryKey.value)
@@ -686,10 +647,27 @@ watch(
   }
 )
 
+watch(
+  systemLogEntries,
+  async (entries) => {
+    const shouldStickToBottom = isConsoleNearBottom()
+    const visibleEntries = isProductionBuild
+      ? entries.filter((entry) => entry.level !== 'debug')
+      : entries
+
+    consoleLines.value = visibleEntries.slice(-160)
+
+    if (!shouldStickToBottom) return
+
+    await nextTick()
+    scrollConsoleToBottom()
+  },
+  { immediate: true }
+)
+
 const updateFilter = () => {
   unpackState.value.filterText = unpackState.value.filterText.trim()
   filterTextApply.value = unpackState.value.filterText
-  pushConsole(`[INF] Applied filter: ${filterTextApply.value || 'none'}`)
 }
 
 async function handleOpen() {
@@ -709,7 +687,6 @@ async function handleOpen() {
 
     for (const filePath of result) {
       await pak_open(filePath)
-      pushConsole(`[INF] Opened pak: ${filePath}`)
     }
 
     await reloadData()
@@ -725,7 +702,6 @@ async function handleClose(index: number) {
     if (!pak) return
 
     await pak_close(pak.id)
-    pushConsole(`[INF] Closed pak: ${pak.path}`)
     await reloadData()
   } catch (error) {
     ShowError(error)
@@ -744,7 +720,6 @@ async function doRender() {
     treeData.value = await pak_read_file_tree_optimized()
     showOverlay.value = false
     lastRefreshAt.value = new Date()
-    pushConsole('[INF] Explorer tree loaded.')
   } catch (error) {
     ShowError(error)
   } finally {
@@ -753,7 +728,6 @@ async function doRender() {
 }
 
 const handleOrder = async () => {
-  pushConsole('[INF] Reordered pak priority.')
   await reloadData()
 }
 
@@ -762,7 +736,6 @@ async function handleCloseAll() {
     for (const pak of pakData.value) {
       await pak_close(pak.id)
     }
-    pushConsole('[WRN] Closed all pak files.')
     await reloadData()
   } catch (error) {
     ShowError(error)
@@ -793,25 +766,20 @@ async function doExtraction() {
       if (event.event === 'workStart') {
         totalFileCount.value = event.data.count
         finishFileCount.value = 0
-        pushConsole(`[INF] Extraction started for ${event.data.count} files.`)
         window.setProgressBar({ status: ProgressBarStatus.Normal, progress: 0 })
       } else if (event.event === 'workFinished') {
         unpackWorking.value = false
         if (finishFileCount.value !== totalFileCount.value) {
           finishFileCount.value = totalFileCount.value
         }
-        pushConsole('[INF] Extraction finished.')
         window.setProgressBar({ status: ProgressBarStatus.None, progress: 0 })
       } else if (event.event === 'fileDone') {
         finishFileCount.value = event.data.finishCount
         currentFile.value = event.data.path
-        pushConsole(`[INF] Exported ${event.data.path}`)
         window.setProgressBar({
           status: ProgressBarStatus.Normal,
           progress: Math.floor(progressValue.value)
         })
-      } else if (event.event === 'error') {
-        pushConsole(`[ERR] ${event.data.error}`)
       }
     }
 
@@ -827,7 +795,6 @@ async function dropInAddPaks(filePaths: string[]) {
   try {
     for (const filePath of filePaths) {
       await pak_open(filePath)
-      pushConsole(`[INF] Dropped pak: ${filePath}`)
     }
     await reloadData()
   } catch (error) {
@@ -889,7 +856,6 @@ async function handleConfirmTermination() {
   showConfirmTermination.value = false
   resetProgress()
   showProgressPanel.value = false
-  pushConsole('[WRN] Extraction terminated by user.')
   ShowWarn(t('global.extractionTerminated'))
 }
 
@@ -1011,8 +977,62 @@ function handleExplorerItemOpen(item: ExplorerEntry) {
   previewPanelEnabled.value = true
 }
 
-function pushConsole(line: string) {
-  consoleLines.value = [...consoleLines.value.slice(-13), line]
+function formatLogTime(value: string) {
+  return new Date(value).toLocaleTimeString()
+}
+
+function isConsoleNearBottom() {
+  const element = consoleContainer.value
+  if (!element) return true
+
+  const distanceToBottom = element.scrollHeight - element.scrollTop - element.clientHeight
+  return distanceToBottom <= 24
+}
+
+function scrollConsoleToBottom() {
+  const element = consoleContainer.value
+  if (!element) return
+
+  element.scrollTop = element.scrollHeight
+}
+
+function getLogLevelLabel(level: SystemLogLevel) {
+  switch (level) {
+    case 'error':
+      return '[ERROR]'
+    case 'warn':
+      return '[WARN]'
+    case 'info':
+      return '[INFO]'
+    case 'debug':
+      return '[DEBUG]'
+  }
+}
+
+function getLogLevelClass(level: SystemLogLevel) {
+  switch (level) {
+    case 'error':
+      return 'text-destructive'
+    case 'warn':
+      return 'text-amber-400'
+    case 'info':
+      return 'text-sky-400'
+    case 'debug':
+      return 'text-emerald-400'
+  }
+}
+
+function getLogMessageClass(level: SystemLogLevel) {
+  switch (level) {
+    case 'error':
+      return 'text-destructive'
+    case 'warn':
+      return 'text-amber-200'
+    case 'info':
+      return 'text-foreground'
+    case 'debug':
+      return 'text-muted-foreground'
+  }
 }
 
 onMounted(async () => {
