@@ -23,7 +23,7 @@
       >
         <div class="border-b border-border/80 p-2">
           <div class="relative">
-            <Search class="pointer-events-none absolute left-2.5 top-2 size-3.5 text-[#8b949e]" />
+            <Search class="pointer-events-none absolute left-2.5 top-2 size-4 text-[#8b949e]" />
             <DenseInput v-model="searchText" class="pl-8" placeholder="搜索 Path List..." />
           </div>
         </div>

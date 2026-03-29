@@ -12,7 +12,7 @@
                   :class="sidebarTab === 'resources' ? 'desktop-side-tab-active' : ''"
                   @click="sidebarTab = 'resources'"
                 >
-                  <PackageOpen class="size-3.5" />
+                  <PackageOpen class="size-4" />
                   <span>Resources</span>
                 </button>
                 <button
@@ -21,7 +21,7 @@
                   :class="sidebarTab === 'tree' ? 'desktop-side-tab-active' : ''"
                   @click="sidebarTab = 'tree'"
                 >
-                  <FolderTree class="size-3.5" />
+                  <FolderTree class="size-4" />
                   <span>Tree</span>
                 </button>
               </div>
@@ -72,11 +72,11 @@
                     :disabled="unpackState.filterText === filterTextApply"
                     @click="updateFilter"
                   >
-                    <Filter class="size-3.5" />
+                    <Filter class="size-4" />
                   </Button>
                 </div>
-                <label class="mb-3 flex items-center gap-2 text-[11px] text-muted-foreground">
-                  <input v-model="unpackState.filterUseRegex" class="size-3.5" type="checkbox" />
+                <label class="mb-3 flex items-center gap-2 text-[12px] text-muted-foreground">
+                  <input v-model="unpackState.filterUseRegex" class="size-4" type="checkbox" />
                   <span>{{ t('unpack.regex') }}</span>
                 </label>
 
@@ -92,7 +92,7 @@
                       title="Bring selected file/folder to view"
                       @click="bringSelectedEntryIntoTreeView"
                     >
-                      <LocateFixed class="size-3.5" />
+                      <LocateFixed class="size-4" />
                     </Button>
                     <Button
                       size="icon-sm"
@@ -102,7 +102,7 @@
                       title="Collapse all"
                       @click="collapseTree"
                     >
-                      <FoldVertical class="size-3.5" />
+                      <FoldVertical class="size-4" />
                     </Button>
                   </div>
                   <Button
@@ -112,7 +112,7 @@
                     :disabled="!showOverlay"
                     @click="doRender"
                   >
-                    <RefreshCw class="size-3.5" :class="loadingTree ? 'animate-spin' : ''" />
+                    <RefreshCw class="size-4" :class="loadingTree ? 'animate-spin' : ''" />
                   </Button>
                 </div>
 
@@ -155,7 +155,7 @@
               <div class="flex h-full min-w-0 flex-col">
                 <div class="desktop-toolbar justify-between">
                   <div class="flex min-w-0 flex-1 items-center gap-2">
-                    <Search class="size-3 text-muted-foreground" />
+                    <Search class="size-4 text-muted-foreground" />
                     <DenseInput
                       v-model="explorerSearchText"
                       class="w-44 border-border/60 bg-background/80"
@@ -169,7 +169,7 @@
                     :disabled="!enableExtract"
                     @click="doExtraction"
                   >
-                    <Download class="size-3.5" />
+                    <Download class="size-4" />
                     {{ t('unpack.extract') }}
                   </Button>
                   <Button
@@ -183,16 +183,21 @@
                 </div>
 
                 <div class="desktop-subtoolbar">
-                  <button
-                    v-for="segment in breadcrumbSegments"
-                    :key="segment.id"
-                    type="button"
-                    class="truncate transition-colors hover:text-foreground"
-                    :class="segment.id === currentDirectoryKey ? 'font-medium text-foreground' : ''"
-                    @click="openDirectory(segment.id)"
+                  <div
+                    v-for="(segment, index) in breadcrumbDisplaySegments"
+                    :key="`${segment.id}-${index}-${segment.label}`"
+                    class="flex min-w-0 items-center"
                   >
-                    {{ segment.label }}
-                  </button>
+                    <span v-if="index > 0" class="px-1 text-muted-foreground/80">/</span>
+                    <button
+                      type="button"
+                      class="truncate transition-colors hover:text-foreground"
+                      :class="segment.id === currentDirectoryKey ? 'font-medium text-foreground' : ''"
+                      @click="openDirectory(segment.id)"
+                    >
+                      {{ segment.label }}
+                    </button>
+                  </div>
                 </div>
 
                 <ResizablePanelGroup direction="horizontal" class="min-h-0 flex-1">
@@ -595,17 +600,29 @@ const lastRefreshText = computed(() =>
   lastRefreshAt.value ? lastRefreshAt.value.toLocaleTimeString() : 'Never'
 )
 
-const breadcrumbSegments = computed(() => {
+const breadcrumbDisplaySegments = computed(() => {
   const segments: Array<{ id: string; label: string }> = []
   let cursor = currentDirectory.value
 
   while (cursor) {
-    segments.unshift({ id: cursor.id, label: cursor.name })
+    const labels = splitBreadcrumbLabel(cursor.name)
+    for (let i = labels.length - 1; i >= 0; i -= 1) {
+      segments.unshift({ id: cursor.id, label: labels[i] ?? cursor.name })
+    }
     cursor = cursor.parentId ? (explorerNodeMap.value.get(cursor.parentId) ?? null) : null
   }
 
   return segments
 })
+
+function splitBreadcrumbLabel(label: string): string[] {
+  if (label === '/') {
+    return ['/']
+  }
+
+  const parts = label.split(/\s*\/\s*/).filter((part) => part.length > 0)
+  return parts.length > 0 ? parts : [label]
+}
 
 watch(pakData, async () => {
   treeData.value = null

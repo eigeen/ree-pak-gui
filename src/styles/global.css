@@ -309,7 +309,7 @@
   }
 
   .desktop-window-toolbar {
-    @apply flex min-h-10 items-center justify-between gap-3 border-b border-border/80 bg-[#161619] px-3;
+    @apply flex items-center justify-between gap-3 border-b border-border/80 bg-[#161619] px-3;
   }
 
   .desktop-topbar-right {
@@ -317,11 +317,11 @@
   }
 
   .desktop-brand {
-    @apply inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-primary;
+    @apply inline-flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.22em] text-primary;
   }
 
   .desktop-brand-version {
-    @apply text-[10px] font-normal tracking-[0.16em] text-muted-foreground;
+    @apply text-[11px] font-normal tracking-[0.14em] text-muted-foreground;
   }
 
   .desktop-command-nav {
@@ -333,7 +333,7 @@
   }
 
   .desktop-command-button {
-    @apply h-7 rounded-md border border-transparent px-2.5 text-[12px];
+    @apply h-8 rounded-md border border-transparent px-2.5 text-[13px];
   }
 
   .desktop-icon-button {
@@ -341,11 +341,11 @@
   }
 
   .desktop-menu-trigger {
-    @apply inline-flex h-6 items-center rounded-sm px-2 text-[11px] text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground;
+    @apply inline-flex h-7 items-center rounded-sm px-2.5 text-[12px] text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground;
   }
 
   .desktop-pill {
-    @apply rounded-sm border-border/80 bg-secondary/65 px-2 py-0.5 text-[10px] tracking-[0.12em] uppercase;
+    @apply rounded-sm border-border/80 bg-secondary/65 px-2 py-0.5 text-[11px] tracking-[0.1em] uppercase;
   }
 
   .desktop-main {
@@ -361,19 +361,19 @@
   }
 
   .desktop-toolbar {
-    @apply flex min-h-9 items-center gap-2 border-b border-border/80 bg-[#18181b] px-3;
+    @apply flex min-h-10 items-center gap-2 border-b border-border/80 bg-[#18181b] px-3 text-[13px];
   }
 
   .desktop-subtoolbar {
-    @apply flex min-h-8 items-center gap-2 border-b border-border/80 bg-[#121214] px-3 text-[11px] text-muted-foreground;
+    @apply flex min-h-9 items-center gap-2 border-b border-border/80 bg-[#121214] px-3 text-[12px] text-muted-foreground;
   }
 
   .desktop-statusbar {
-    @apply flex h-6 shrink-0 items-center justify-between bg-primary px-3 text-[11px] font-medium text-primary-foreground;
+    @apply flex h-7 shrink-0 items-center justify-between bg-primary px-3 text-[12px] font-medium text-primary-foreground;
   }
 
   .desktop-side-tab {
-    @apply inline-flex h-7 items-center gap-1.5 border border-transparent px-2 text-[11px] text-muted-foreground transition-colors hover:text-foreground;
+    @apply inline-flex h-8 items-center gap-2 border border-transparent px-2.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground;
   }
 
   .desktop-side-tab-active {
@@ -415,11 +415,18 @@
   .app-toast {
     max-width: min(40rem, calc(100vw - 2rem));
     align-items: flex-start;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
   }
 
   .app-toast .el-message__content {
-    font-size: 14px;
+    font-size: 15px;
     line-height: 1.5;
     word-break: break-all;
+  }
+
+  .app-toast .el-message__icon {
+    font-size: 18px;
+    margin-top: 1px;
   }
 }

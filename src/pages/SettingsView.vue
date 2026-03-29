@@ -8,7 +8,7 @@
         </div>
 
         <div class="relative max-w-none">
-          <Search class="pointer-events-none absolute left-2.5 top-2 size-3.5 text-[#8b949e]" />
+          <Search class="pointer-events-none absolute left-2.5 top-2 size-4 text-[#8b949e]" />
           <DenseInput
             v-model="searchText"
             type="text"
@@ -33,7 +33,7 @@
               "
               @click="scrollToSection(section.id)"
             >
-              <ChevronRight class="size-3.5 shrink-0" />
+              <ChevronRight class="size-4 shrink-0" />
               <span class="truncate">{{ section.label }}</span>
             </button>
           </div>

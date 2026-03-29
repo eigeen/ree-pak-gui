@@ -29,7 +29,7 @@
           class="desktop-command-button relative"
           @click="showUpdateDialog"
         >
-          <Download class="size-3.5" />
+          <Download class="size-4" />
           <span>{{ t('updateDialog.updateAvailable') }}</span>
           <span class="absolute right-2 top-1.5 size-1.5 rounded-full bg-destructive" />
         </Button>
@@ -46,168 +46,8 @@
     </div>
 
     <div v-if="!isSettingsView" class="desktop-window-toolbar">
-      <div class="flex min-w-0 items-center gap-1">
-        <template v-if="isUnpackView">
-          <DropdownMenu>
-            <DropdownMenuTrigger as-child>
-              <button class="desktop-menu-trigger" type="button">
-                {{ t('menu.resources') }}
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" class="w-56 rounded-md border-border/80">
-              <DropdownMenuItem
-                class="cursor-pointer rounded-sm px-3 py-2"
-                @select="openPathListManager"
-              >
-                <Wrench class="size-4" />
-                <span>{{ t('menu.managePathLists') }}</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                class="cursor-pointer rounded-sm px-3 py-2"
-                @select="dispatchUnpackAction('open-paks')"
-              >
-                <FolderOpen class="size-4" />
-                <span>{{ t('menu.openPaks') }}</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger as-child>
-              <button class="desktop-menu-trigger" type="button">
-                {{ t('menu.actions') }}
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" class="w-56 rounded-md border-border/80">
-              <DropdownMenuItem
-                class="cursor-pointer rounded-sm px-3 py-2"
-                @select="dispatchUnpackAction('render-tree')"
-              >
-                <RefreshCw class="size-4" />
-                <span>{{ t('menu.reloadTree') }}</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </template>
-
-        <template v-else-if="isPackView">
-          <DropdownMenu>
-            <DropdownMenuTrigger as-child>
-              <button class="desktop-menu-trigger" type="button">
-                {{ t('menu.resources') }}
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" class="w-56 rounded-md border-border/80">
-              <DropdownMenuItem
-                class="cursor-pointer rounded-sm px-3 py-2"
-                @select="dispatchPackAction('add-folder')"
-              >
-                <FolderPlus class="size-4" />
-                <span>{{ t('pack.addFolder') }}</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                class="cursor-pointer rounded-sm px-3 py-2"
-                @select="dispatchPackAction('add-pak')"
-              >
-                <PackagePlus class="size-4" />
-                <span>{{ t('pack.addPak') }}</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                class="cursor-pointer rounded-sm px-3 py-2"
-                @select="dispatchPackAction('clear-files')"
-              >
-                <Trash2 class="size-4" />
-                <span>{{ t('pack.removeAll') }}</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger as-child>
-              <button class="desktop-menu-trigger" type="button">
-                {{ t('menu.actions') }}
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" class="w-56 rounded-md border-border/80">
-              <DropdownMenuItem
-                class="cursor-pointer rounded-sm px-3 py-2"
-                @select="dispatchPackAction('select-export-directory')"
-              >
-                <FolderOpen class="size-4" />
-                <span>{{ t('pack.exportDirectory') }}</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                class="cursor-pointer rounded-sm px-3 py-2"
-                @select="dispatchPackAction('export')"
-              >
-                <Play class="size-4" />
-                <span>{{ t('pack.export') }}</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </template>
-
-        <template v-if="!isSettingsView">
-          <DropdownMenu>
-            <DropdownMenuTrigger as-child>
-              <button class="desktop-menu-trigger" type="button">
-                {{ t('menu.tools') }}
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" class="w-60 rounded-md border-border/80">
-              <DropdownMenuItem
-                v-for="tool in availableTools"
-                :key="tool.id"
-                class="cursor-pointer rounded-sm px-3 py-2"
-                @select="router.push(`/tools/${tool.id}`)"
-              >
-                <component :is="tool.icon" v-if="tool.icon" class="size-4" />
-                <span>{{ t(tool.title) }}</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger as-child>
-              <button class="desktop-menu-trigger" type="button">
-                {{ t('menu.settings') }}
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" class="w-56 rounded-md border-border/80">
-              <DropdownMenuItem
-                class="cursor-pointer rounded-sm px-3 py-2"
-                @select="router.push('/settings')"
-              >
-                <Settings class="size-4" />
-                <span>{{ t('menu.openSettings') }}</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger as-child>
-              <button class="desktop-menu-trigger" type="button">
-                {{ t('menu.help') }}
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" class="w-56 rounded-md border-border/80">
-              <DropdownMenuItem
-                class="cursor-pointer rounded-sm px-3 py-2"
-                @select="showUpdateDialog"
-              >
-                <Download class="size-4" />
-                <span>{{ t('updateDialog.updateAvailable') }}</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                class="cursor-pointer rounded-sm px-3 py-2"
-                @select="openUrl('https://github.com/eigeen/ree-pak-rs')"
-              >
-                <Github class="size-4" />
-                <span>GitHub</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </template>
+      <div class="flex min-w-0 items-center gap-0">
+        <DesktopMenuBar class="min-w-0" :items="desktopMenuItems" />
       </div>
 
       <div class="flex-1" />
@@ -244,18 +84,12 @@ import {
 } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
 import { getAllTools } from '@/config/tools'
+import DesktopMenuBar from '@/components/DesktopMenuBar.vue'
 import FileNameTable from '@/components/FileNameTable/FileNameTable.vue'
 import { useFileListStore } from '@/store/filelist'
 import { useUpdateStore } from '@/store/update'
 import { useWorkStore } from '@/store/work'
-import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -295,6 +129,151 @@ function showUpdateDialog() {
 function openPathListManager() {
   fileNameTable.value?.openManager()
 }
+
+const desktopMenuItems = computed(() => {
+  const items: Array<{
+    key: string
+    label: string
+    items: Array<{
+      key: string
+      label: string
+      icon?: unknown
+      destructive?: boolean
+      action: () => void
+    }>
+  }> = []
+
+  if (isUnpackView.value) {
+    items.push(
+      {
+        key: 'resources',
+        label: t('menu.resources'),
+        items: [
+          {
+            key: 'manage-path-lists',
+            label: t('menu.managePathLists'),
+            icon: Wrench,
+            action: openPathListManager
+          },
+          {
+            key: 'open-paks',
+            label: t('menu.openPaks'),
+            icon: FolderOpen,
+            action: () => dispatchUnpackAction('open-paks')
+          }
+        ]
+      },
+      {
+        key: 'actions',
+        label: t('menu.actions'),
+        items: [
+          {
+            key: 'render-tree',
+            label: t('menu.reloadTree'),
+            icon: RefreshCw,
+            action: () => dispatchUnpackAction('render-tree')
+          }
+        ]
+      }
+    )
+  } else if (isPackView.value) {
+    items.push(
+      {
+        key: 'resources',
+        label: t('menu.resources'),
+        items: [
+          {
+            key: 'add-folder',
+            label: t('pack.addFolder'),
+            icon: FolderPlus,
+            action: () => dispatchPackAction('add-folder')
+          },
+          {
+            key: 'add-pak',
+            label: t('pack.addPak'),
+            icon: PackagePlus,
+            action: () => dispatchPackAction('add-pak')
+          },
+          {
+            key: 'clear-files',
+            label: t('pack.removeAll'),
+            icon: Trash2,
+            action: () => dispatchPackAction('clear-files')
+          }
+        ]
+      },
+      {
+        key: 'actions',
+        label: t('menu.actions'),
+        items: [
+          {
+            key: 'select-export-directory',
+            label: t('pack.exportDirectory'),
+            icon: FolderOpen,
+            action: () => dispatchPackAction('select-export-directory')
+          },
+          {
+            key: 'export',
+            label: t('pack.export'),
+            icon: Play,
+            action: () => dispatchPackAction('export')
+          }
+        ]
+      }
+    )
+  }
+
+  items.push(
+    {
+      key: 'tools',
+      label: t('menu.tools'),
+      items: availableTools.map((tool) => ({
+        key: `tool-${tool.id}`,
+        label: t(tool.title),
+        icon: tool.icon,
+        action: () => {
+          void router.push(`/tools/${tool.id}`)
+        }
+      }))
+    },
+    {
+      key: 'settings',
+      label: t('menu.settings'),
+      items: [
+        {
+          key: 'open-settings',
+          label: t('menu.openSettings'),
+          icon: Settings,
+          action: () => {
+            void router.push('/settings')
+          }
+        }
+      ]
+    },
+    {
+      key: 'help',
+      label: t('menu.help'),
+      items: [
+        {
+          key: 'show-update-dialog',
+          label: t('updateDialog.updateAvailable'),
+          icon: Download,
+          action: showUpdateDialog
+        },
+        {
+          key: 'open-github',
+          label: 'GitHub',
+          icon: Github,
+          action: () => {
+            void openUrl('https://github.com/eigeen/ree-pak-rs')
+          }
+        }
+      ]
+    }
+  )
+
+  return items
+})
 
 onMounted(async () => {
   try {
