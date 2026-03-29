@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { TreeNode } from 'element-plus'
 import type { TreeV2Instance } from 'element-plus/es/components/tree-v2/src/instance'
 import type { ExtractFileInfo, JsSafeHash, RenderTreeNode } from '@/api/tauri/pak'
-import { Braces, File, FileCode2, FileText, Image, Link2, Package, Sparkles } from 'lucide-vue-next'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { Folder } from 'lucide-vue-next'
 
 export interface TreeData {
   id: string
@@ -35,6 +35,7 @@ const treeComponent = ref<TreeV2Instance>()
 const containerRef = ref<HTMLElement>()
 const treeHeight = ref(200)
 const cachedTreeData = ref<TreeData[]>([])
+const cachedFullTreeData = ref<TreeData[]>([])
 const filteredData = ref<TreeData[]>([])
 
 let resizeObserver: ResizeObserver | null = null
@@ -80,10 +81,11 @@ watch(
     }
 
     const nextTree = createTreeData(data)
-    cachedTreeData.value = [nextTree]
+    cachedFullTreeData.value = [nextTree]
+    cachedTreeData.value = [pruneFiles(nextTree)].filter((node): node is TreeData => Boolean(node))
     filteredData.value = props.filterText
-      ? filterTreeData(deepCopy([nextTree]), getFilterObject())
-      : [nextTree]
+      ? filterTreeData(deepCopy(cachedTreeData.value), getFilterObject())
+      : deepCopy(cachedTreeData.value)
   },
   { immediate: true }
 )
@@ -136,6 +138,19 @@ function deepCopy(data: TreeData[]): TreeData[] {
   return JSON.parse(JSON.stringify(data))
 }
 
+function pruneFiles(node: TreeData): TreeData | null {
+  if (!node.isDir) {
+    return null
+  }
+
+  return {
+    ...node,
+    children: node.children
+      .map((child) => pruneFiles(child))
+      .filter((child): child is TreeData => child !== null)
+  }
+}
+
 function filterTreeData(data: TreeData[], filter: string | RegExp): TreeData[] {
   return data
     .map((node) => {
@@ -158,38 +173,40 @@ function filterTreeData(data: TreeData[], filter: string | RegExp): TreeData[] {
 }
 
 function getCheckedNodes(): ExtractFileInfo[] {
-  const nodes = treeComponent.value?.getCheckedNodes(true).filter((node) => !node.isDir)
-  if (!nodes) return []
+  const checkedDirectories = treeComponent.value?.getCheckedNodes().filter((node) => node.isDir)
+  if (!checkedDirectories?.length) return []
 
-  return nodes.map((node) => ({
-    hash: node.hash ?? parseId(node.id),
-    belongsTo: node.belongsTo
-  }))
-}
+  const files = new Map<string, ExtractFileInfo>()
 
-function parseId(id: string): JsSafeHash {
-  return id.split(',').map((str) => parseInt(str, 10)) as JsSafeHash
-}
+  const collectFiles = (node: TreeData) => {
+    if (!node.isDir) {
+      if (node.hash && node.belongsTo) {
+        files.set(node.id, {
+          hash: node.hash,
+          belongsTo: node.belongsTo
+        })
+      }
+      return
+    }
 
-const extIconMap = {
-  msg: FileText,
-  user: Braces,
-  tex: Image,
-  chain: Link2,
-  chain2: Link2,
-  pfb: Package,
-  efx: Sparkles,
-  mesh: FileCode2
-}
-
-function getFileIcon(name: string) {
-  const pathComponents = name.split('.')
-  if (pathComponents.length < 3) {
-    return File
+    node.children.forEach(collectFiles)
   }
 
-  const ext = pathComponents.at(-2)?.toLowerCase()
-  return (ext && extIconMap[ext as keyof typeof extIconMap]) || File
+  const fullTreeMap = new Map<string, TreeData>()
+  const walk = (node: TreeData) => {
+    fullTreeMap.set(node.id, node)
+    node.children.forEach(walk)
+  }
+  cachedFullTreeData.value.forEach(walk)
+
+  checkedDirectories.forEach((node) => {
+    const source = fullTreeMap.get(node.id)
+    if (source) {
+      collectFiles(source)
+    }
+  })
+
+  return [...files.values()]
 }
 
 const treeProps = {
@@ -244,15 +261,7 @@ defineExpose({ bringNodeIntoView, collapseAll, getCheckedNodes })
     >
       <template #default="{ node }">
         <div class="flex w-full items-center gap-2 text-xs">
-          <component
-            :is="getFileIcon(node.data.name)"
-            v-if="node.isLeaf"
-            class="size-3.5 shrink-0 text-primary"
-          />
-          <span
-            v-else
-            class="size-3.5 shrink-0 rounded-[3px] border border-border/80 bg-secondary/80"
-          />
+          <Folder class="size-3.5 shrink-0 text-amber-200" />
           <span class="truncate">{{ node.data.label }}</span>
         </div>
       </template>

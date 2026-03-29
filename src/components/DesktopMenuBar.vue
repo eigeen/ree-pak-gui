@@ -13,11 +13,7 @@
       {{ item.label }}
     </button>
 
-    <div
-      v-if="activeMenu"
-      class="absolute top-full z-50 pt-1"
-      :style="activeMenuStyle"
-    >
+    <div v-if="activeMenu" class="absolute top-full z-50 pt-1" :style="activeMenuStyle">
       <div
         class="min-w-[14rem] overflow-hidden rounded-md border border-border/80 bg-popover p-1 text-popover-foreground shadow-md"
         @pointerleave="handleMenuPointerLeave"
@@ -27,7 +23,11 @@
           :key="entry.key"
           type="button"
           class="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
-          :class="entry.destructive ? 'text-destructive hover:bg-destructive/10 hover:text-destructive' : ''"
+          :class="
+            entry.destructive
+              ? 'text-destructive hover:bg-destructive/10 hover:text-destructive'
+              : ''
+          "
           @click="selectItem(entry)"
         >
           <component :is="entry.icon" v-if="entry.icon" class="size-4 shrink-0" />
@@ -39,7 +39,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, type ComponentPublicInstance } from 'vue'
 
 type MenuEntry = {
   key: string
@@ -78,8 +78,18 @@ const activeMenuStyle = computed(() => {
   }
 })
 
-function setTriggerRef(key: string, element: Element | null) {
-  triggerRefs.value[key] = element instanceof HTMLElement ? element : null
+function setTriggerRef(key: string, element: Element | ComponentPublicInstance | null) {
+  if (element instanceof HTMLElement) {
+    triggerRefs.value[key] = element
+    return
+  }
+
+  if (element && '$el' in element && element.$el instanceof HTMLElement) {
+    triggerRefs.value[key] = element.$el
+    return
+  }
+
+  triggerRefs.value[key] = null
 }
 
 function toggleMenu(key: string) {

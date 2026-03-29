@@ -112,6 +112,53 @@
                         </label>
                       </div>
                     </div>
+
+                    <div>
+                      <div class="mb-3">
+                        <h4 class="text-base font-semibold text-foreground">
+                          {{ t('settings.explorerThemesTitle') }}
+                        </h4>
+                        <p class="mt-1 text-sm text-muted-foreground">
+                          {{ t('settings.explorerThemesDescription') }}
+                        </p>
+                      </div>
+
+                      <div class="space-y-3">
+                        <div
+                          v-for="type in explorerThemeTypes"
+                          :key="type.key"
+                          class="rounded-[0.75rem] border border-border/70 bg-[#252932]/70 p-3"
+                        >
+                          <div class="mb-3">
+                            <p class="text-sm font-semibold text-foreground">{{ type.label }}</p>
+                            <p class="text-xs text-muted-foreground">
+                              {{ formatExplorerTypeExtensions(type.extensions) }}
+                            </p>
+                          </div>
+
+                          <div class="flex flex-wrap gap-2">
+                            <button
+                              v-for="theme in explorerThemeOptions"
+                              :key="`${type.key}-${theme.key}`"
+                              type="button"
+                              class="inline-flex items-center gap-2 rounded-sm border px-2.5 py-1.5 text-xs transition-colors"
+                              :class="
+                                getExplorerThemeValue(type.key) === theme.key
+                                  ? 'border-foreground/30 bg-[#373c49] text-foreground'
+                                  : 'border-border/70 text-muted-foreground hover:border-border hover:bg-[#2d313c] hover:text-foreground'
+                              "
+                              @click="setExplorerThemeValue(type.key, theme.key)"
+                            >
+                              <span
+                                class="size-2.5 rounded-full"
+                                :style="{ backgroundColor: theme.accent }"
+                              />
+                              {{ theme.label }}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </template>
 
@@ -133,6 +180,13 @@
 import { computed, ref, watch } from 'vue'
 import { ChevronRight, CircleAlert, Search, Settings2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
+import {
+  configurableExplorerFileTypes,
+  defaultExplorerTypeThemes,
+  explorerThemePresets,
+  type ExplorerFileTypeKey,
+  type ExplorerThemeKey
+} from '@/lib/explorerTypeTheme'
 import { DenseInput } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -163,6 +217,9 @@ const filteredSections = computed(() => {
   return sections.value.filter((section) => section.label.toLowerCase().includes(keyword))
 })
 
+const explorerThemeTypes = configurableExplorerFileTypes
+const explorerThemeOptions = explorerThemePresets
+
 const showTexturePreview = computed({
   get: () => settingsStore.settings.value?.preview?.showTexturePreview ?? true,
   set: (value: boolean) => {
@@ -173,6 +230,32 @@ const showTexturePreview = computed({
     settingsStore.settings.value.preview.showTexturePreview = value
   }
 })
+
+function getExplorerThemeValue(typeKey: ExplorerFileTypeKey) {
+  return (
+    settingsStore.settings.value?.preview?.explorerTypeThemes?.[typeKey] ??
+    defaultExplorerTypeThemes[typeKey]
+  )
+}
+
+function setExplorerThemeValue(typeKey: ExplorerFileTypeKey, themeKey: ExplorerThemeKey) {
+  if (!settingsStore.settings.value?.preview) {
+    return
+  }
+
+  settingsStore.settings.value.preview.explorerTypeThemes[typeKey] = themeKey
+}
+
+function formatExplorerTypeExtensions(extensions: string[]) {
+  if (extensions.length === 0) {
+    return t('settings.explorerThemesFallbackHint')
+  }
+
+  return extensions
+    .slice(0, 6)
+    .map((extension) => `.${extension}`)
+    .join(', ')
+}
 
 watch(
   filteredSections,

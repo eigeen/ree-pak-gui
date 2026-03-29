@@ -365,7 +365,7 @@
   }
 
   .desktop-subtoolbar {
-    @apply flex min-h-9 items-center gap-2 border-b border-border/80 bg-[#121214] px-3 text-[12px] text-muted-foreground;
+    @apply flex min-h-9 items-center border-b border-border/80 bg-[#121214] px-3 text-[12px] text-muted-foreground;
   }
 
   .desktop-statusbar {

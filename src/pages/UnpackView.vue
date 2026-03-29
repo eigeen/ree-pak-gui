@@ -88,8 +88,8 @@
                       size="icon-sm"
                       variant="ghost"
                       class="desktop-icon-button"
-                      :disabled="!activeTreeNodeKey"
-                      title="Bring selected file/folder to view"
+                      :disabled="!bringTargetKey"
+                      title="Bring selected file/folder to tree"
                       @click="bringSelectedEntryIntoTreeView"
                     >
                       <LocateFixed class="size-4" />
@@ -134,7 +134,7 @@
                   <FileTree
                     v-else
                     ref="fileTreeComponent"
-                    :current-node-key="activeTreeNodeKey"
+                    :current-node-key="treeFocusKey"
                     :data="treeData"
                     :filter-text="filterTextApply"
                     :regex-mode="unpackState.filterUseRegex"
@@ -172,14 +172,6 @@
                     <Download class="size-4" />
                     {{ t('unpack.extract') }}
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    class="desktop-icon-button"
-                    @click="previewPanelEnabled = !previewPanelEnabled"
-                  >
-                    <PanelRightClose class="size-4" />
-                  </Button>
                 </div>
 
                 <div class="desktop-subtoolbar">
@@ -192,7 +184,9 @@
                     <button
                       type="button"
                       class="truncate transition-colors hover:text-foreground"
-                      :class="segment.id === currentDirectoryKey ? 'font-medium text-foreground' : ''"
+                      :class="
+                        segment.id === currentDirectoryKey ? 'font-medium text-foreground' : ''
+                      "
                       @click="openDirectory(segment.id)"
                     >
                       {{ segment.label }}
@@ -200,87 +194,120 @@
                   </div>
                 </div>
 
-                <ResizablePanelGroup direction="horizontal" class="min-h-0 flex-1">
-                  <ResizablePanel :default-size="previewPanelEnabled ? 72 : 100" :min-size="48">
-                    <div class="relative h-full min-w-0">
-                      <div
-                        v-if="showOverlay"
-                        class="absolute inset-4 z-20 flex items-center justify-center border border-border/80 bg-background/88 backdrop-blur-sm"
-                        @click.stop
-                      >
-                        <Button :disabled="loadingTree" @click="doRender">
-                          <RefreshCw class="size-4" :class="loadingTree ? 'animate-spin' : ''" />
-                          {{ t('unpack.loadFileTree') }}
-                        </Button>
-                      </div>
+                <div class="relative min-h-0 flex-1">
+                  <div
+                    v-if="showOverlay"
+                    class="absolute inset-4 z-20 flex items-center justify-center border border-border/80 bg-background/88 backdrop-blur-sm"
+                    @click.stop
+                  >
+                    <Button :disabled="loadingTree" @click="doRender">
+                      <RefreshCw class="size-4" :class="loadingTree ? 'animate-spin' : ''" />
+                      {{ t('unpack.loadFileTree') }}
+                    </Button>
+                  </div>
 
-                      <div class="h-full p-4">
-                        <div v-if="pakData.length === 0" class="empty-state h-full">
-                          <FileArchive class="size-10 text-muted-foreground" />
-                          <p class="text-sm font-semibold text-foreground">尚未添加文件</p>
-                          <p class="section-copy">点击左侧按钮或拖拽文件到窗口中添加 Pak 文件。</p>
-                        </div>
-
-                        <div v-else-if="!treeData" class="empty-state h-full">
-                          <FolderTree class="size-10 text-muted-foreground" />
-                          <p class="text-sm font-semibold text-foreground">资源树尚未载入</p>
-                          <p class="section-copy">
-                            选择路径列表后，点击左侧刷新按钮生成 Explorer。
-                          </p>
-                        </div>
-
-                        <div
-                          v-else
-                          class="editor-scrollbar grid h-full grid-cols-[repeat(auto-fill,minmax(7.25rem,1fr))] gap-2 overflow-auto pr-1 content-start"
-                        >
-                          <button
-                            v-for="item in explorerEntries"
-                            :key="item.id"
-                            type="button"
-                            class="group flex h-30 flex-col border border-border/80 bg-[#151518] px-2.5 py-2.5 text-left transition-colors hover:border-primary/35 hover:bg-[#1b1b20]"
-                            :class="
-                              selectedEntryKey === item.id
-                                ? 'border-primary bg-primary/12 shadow-[inset_0_0_0_1px_rgba(116,169,255,0.22)]'
-                                : ''
-                            "
-                            @click="handleExplorerItemClick(item)"
-                            @dblclick="handleExplorerItemOpen(item)"
-                          >
-                            <div
-                              class="mb-2 flex size-12 items-center justify-center border border-border/80 bg-secondary/75"
-                              :class="item.isDir ? 'text-amber-200' : 'text-primary'"
-                            >
-                              <Folder v-if="item.isDir" class="size-7" />
-                              <File v-else class="size-6" />
-                            </div>
-                            <p class="truncate text-[13px] font-semibold leading-5 text-foreground">
-                              {{ item.name }}
-                            </p>
-                            <p class="mt-0.5 text-[10px] text-muted-foreground">
-                              {{ item.isDir ? `${item.children.length} items` : item.sizeText }}
-                            </p>
-                            <p
-                              class="mt-auto truncate pt-2 text-[9px] uppercase tracking-[0.18em] text-muted-foreground"
-                            >
-                              {{ item.isDir ? 'Folder' : 'Asset' }}
-                            </p>
-                          </button>
-                        </div>
-                      </div>
+                  <div class="h-full p-4">
+                    <div v-if="pakData.length === 0" class="empty-state h-full">
+                      <FileArchive class="size-10 text-muted-foreground" />
+                      <p class="text-sm font-semibold text-foreground">尚未添加文件</p>
+                      <p class="section-copy">点击左侧按钮或拖拽文件到窗口中添加 Pak 文件。</p>
                     </div>
-                  </ResizablePanel>
 
-                  <template v-if="previewPanelEnabled">
-                    <ResizableHandle
-                      class="bg-border/80 hover:bg-primary data-[dragging]:bg-primary"
-                    />
-                    <ResizablePanel :default-size="28" :max-size="40" :min-size="20">
-                      <div class="h-full border-l border-border/80 bg-[#101012] p-3">
-                        <PreviewPane :file-name="previewFileName" :preview-uri="previewUri" />
-                      </div>
-                    </ResizablePanel>
-                  </template>
-                </ResizablePanelGroup>
+                    <div v-else-if="!treeData" class="empty-state h-full">
+                      <FolderTree class="size-10 text-muted-foreground" />
+                      <p class="text-sm font-semibold text-foreground">资源树尚未载入</p>
+                      <p class="section-copy">选择路径列表后，点击左侧刷新按钮生成 Explorer。</p>
+                    </div>
+
+                    <div
+                      v-else
+                      ref="explorerGridRef"
+                      class="editor-scrollbar grid h-full grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3 overflow-auto pr-1 content-start"
+                    >
+                      <button
+                        v-for="item in explorerEntries"
+                        :key="item.id"
+                        type="button"
+                        class="asset-tile-card group flex min-h-[13.5rem] flex-col overflow-hidden rounded-[0.4rem] bg-[#22242c] text-left shadow-[0_14px_28px_-24px_rgba(0,0,0,0.95)] transition-[background-color,box-shadow] duration-150 hover:bg-[#272a33] hover:shadow-[0_18px_30px_-24px_rgba(0,0,0,1)]"
+                        :class="getExplorerCardClass(item)"
+                        @click="handleExplorerItemClick(item)"
+                        @dblclick="handleExplorerItemOpen(item)"
+                      >
+                        <div
+                          class="relative flex h-30 items-center justify-center overflow-hidden bg-[#2a2d37] px-3 py-3"
+                          :style="getExplorerPreviewSurfaceStyle(item)"
+                        >
+                          <template v-if="item.isDir">
+                            <component
+                              :is="getExplorerHeroIcon(item)"
+                              class="asset-hero-icon size-14"
+                              :style="getExplorerHeroIconStyle(item)"
+                            />
+                          </template>
+                          <template v-else-if="texturePreviewEnabled && getTexturePreview(item)">
+                            <el-image
+                              :src="getTexturePreview(item) ?? undefined"
+                              :alt="item.name"
+                              fit="contain"
+                              class="asset-tile-preview"
+                              :preview-src-list="
+                                getTexturePreview(item) ? [getTexturePreview(item)!] : []
+                              "
+                              :initial-index="0"
+                              show-progress
+                            >
+                              <template #error>
+                                <div class="flex h-full w-full items-center justify-center">
+                                  <component
+                                    :is="getExplorerHeroIcon(item)"
+                                    class="asset-hero-icon size-12"
+                                    :style="getExplorerHeroIconStyle(item)"
+                                  />
+                                </div>
+                              </template>
+                            </el-image>
+                          </template>
+                          <template v-else>
+                            <component
+                              :is="getExplorerHeroIcon(item)"
+                              class="asset-hero-icon size-12"
+                              :style="getExplorerHeroIconStyle(item)"
+                            />
+                          </template>
+                        </div>
+
+                        <div class="h-1 shrink-0" :style="getExplorerAccentStyle(item)" />
+
+                        <div class="flex min-h-0 flex-1 flex-col px-3 py-2.5">
+                          <p
+                            class="line-clamp-2 min-h-[2.5rem] break-all text-[13px] font-semibold leading-5 text-foreground"
+                          >
+                            {{ item.name }}
+                          </p>
+
+                          <div
+                            class="mt-auto flex items-center justify-between gap-3 pt-2 text-[10px] text-muted-foreground"
+                          >
+                            <span class="truncate">{{ getExplorerItemTypeLabel(item) }}</span>
+                            <template v-if="item.isDir">
+                              <span class="asset-counts shrink-0">
+                                <span class="asset-count-chip">
+                                  <Folder class="size-3" />
+                                  {{ getExplorerDirectoryCounts(item).folders }}
+                                </span>
+                                <span class="asset-count-chip">
+                                  <File class="size-3" />
+                                  {{ getExplorerDirectoryCounts(item).files }}
+                                </span>
+                              </span>
+                            </template>
+                            <span v-else class="shrink-0">{{ item.sizeText }}</span>
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </ResizablePanel>
 
@@ -297,7 +324,9 @@
                     :key="line.id"
                     class="min-w-0 whitespace-pre-wrap break-all"
                   >
-                    <span class="text-muted-foreground/70">[{{ formatLogTime(line.createdAt) }}]</span>
+                    <span class="text-muted-foreground/70"
+                      >[{{ formatLogTime(line.createdAt) }}]</span
+                    >
                     <span class="mx-1 font-semibold" :class="getLogLevelClass(line.level)">
                       {{ getLogLevelLabel(line.level) }}
                     </span>
@@ -379,7 +408,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, toRef, watch } from 'vue'
+import {
+  computed,
+  nextTick,
+  onMounted,
+  onUnmounted,
+  ref,
+  shallowRef,
+  toRef,
+  watch,
+  type CSSProperties
+} from 'vue'
 import { Channel, convertFileSrc } from '@tauri-apps/api/core'
 import type { UnlistenFn } from '@tauri-apps/api/event'
 import { ProgressBarStatus, getCurrentWindow } from '@tauri-apps/api/window'
@@ -396,7 +435,6 @@ import {
   FolderTree,
   LocateFixed,
   PackageOpen,
-  PanelRightClose,
   RefreshCw,
   Search
 } from 'lucide-vue-next'
@@ -409,19 +447,19 @@ import {
   pak_read_file_tree_optimized,
   pak_terminate_extraction
 } from '@/api/tauri/pak'
-import type {
-  ExtractOptions,
-  JsSafeHash,
-  PakInfo,
-  RenderTreeNode,
-  UnpackProgressEvent
-} from '@/api/tauri/pak'
+import type { ExtractOptions, PakInfo, RenderTreeNode, UnpackProgressEvent } from '@/api/tauri/pak'
 import { getPreviewFile } from '@/api/tauri/utils'
 import FileTree, { type TreeData } from '@/components/FileTree.vue'
 import FileNameTable from '@/components/FileNameTable/FileNameTable.vue'
 import PakFiles from '@/components/PakFiles.vue'
-import PreviewPane from '@/components/PreviewPane.vue'
+import {
+  defaultExplorerTypeThemes,
+  getExplorerFileTypeDefinition,
+  getExplorerResolvedTheme,
+  resolveExplorerFileTypeKey
+} from '@/lib/explorerTypeTheme'
 import { fileListService } from '@/service/filelist'
+import { useSettingsStore } from '@/store/settings'
 import { useSystemLogStore, type SystemLogEntry, type SystemLogLevel } from '@/store/system'
 import { useWorkStore } from '@/store/work'
 import { ShowError, ShowWarn } from '@/utils/message'
@@ -459,10 +497,16 @@ type ExplorerEntry = TreeData & {
   children: ExplorerEntry[]
 }
 
+type ExplorerDirectoryCounts = {
+  folders: number
+  files: number
+}
+
 type SidebarTab = 'resources' | 'tree'
 
 const { t } = useI18n()
 const workStore = useWorkStore()
+const settingsStore = useSettingsStore()
 const systemLogStore = useSystemLogStore()
 const systemLogEntries = toRef(systemLogStore, 'entries')
 const isProductionBuild = import.meta.env.PROD
@@ -482,10 +526,8 @@ const initialLoaded = ref(false)
 const treeData = ref<RenderTreeNode | null>(null)
 const showOverlay = ref(false)
 const loadingTree = ref(false)
-const previewPanelEnabled = ref(false)
-const previewUri = ref('')
-const previewFileName = ref('')
 const currentDirectoryKey = ref('')
+const treeFocusKey = ref('')
 const selectedEntryKey = ref('')
 const unpackWorking = ref(false)
 const showProgressPanel = ref(false)
@@ -496,6 +538,9 @@ const showConfirmTermination = ref(false)
 const lastRefreshAt = ref<Date | null>(null)
 const consoleLines = shallowRef<SystemLogEntry[]>([])
 const consoleContainer = ref<HTMLElement | null>(null)
+const explorerGridRef = ref<HTMLElement | null>(null)
+const texturePreviewCache = ref<Record<string, string | null>>({})
+const texturePreviewPending = new Set<string>()
 
 const progressValue = computed(() =>
   totalFileCount.value === 0 ? 0 : (finishFileCount.value / totalFileCount.value) * 100
@@ -504,6 +549,12 @@ const progressValue = computed(() =>
 const enableAddPaks = computed(() => unpackState.value.fileList !== '')
 const enableExtract = computed(() => treeData.value !== null)
 const fileTreeComponent = ref<InstanceType<typeof FileTree>>()
+const texturePreviewEnabled = computed(
+  () => settingsStore.settings.value?.preview?.showTexturePreview ?? true
+)
+const explorerThemeOverrides = computed(
+  () => settingsStore.settings.value?.preview?.explorerTypeThemes ?? defaultExplorerTypeThemes
+)
 
 const explorerRoot = computed<ExplorerEntry | null>(() =>
   treeData.value ? buildExplorerTree(treeData.value) : null
@@ -544,12 +595,22 @@ const explorerEntries = computed(() => {
       return item.name.toLowerCase().includes(keyword) || item.path.toLowerCase().includes(keyword)
     })
     .sort((a, b) => {
-      if (a.isDir !== b.isDir) return a.isDir ? -1 : 1
+      if (a.isDir !== b.isDir) {
+        return a.isDir ? -1 : 1
+      }
+
       return a.name.localeCompare(b.name)
     })
 })
 
-const activeTreeNodeKey = computed(() => selectedEntry.value?.id ?? currentDirectoryKey.value)
+const bringTargetKey = computed(() => {
+  const entry = selectedEntry.value
+  if (entry) {
+    return entry.isDir ? entry.id : (entry.parentId ?? currentDirectoryKey.value)
+  }
+
+  return currentDirectoryKey.value
+})
 const currentDirectoryPath = computed(() => currentDirectory.value?.path ?? 'Root')
 const statusText = computed(() => {
   if (unpackWorking.value) return 'Extracting'
@@ -589,8 +650,8 @@ watch(pakData, async () => {
   treeData.value = null
   currentDirectoryKey.value = ''
   selectedEntryKey.value = ''
-  previewUri.value = ''
-  previewFileName.value = ''
+  texturePreviewCache.value = {}
+  texturePreviewPending.clear()
   if (initialLoaded.value) {
     unpackState.value.paks = pakData.value.map((pak) => pak.path)
   }
@@ -609,32 +670,27 @@ watch(
 watch(explorerRoot, (root) => {
   if (!root) {
     currentDirectoryKey.value = ''
+    treeFocusKey.value = ''
     return
   }
 
   currentDirectoryKey.value = explorerNodeMap.value.has(currentDirectoryKey.value)
     ? currentDirectoryKey.value
     : root.id
-})
 
-watch(selectedEntryKey, async (key) => {
-  const entry = key ? explorerNodeMap.value.get(key) : undefined
-  if (!entry || entry.isDir) {
-    previewUri.value = ''
-    previewFileName.value = ''
-    return
-  }
-
-  try {
-    const previewFile = await getPreviewFile(entry.hash ?? parseId(entry.id))
-    previewUri.value = convertFileSrc(previewFile, 'asset')
-    previewFileName.value = entry.name
-    previewPanelEnabled.value = true
-  } catch {
-    previewUri.value = ''
-    previewFileName.value = entry.name
+  if (!explorerNodeMap.value.has(treeFocusKey.value)) {
+    treeFocusKey.value = root.id
   }
 })
+
+watch(
+  () => [explorerEntries.value, texturePreviewEnabled.value] as const,
+  ([entries, enabled]) => {
+    if (!enabled) return
+    void preloadTexturePreviews(entries)
+  },
+  { immediate: true }
+)
 
 watch(
   () => enableAddPaks.value,
@@ -859,11 +915,9 @@ async function handleConfirmTermination() {
   ShowWarn(t('global.extractionTerminated'))
 }
 
-function parseId(id: string): JsSafeHash {
-  return id.split(',').map((str) => parseInt(str, 10)) as JsSafeHash
-}
-
 function handleNodeClick(data: TreeData) {
+  treeFocusKey.value = data.id
+
   if (data.isDir) {
     openDirectory(data.id)
     selectedEntryKey.value = ''
@@ -875,9 +929,10 @@ function handleNodeClick(data: TreeData) {
 }
 
 function bringSelectedEntryIntoTreeView() {
-  const key = activeTreeNodeKey.value
+  const key = bringTargetKey.value
   if (!key) return
 
+  treeFocusKey.value = key
   fileTreeComponent.value?.bringNodeIntoView(key)
 }
 
@@ -958,12 +1013,6 @@ function collapseTree() {
 }
 
 function handleExplorerItemClick(item: ExplorerEntry) {
-  if (item.isDir) {
-    currentDirectoryKey.value = item.id
-    selectedEntryKey.value = ''
-    return
-  }
-
   selectedEntryKey.value = item.id
 }
 
@@ -974,7 +1023,109 @@ function handleExplorerItemOpen(item: ExplorerEntry) {
   }
 
   selectedEntryKey.value = item.id
-  previewPanelEnabled.value = true
+}
+
+function getExplorerCardClass(item: ExplorerEntry) {
+  if (selectedEntryKey.value !== item.id) {
+    return 'ring-1 ring-transparent'
+  }
+
+  return 'bg-[#2a2d37] ring-1 ring-[#8ba5ff]/45 shadow-[0_0_0_1px_rgba(139,165,255,0.18),0_18px_40px_-28px_rgba(24,48,102,0.92)]'
+}
+
+function getExplorerTypeKey(item: ExplorerEntry) {
+  return resolveExplorerFileTypeKey(item.name, item.isDir)
+}
+
+function getExplorerTypeDefinition(item: ExplorerEntry) {
+  return getExplorerFileTypeDefinition(getExplorerTypeKey(item))
+}
+
+function getExplorerTypeTheme(item: ExplorerEntry) {
+  return getExplorerResolvedTheme(getExplorerTypeKey(item), explorerThemeOverrides.value)
+}
+
+function getExplorerHeroIcon(item: ExplorerEntry) {
+  return getExplorerTypeDefinition(item).icon
+}
+
+function getExplorerHeroIconStyle(item: ExplorerEntry): CSSProperties {
+  return {
+    color: getExplorerTypeTheme(item).hero
+  }
+}
+
+function getExplorerPreviewSurfaceStyle(item: ExplorerEntry): CSSProperties {
+  if (texturePreviewEnabled.value && getTexturePreview(item)) {
+    return {
+      background: '#1f2026'
+    }
+  }
+
+  const base = item.isDir ? '#2b2d33' : '#262933'
+
+  return {
+    background: base
+  }
+}
+
+function getExplorerAccentStyle(item: ExplorerEntry): CSSProperties {
+  return {
+    backgroundColor: getExplorerTypeTheme(item).accent
+  }
+}
+
+function getExplorerItemTypeLabel(item: ExplorerEntry) {
+  return getExplorerTypeDefinition(item).label
+}
+
+function getExplorerDirectoryCounts(item: ExplorerEntry): ExplorerDirectoryCounts {
+  const folders = item.children.filter((child) => child.isDir).length
+  return {
+    folders,
+    files: item.children.length - folders
+  }
+}
+
+function getTexturePreview(item: ExplorerEntry) {
+  return texturePreviewCache.value[item.id] ?? null
+}
+
+async function preloadTexturePreviews(entries: ExplorerEntry[]) {
+  const candidates = entries.filter(
+    (entry) => !entry.isDir && entry.hash && !(entry.id in texturePreviewCache.value)
+  )
+  const concurrency = 6
+  let cursor = 0
+
+  const worker = async () => {
+    while (cursor < candidates.length) {
+      const item = candidates[cursor]
+      cursor += 1
+      if (!item?.hash || texturePreviewPending.has(item.id)) {
+        continue
+      }
+
+      texturePreviewPending.add(item.id)
+
+      try {
+        const previewFile = await getPreviewFile(item.hash)
+        texturePreviewCache.value = {
+          ...texturePreviewCache.value,
+          [item.id]: convertFileSrc(previewFile, 'asset')
+        }
+      } catch {
+        texturePreviewCache.value = {
+          ...texturePreviewCache.value,
+          [item.id]: null
+        }
+      } finally {
+        texturePreviewPending.delete(item.id)
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, candidates.length) }, worker))
 }
 
 function formatLogTime(value: string) {
@@ -1048,3 +1199,51 @@ onUnmounted(async () => {
   await stopListenToDrop()
 })
 </script>
+
+<style scoped>
+.asset-tile-card {
+  position: relative;
+  isolation: isolate;
+}
+
+.asset-tile-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.asset-tile-preview {
+  height: 100%;
+  width: 100%;
+}
+
+.asset-hero-icon {
+  filter: drop-shadow(0 10px 18px rgb(0 0 0 / 0.28));
+}
+
+.asset-counts {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.asset-count-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: rgb(255 255 255 / 0.74);
+}
+
+.asset-tile-preview :deep(.el-image__wrapper),
+.asset-tile-preview :deep(.el-image__inner) {
+  height: 100%;
+  width: 100%;
+}
+
+.asset-tile-preview :deep(.el-image__inner) {
+  object-fit: contain;
+}
+
+.asset-tile-preview :deep(.el-image__error) {
+  background: transparent;
+}
+</style>

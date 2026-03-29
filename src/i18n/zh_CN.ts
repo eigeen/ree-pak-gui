@@ -132,8 +132,11 @@ export default {
       previewSection: '预览',
       previewTitle: '预览选项',
       texturePreviewTitle: '显示纹理预览',
-      texturePreviewDescription: '在文件列表中是否显示 Texture 缩略图。',
-      texturePreviewHint: '开启后可能影响预览性能。',
+      texturePreviewDescription: '在资源卡片内显示 Texture 缩略图。',
+      texturePreviewHint: '开启后会异步加载纹理预览，可能影响浏览性能。',
+      explorerThemesTitle: '资源类型主题',
+      explorerThemesDescription: '为不同资源类型选择 Explorer 卡片的颜色主题。',
+      explorerThemesFallbackHint: '未匹配已知扩展名时使用',
       enabled: '已启用',
       disabled: '已禁用',
       placeholderSection: '这个分类先留空，后续再补具体设置项。'

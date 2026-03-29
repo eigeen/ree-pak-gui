@@ -135,8 +135,12 @@ export default {
       previewSection: 'Preview',
       previewTitle: 'Preview Options',
       texturePreviewTitle: 'Show Texture Preview',
-      texturePreviewDescription: 'Whether to show Texture thumbnails in the file list.',
-      texturePreviewHint: 'Enabling this may affect preview performance.',
+      texturePreviewDescription: 'Whether to show Texture thumbnails inside explorer cards.',
+      texturePreviewHint:
+        'Enabling this loads texture previews asynchronously and may affect browsing performance.',
+      explorerThemesTitle: 'Resource Type Themes',
+      explorerThemesDescription: 'Choose the Explorer card color theme for each resource type.',
+      explorerThemesFallbackHint: 'Used when no known extension matches',
       enabled: 'Enabled',
       disabled: 'Disabled',
       placeholderSection: 'This category is empty for now.'
