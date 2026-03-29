@@ -34,67 +34,26 @@
       </div>
     </div>
 
-    <div v-if="!isSettingsView" class="desktop-window-toolbar">
-      <div class="flex min-w-0 items-center gap-0">
-        <DesktopMenuBar class="min-w-0" :items="desktopMenuItems" />
-      </div>
-
-      <div class="flex-1" />
-    </div>
-
-    <FileNameTable
-      ref="fileNameTable"
-      v-model="unpackState.fileList"
-      :show-manage-button="false"
-      :show-selector="false"
-      class="hidden"
-    />
     <UpdateDialog ref="updateDialog" />
   </header>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { openUrl } from '@tauri-apps/plugin-opener'
-import {
-  Download,
-  FolderOpen,
-  FolderPlus,
-  Github,
-  PackageOpen,
-  PackagePlus,
-  Play,
-  RefreshCw,
-  Settings,
-  Trash2,
-  Wrench
-} from 'lucide-vue-next'
-import { getAllTools } from '@/config/tools'
+import { Download, Github, PackageOpen } from 'lucide-vue-next'
 import DesktopTabs, { type DesktopTabItem } from '@/components/DesktopTabs.vue'
-import DesktopMenuBar from '@/components/DesktopMenuBar.vue'
-import FileNameTable from '@/components/FileNameTable/FileNameTable.vue'
-import { useFileListStore } from '@/store/filelist'
 import { useUpdateStore } from '@/store/update'
-import { useWorkStore } from '@/store/work'
 import { Button } from '@/components/ui/button'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
-const fileListStore = useFileListStore()
 const updateStore = useUpdateStore()
-const workStore = useWorkStore()
 
 const updateDialog = ref<{ popup: () => void } | null>(null)
-const fileNameTable = ref<{ openManager: () => void } | null>(null)
-const availableTools = getAllTools()
-
-const isUnpackView = computed(() => route.name === 'UnpackView')
-const isRepackView = computed(() => route.name === 'RepackView')
-const isSettingsView = computed(() => route.name === 'SettingsView')
-const unpackState = workStore.unpack
 const topNavTabs = computed<DesktopTabItem[]>(() => [
   {
     value: 'unpack',
@@ -133,174 +92,7 @@ const topNavValue = computed({
   }
 })
 
-function dispatchUnpackAction(action: 'open-paks' | 'render-tree') {
-  window.dispatchEvent(new CustomEvent(`unpack:${action}`))
-}
-
-function dispatchPackAction(
-  action: 'add-folder' | 'add-pak' | 'clear-files' | 'select-export-directory' | 'export'
-) {
-  window.dispatchEvent(new CustomEvent(`pack:${action}`))
-}
-
 function showUpdateDialog() {
   updateDialog.value?.popup()
 }
-
-function openPathListManager() {
-  fileNameTable.value?.openManager()
-}
-
-const desktopMenuItems = computed(() => {
-  const items: Array<{
-    key: string
-    label: string
-    items: Array<{
-      key: string
-      label: string
-      icon?: unknown
-      destructive?: boolean
-      action: () => void
-    }>
-  }> = []
-
-  if (isUnpackView.value) {
-    items.push(
-      {
-        key: 'resources',
-        label: t('menu.resources'),
-        items: [
-          {
-            key: 'manage-path-lists',
-            label: t('menu.managePathLists'),
-            icon: Wrench,
-            action: openPathListManager
-          },
-          {
-            key: 'open-paks',
-            label: t('menu.openPaks'),
-            icon: FolderOpen,
-            action: () => dispatchUnpackAction('open-paks')
-          }
-        ]
-      },
-      {
-        key: 'actions',
-        label: t('menu.actions'),
-        items: [
-          {
-            key: 'render-tree',
-            label: t('menu.reloadTree'),
-            icon: RefreshCw,
-            action: () => dispatchUnpackAction('render-tree')
-          }
-        ]
-      }
-    )
-  } else if (isRepackView.value) {
-    items.push(
-      {
-        key: 'resources',
-        label: t('menu.resources'),
-        items: [
-          {
-            key: 'add-folder',
-            label: t('pack.addFolder'),
-            icon: FolderPlus,
-            action: () => dispatchPackAction('add-folder')
-          },
-          {
-            key: 'add-pak',
-            label: t('pack.addPak'),
-            icon: PackagePlus,
-            action: () => dispatchPackAction('add-pak')
-          },
-          {
-            key: 'clear-files',
-            label: t('pack.removeAll'),
-            icon: Trash2,
-            action: () => dispatchPackAction('clear-files')
-          }
-        ]
-      },
-      {
-        key: 'actions',
-        label: t('menu.actions'),
-        items: [
-          {
-            key: 'select-export-directory',
-            label: t('pack.exportDirectory'),
-            icon: FolderOpen,
-            action: () => dispatchPackAction('select-export-directory')
-          },
-          {
-            key: 'export',
-            label: t('pack.export'),
-            icon: Play,
-            action: () => dispatchPackAction('export')
-          }
-        ]
-      }
-    )
-  }
-
-  items.push(
-    {
-      key: 'tools',
-      label: t('menu.tools'),
-      items: availableTools.map((tool) => ({
-        key: `tool-${tool.id}`,
-        label: t(tool.title),
-        icon: tool.icon,
-        action: () => {
-          void router.push(`/tools/${tool.id}`)
-        }
-      }))
-    },
-    {
-      key: 'settings',
-      label: t('menu.settings'),
-      items: [
-        {
-          key: 'open-settings',
-          label: t('menu.openSettings'),
-          icon: Settings,
-          action: () => {
-            void router.push('/settings')
-          }
-        }
-      ]
-    },
-    {
-      key: 'help',
-      label: t('menu.help'),
-      items: [
-        {
-          key: 'show-update-dialog',
-          label: t('updateDialog.updateAvailable'),
-          icon: Download,
-          action: showUpdateDialog
-        },
-        {
-          key: 'open-github',
-          label: 'GitHub',
-          icon: Github,
-          action: () => {
-            void openUrl('https://github.com/eigeen/ree-pak-rs')
-          }
-        }
-      ]
-    }
-  )
-
-  return items
-})
-
-onMounted(async () => {
-  try {
-    await fileListStore.refreshLocalSource()
-  } catch (error) {
-    console.error('Failed to refresh file lists:', error)
-  }
-})
 </script>

@@ -41,7 +41,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, type ComponentPublicInstance } from 'vue'
 
-type MenuEntry = {
+export type MenuEntry = {
   key: string
   label: string
   icon?: unknown
@@ -49,7 +49,7 @@ type MenuEntry = {
   action: () => void | Promise<void>
 }
 
-type MenuGroup = {
+export type MenuGroup = {
   key: string
   label: string
   items: MenuEntry[]

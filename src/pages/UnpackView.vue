@@ -1,6 +1,8 @@
 <template>
   <section class="desktop-page">
     <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <PageToolbar :items="desktopMenuItems" />
+
       <ResizablePanelGroup direction="horizontal">
         <ResizablePanel :default-size="24" :max-size="42" :min-size="18">
           <aside class="surface-sidebar flex h-full min-w-0 flex-col">
@@ -255,6 +257,14 @@
       :teleported="true"
       @close="closeImageViewer"
     />
+
+    <FileNameTable
+      ref="fileNameTable"
+      v-model="unpackState.fileList"
+      :show-manage-button="false"
+      :show-selector="false"
+      class="hidden"
+    />
   </section>
 </template>
 
@@ -279,6 +289,8 @@ import { exists } from '@tauri-apps/plugin-fs'
 import {
   FoldVertical,
   Filter,
+  FolderOpen,
+  Wrench,
   LocateFixed,
   PackageOpen,
   RefreshCw,
@@ -297,7 +309,9 @@ import {
 import type { ExtractOptions, PakInfo, RenderTreeNode, UnpackProgressEvent } from '@/api/tauri/pak'
 import { getPreviewFile } from '@/api/tauri/utils'
 import FileTree, { type TreeData } from '@/components/FileTree.vue'
+import type { MenuGroup } from '@/components/DesktopMenuBar.vue'
 import FileNameTable from '@/components/FileNameTable/FileNameTable.vue'
+import PageToolbar from '@/components/PageToolbar.vue'
 import PakFiles from '@/components/PakFiles.vue'
 import UnpackSidebarTabs, {
   type UnpackSidebarTabItem
@@ -414,6 +428,7 @@ const progressValue = computed(() =>
 const enableAddPaks = computed(() => unpackState.value.fileList !== '')
 const enableExtract = computed(() => treeData.value !== null)
 const fileTreeComponent = ref<InstanceType<typeof FileTree>>()
+const fileNameTable = ref<{ openManager: () => void } | null>(null)
 const texturePreviewEnabled = computed(
   () => settingsStore.settings.value?.preview?.showTexturePreview ?? true
 )
@@ -501,6 +516,38 @@ const statusText = computed(() => {
   if (!treeData.value) return 'Idle'
   return 'Completed'
 })
+const desktopMenuItems = computed<MenuGroup[]>(() => [
+  {
+    key: 'resources',
+    label: t('menu.resources'),
+    items: [
+      {
+        key: 'manage-path-lists',
+        label: t('menu.managePathLists'),
+        icon: Wrench,
+        action: openPathListManager
+      },
+      {
+        key: 'open-paks',
+        label: t('menu.openPaks'),
+        icon: FolderOpen,
+        action: handleOpen
+      }
+    ]
+  },
+  {
+    key: 'actions',
+    label: t('menu.actions'),
+    items: [
+      {
+        key: 'render-tree',
+        label: t('menu.reloadTree'),
+        icon: RefreshCw,
+        action: handleToolbarRenderTree
+      }
+    ]
+  }
+])
 
 const breadcrumbDisplaySegments = computed(() => {
   const segments: Array<{ id: string; label: string }> = []
@@ -524,6 +571,10 @@ function splitBreadcrumbLabel(label: string): string[] {
 
   const parts = label.split(/\s*\/\s*/).filter((part) => part.length > 0)
   return parts.length > 0 ? parts : [label]
+}
+
+function openPathListManager() {
+  fileNameTable.value?.openManager()
 }
 
 watch(pakData, async () => {
@@ -756,10 +807,8 @@ async function reloadData() {
 }
 
 let unlisten: UnlistenFn | undefined
-const handleWindowOpenPaks = () => {
-  void handleOpen()
-}
-const handleWindowRenderTree = () => {
+
+function handleToolbarRenderTree() {
   if (!unpackState.value.fileList || pakData.value.length === 0) return
   void doRender()
 }
@@ -1172,15 +1221,11 @@ function getLogMessageClass(level: SystemLogLevel) {
 }
 
 onMounted(async () => {
-  window.addEventListener('unpack:open-paks', handleWindowOpenPaks)
-  window.addEventListener('unpack:render-tree', handleWindowRenderTree)
   await startListenToDrop()
   await loadWorkRecords()
 })
 
 onUnmounted(async () => {
-  window.removeEventListener('unpack:open-paks', handleWindowOpenPaks)
-  window.removeEventListener('unpack:render-tree', handleWindowRenderTree)
   await stopListenToDrop()
 })
 </script>

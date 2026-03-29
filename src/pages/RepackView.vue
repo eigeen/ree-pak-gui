@@ -12,11 +12,14 @@ import {
   FolderOpen,
   FolderPlus,
   PackagePlus,
+  Play,
   Square,
   Trash2
 } from 'lucide-vue-next'
 import FileConflict from '@/components/FileConflict.vue'
 import HoverBubble from '@/components/HoverBubble.vue'
+import type { MenuGroup } from '@/components/DesktopMenuBar.vue'
+import PageToolbar from '@/components/PageToolbar.vue'
 import { useWorkStore, type FileItem } from '@/store/work'
 import { Packer, type ConflictFile, type ExportResult, type PackProgress } from '@/lib/packer'
 import { ShowError } from '@/utils/message'
@@ -97,6 +100,50 @@ const enableExport = computed(() => {
   }
   return true
 })
+const desktopMenuItems = computed<MenuGroup[]>(() => [
+  {
+    key: 'resources',
+    label: t('menu.resources'),
+    items: [
+      {
+        key: 'add-folder',
+        label: t('pack.addFolder'),
+        icon: FolderPlus,
+        action: () => handleAddViaDialog(false)
+      },
+      {
+        key: 'add-pak',
+        label: t('pack.addPak'),
+        icon: PackagePlus,
+        action: () => handleAddViaDialog(true)
+      },
+      {
+        key: 'clear-files',
+        label: t('pack.removeAll'),
+        icon: Trash2,
+        action: handleCloseAll
+      }
+    ]
+  },
+  {
+    key: 'actions',
+    label: t('menu.actions'),
+    items: [
+      {
+        key: 'select-export-directory',
+        label: t('pack.exportDirectory'),
+        icon: FolderOpen,
+        action: handleSelectDirectory
+      },
+      {
+        key: 'export',
+        label: t('pack.export'),
+        icon: Play,
+        action: handleToolbarExport
+      }
+    ]
+  }
+])
 
 const statusText = computed(() => {
   if (progress.value.working) return t('pack.exporting')
@@ -208,23 +255,7 @@ const handleConflictCancel = () => {
 
 let unlisten: UnlistenFn | undefined
 
-const handleWindowAddFolder = () => {
-  void handleAddViaDialog(false)
-}
-
-const handleWindowAddPak = () => {
-  void handleAddViaDialog(true)
-}
-
-const handleWindowClearFiles = () => {
-  handleCloseAll()
-}
-
-const handleWindowSelectExportDirectory = () => {
-  void handleSelectDirectory()
-}
-
-const handleWindowExport = () => {
+function handleToolbarExport() {
   if (!enableExport.value || progress.value.working) return
   void handleExport()
 }
@@ -242,20 +273,10 @@ const stopListenToDrop = () => {
 }
 
 onMounted(async () => {
-  window.addEventListener('pack:add-folder', handleWindowAddFolder)
-  window.addEventListener('pack:add-pak', handleWindowAddPak)
-  window.addEventListener('pack:clear-files', handleWindowClearFiles)
-  window.addEventListener('pack:select-export-directory', handleWindowSelectExportDirectory)
-  window.addEventListener('pack:export', handleWindowExport)
   await startListenToDrop()
 })
 
 onUnmounted(() => {
-  window.removeEventListener('pack:add-folder', handleWindowAddFolder)
-  window.removeEventListener('pack:add-pak', handleWindowAddPak)
-  window.removeEventListener('pack:clear-files', handleWindowClearFiles)
-  window.removeEventListener('pack:select-export-directory', handleWindowSelectExportDirectory)
-  window.removeEventListener('pack:export', handleWindowExport)
   stopListenToDrop()
 })
 </script>
@@ -263,6 +284,8 @@ onUnmounted(() => {
 <template>
   <section class="desktop-page">
     <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <PageToolbar :items="desktopMenuItems" />
+
       <ResizablePanelGroup direction="horizontal">
         <ResizablePanel :default-size="64" :min-size="42">
           <div class="surface-sidebar flex h-full min-w-0 flex-col">
