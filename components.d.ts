@@ -78,7 +78,6 @@ declare module 'vue' {
     PopoverAnchor: typeof import('./src/components/ui/popover/PopoverAnchor.vue')['default']
     PopoverContent: typeof import('./src/components/ui/popover/PopoverContent.vue')['default']
     PopoverTrigger: typeof import('./src/components/ui/popover/PopoverTrigger.vue')['default']
-    PreviewPane: typeof import('./src/components/PreviewPane.vue')['default']
     Progress: typeof import('./src/components/ui/progress/Progress.vue')['default']
     RadioGroup: typeof import('./src/components/ui/radio-group/RadioGroup.vue')['default']
     RadioGroupItem: typeof import('./src/components/ui/radio-group/RadioGroupItem.vue')['default']
@@ -109,6 +108,7 @@ declare module 'vue' {
     TooltipProvider: typeof import('./src/components/ui/tooltip/TooltipProvider.vue')['default']
     TooltipTrigger: typeof import('./src/components/ui/tooltip/TooltipTrigger.vue')['default']
     UpdateDialog: typeof import('./src/components/UpdateDialog.vue')['default']
+    VirtualExplorerGrid: typeof import('./src/components/explorer/VirtualExplorerGrid.vue')['default']
   }
 }
 
@@ -180,7 +180,6 @@ declare global {
   const PopoverAnchor: typeof import('./src/components/ui/popover/PopoverAnchor.vue')['default']
   const PopoverContent: typeof import('./src/components/ui/popover/PopoverContent.vue')['default']
   const PopoverTrigger: typeof import('./src/components/ui/popover/PopoverTrigger.vue')['default']
-  const PreviewPane: typeof import('./src/components/PreviewPane.vue')['default']
   const Progress: typeof import('./src/components/ui/progress/Progress.vue')['default']
   const RadioGroup: typeof import('./src/components/ui/radio-group/RadioGroup.vue')['default']
   const RadioGroupItem: typeof import('./src/components/ui/radio-group/RadioGroupItem.vue')['default']
@@ -211,4 +210,5 @@ declare global {
   const TooltipProvider: typeof import('./src/components/ui/tooltip/TooltipProvider.vue')['default']
   const TooltipTrigger: typeof import('./src/components/ui/tooltip/TooltipTrigger.vue')['default']
   const UpdateDialog: typeof import('./src/components/UpdateDialog.vue')['default']
+  const VirtualExplorerGrid: typeof import('./src/components/explorer/VirtualExplorerGrid.vue')['default']
 }

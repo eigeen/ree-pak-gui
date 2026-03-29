@@ -219,93 +219,92 @@
                       <p class="section-copy">选择路径列表后，点击左侧刷新按钮生成 Explorer。</p>
                     </div>
 
-                    <div
+                    <VirtualExplorerGrid
                       v-else
-                      ref="explorerGridRef"
-                      class="editor-scrollbar grid h-full grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3 overflow-auto pr-1 content-start"
+                      :items="explorerEntries"
+                      :selected-key="selectedEntryKey"
+                      :reset-key="explorerGridResetKey"
+                      class="h-full"
+                      @item-click="handleExplorerItemClick"
+                      @item-open="handleExplorerItemOpen"
+                      @visible-items-change="handleVisibleExplorerItemsChange"
                     >
-                      <button
-                        v-for="item in explorerEntries"
-                        :key="item.id"
-                        type="button"
-                        class="asset-tile-card group flex min-h-[13.5rem] flex-col overflow-hidden rounded-[0.4rem] bg-[#22242c] text-left shadow-[0_14px_28px_-24px_rgba(0,0,0,0.95)] transition-[background-color,box-shadow] duration-150 hover:bg-[#272a33] hover:shadow-[0_18px_30px_-24px_rgba(0,0,0,1)]"
-                        :class="getExplorerCardClass(item)"
-                        @click="handleExplorerItemClick(item)"
-                        @dblclick="handleExplorerItemOpen(item)"
-                      >
-                        <div
-                          class="relative flex h-30 items-center justify-center overflow-hidden bg-[#2a2d37] px-3 py-3"
-                          :style="getExplorerPreviewSurfaceStyle(item)"
-                        >
-                          <template v-if="item.isDir">
-                            <component
-                              :is="getExplorerHeroIcon(item)"
-                              class="asset-hero-icon size-14"
-                              :style="getExplorerHeroIconStyle(item)"
-                            />
-                          </template>
-                          <template v-else-if="texturePreviewEnabled && getTexturePreview(item)">
-                            <el-image
-                              :src="getTexturePreview(item) ?? undefined"
-                              :alt="item.name"
-                              fit="contain"
-                              class="asset-tile-preview"
-                              :preview-src-list="
-                                getTexturePreview(item) ? [getTexturePreview(item)!] : []
-                              "
-                              :initial-index="0"
-                              show-progress
-                            >
-                              <template #error>
-                                <div class="flex h-full w-full items-center justify-center">
-                                  <component
-                                    :is="getExplorerHeroIcon(item)"
-                                    class="asset-hero-icon size-12"
-                                    :style="getExplorerHeroIconStyle(item)"
-                                  />
-                                </div>
-                              </template>
-                            </el-image>
-                          </template>
-                          <template v-else>
-                            <component
-                              :is="getExplorerHeroIcon(item)"
-                              class="asset-hero-icon size-12"
-                              :style="getExplorerHeroIconStyle(item)"
-                            />
-                          </template>
-                        </div>
-
-                        <div class="h-1 shrink-0" :style="getExplorerAccentStyle(item)" />
-
-                        <div class="flex min-h-0 flex-1 flex-col px-3 py-2.5">
-                          <p
-                            class="line-clamp-2 min-h-[2.5rem] break-all text-[13px] font-semibold leading-5 text-foreground"
-                          >
-                            {{ item.name }}
-                          </p>
-
+                      <template #item="{ item }">
+                        <div class="flex h-full min-h-0 flex-col">
                           <div
-                            class="mt-auto flex items-center justify-between gap-3 pt-2 text-[10px] text-muted-foreground"
+                            class="relative flex h-30 items-center justify-center overflow-hidden bg-[#2a2d37] px-3 py-3"
+                            :style="getExplorerPreviewSurfaceStyle(item)"
                           >
-                            <span class="truncate">{{ getExplorerItemTypeLabel(item) }}</span>
                             <template v-if="item.isDir">
-                              <span class="asset-counts shrink-0">
-                                <span class="asset-count-chip">
-                                  <Folder class="size-3" />
-                                  {{ getExplorerDirectoryCounts(item).folders }}
-                                </span>
-                                <span class="asset-count-chip">
-                                  <File class="size-3" />
-                                  {{ getExplorerDirectoryCounts(item).files }}
-                                </span>
-                              </span>
+                              <component
+                                :is="getExplorerHeroIcon(item)"
+                                class="asset-hero-icon size-14"
+                                :style="getExplorerHeroIconStyle(item)"
+                              />
                             </template>
-                            <span v-else class="shrink-0">{{ item.sizeText }}</span>
+                            <template v-else-if="texturePreviewEnabled && getTexturePreview(item)">
+                              <el-image
+                                :src="getTexturePreview(item) ?? undefined"
+                                :alt="item.name"
+                                fit="contain"
+                                class="asset-tile-preview"
+                                :preview-src-list="
+                                  getTexturePreview(item) ? [getTexturePreview(item)!] : []
+                                "
+                                :initial-index="0"
+                                show-progress
+                              >
+                                <template #error>
+                                  <div class="flex h-full w-full items-center justify-center">
+                                    <component
+                                      :is="getExplorerHeroIcon(item)"
+                                      class="asset-hero-icon size-12"
+                                      :style="getExplorerHeroIconStyle(item)"
+                                    />
+                                  </div>
+                                </template>
+                              </el-image>
+                            </template>
+                            <template v-else>
+                              <component
+                                :is="getExplorerHeroIcon(item)"
+                                class="asset-hero-icon size-12"
+                                :style="getExplorerHeroIconStyle(item)"
+                              />
+                            </template>
+                          </div>
+
+                          <div class="h-1 shrink-0" :style="getExplorerAccentStyle(item)" />
+
+                          <div class="flex min-h-0 flex-1 flex-col px-3 py-2.5">
+                            <p
+                              class="line-clamp-2 min-h-[2.5rem] break-all text-[13px] font-semibold leading-5 text-foreground"
+                            >
+                              {{ item.name }}
+                            </p>
+
+                            <div
+                              class="mt-auto flex items-center justify-between gap-3 pt-2 text-[10px] text-muted-foreground"
+                            >
+                              <span class="truncate">{{ getExplorerItemTypeLabel(item) }}</span>
+                              <template v-if="item.isDir">
+                                <span class="asset-counts shrink-0">
+                                  <span class="asset-count-chip">
+                                    <Folder class="size-3" />
+                                    {{ getExplorerDirectoryCounts(item).folders }}
+                                  </span>
+                                  <span class="asset-count-chip">
+                                    <File class="size-3" />
+                                    {{ getExplorerDirectoryCounts(item).files }}
+                                  </span>
+                                </span>
+                              </template>
+                              <span v-else class="shrink-0">{{ item.sizeText }}</span>
+                            </div>
                           </div>
                         </div>
-                      </button>
-                    </div>
+                      </template>
+                    </VirtualExplorerGrid>
                   </div>
                 </div>
               </div>
@@ -450,6 +449,7 @@ import {
 import type { ExtractOptions, PakInfo, RenderTreeNode, UnpackProgressEvent } from '@/api/tauri/pak'
 import { getPreviewFile } from '@/api/tauri/utils'
 import FileTree, { type TreeData } from '@/components/FileTree.vue'
+import VirtualExplorerGrid from '@/components/explorer/VirtualExplorerGrid.vue'
 import FileNameTable from '@/components/FileNameTable/FileNameTable.vue'
 import PakFiles from '@/components/PakFiles.vue'
 import {
@@ -538,7 +538,7 @@ const showConfirmTermination = ref(false)
 const lastRefreshAt = ref<Date | null>(null)
 const consoleLines = shallowRef<SystemLogEntry[]>([])
 const consoleContainer = ref<HTMLElement | null>(null)
-const explorerGridRef = ref<HTMLElement | null>(null)
+const visibleExplorerEntries = ref<ExplorerEntry[]>([])
 const texturePreviewCache = ref<Record<string, string | null>>({})
 const texturePreviewPending = new Set<string>()
 
@@ -603,6 +603,10 @@ const explorerEntries = computed(() => {
     })
 })
 
+const explorerGridResetKey = computed(
+  () => `${treeData.value?.hash ?? 'root'}:${currentDirectoryKey.value}:${explorerSearchText.value}`
+)
+
 const bringTargetKey = computed(() => {
   const entry = selectedEntry.value
   if (entry) {
@@ -650,6 +654,7 @@ watch(pakData, async () => {
   treeData.value = null
   currentDirectoryKey.value = ''
   selectedEntryKey.value = ''
+  visibleExplorerEntries.value = []
   texturePreviewCache.value = {}
   texturePreviewPending.clear()
   if (initialLoaded.value) {
@@ -671,6 +676,7 @@ watch(explorerRoot, (root) => {
   if (!root) {
     currentDirectoryKey.value = ''
     treeFocusKey.value = ''
+    visibleExplorerEntries.value = []
     return
   }
 
@@ -684,7 +690,7 @@ watch(explorerRoot, (root) => {
 })
 
 watch(
-  () => [explorerEntries.value, texturePreviewEnabled.value] as const,
+  () => [visibleExplorerEntries.value, texturePreviewEnabled.value] as const,
   ([entries, enabled]) => {
     if (!enabled) return
     void preloadTexturePreviews(entries)
@@ -1016,6 +1022,10 @@ function handleExplorerItemClick(item: ExplorerEntry) {
   selectedEntryKey.value = item.id
 }
 
+function handleVisibleExplorerItemsChange(items: ExplorerEntry[]) {
+  visibleExplorerEntries.value = items
+}
+
 function handleExplorerItemOpen(item: ExplorerEntry) {
   if (item.isDir) {
     openDirectory(item.id)
@@ -1023,14 +1033,6 @@ function handleExplorerItemOpen(item: ExplorerEntry) {
   }
 
   selectedEntryKey.value = item.id
-}
-
-function getExplorerCardClass(item: ExplorerEntry) {
-  if (selectedEntryKey.value !== item.id) {
-    return 'ring-1 ring-transparent'
-  }
-
-  return 'bg-[#2a2d37] ring-1 ring-[#8ba5ff]/45 shadow-[0_0_0_1px_rgba(139,165,255,0.18),0_18px_40px_-28px_rgba(24,48,102,0.92)]'
 }
 
 function getExplorerTypeKey(item: ExplorerEntry) {
@@ -1201,16 +1203,6 @@ onUnmounted(async () => {
 </script>
 
 <style scoped>
-.asset-tile-card {
-  position: relative;
-  isolation: isolate;
-}
-
-.asset-tile-card > * {
-  position: relative;
-  z-index: 1;
-}
-
 .asset-tile-preview {
   height: 100%;
   width: 100%;

@@ -6,6 +6,7 @@
       "name": "ree-pak-frontend",
       "dependencies": {
         "@tailwindcss/vite": "^4.2.2",
+        "@tanstack/vue-virtual": "^3.13.23",
         "@tauri-apps/api": "^2.10.1",
         "@tauri-apps/plugin-dialog": "^2.6.0",
         "@tauri-apps/plugin-fs": "^2.4.5",
