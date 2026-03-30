@@ -1,4 +1,5 @@
 import { reactive, readonly } from 'vue'
+import i18n from '@/plugins/i18n'
 import { ShowWarn } from '@/utils/message'
 
 export type TaskProgressStatus = 'idle' | 'running' | 'success' | 'error'
@@ -82,9 +83,9 @@ const EMPTY_STATE: TaskProgressState = {
   working: false,
   status: 'idle',
   errorMessage: '',
-  closeLabel: 'Close',
-  terminateLabel: 'Terminate',
-  confirmTitle: 'Terminate',
+  closeLabel: i18n.global.t('unpack.close'),
+  terminateLabel: i18n.global.t('unpack.terminate'),
+  confirmTitle: i18n.global.t('unpack.terminate'),
   confirmDescription: '',
   placeholder: '—',
   busyMessage: ''
@@ -112,7 +113,7 @@ export function ensureTaskProgressIdle(message?: string) {
     return true
   }
 
-  ShowWarn(message || state.busyMessage || '已有任务正在进行，请稍候。')
+  ShowWarn(message || state.busyMessage || i18n.global.t('global.taskBusy'))
   return false
 }
 

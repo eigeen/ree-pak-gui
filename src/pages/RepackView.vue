@@ -157,7 +157,7 @@ const statusText = computed(() => {
   if (progress.value.working) return t('pack.exporting')
   if (exportResult.value.success) return t('pack.exportSuccess')
   if (exportResult.value.error) return t('pack.exportFailed')
-  return 'Idle'
+  return t('unpack.idle')
 })
 
 const exportModeLabel = computed(() =>
@@ -188,7 +188,7 @@ const addFiles = async (paths: string[]) => {
 
     for (const path of paths) {
       if (!(await exists(path))) {
-        ShowError(`Input file ${path} does not exist.`)
+        ShowError(t('pack.inputFileNotFound', { path }))
         continue
       }
 
@@ -215,11 +215,11 @@ const addFiles = async (paths: string[]) => {
 }
 
 const handleAddViaDialog = async (pak: boolean) => {
-  const results = await openDialog({
-    multiple: true,
-    directory: !pak,
-    filters: pak ? [{ name: 'Pak Files', extensions: ['pak'] }] : undefined
-  })
+    const results = await openDialog({
+      multiple: true,
+      directory: !pak,
+      filters: pak ? [{ name: t('pack.pakFilesFilter'), extensions: ['pak'] }] : undefined
+    })
 
   if (!results) return
   await addFiles(Array.isArray(results) ? results : [results])
@@ -310,7 +310,7 @@ function buildExportTree(paks: PackedPak[]): ExportTreeNode[] {
     const pakName = pak.path.split(/[/\\]/).pop() || pak.path
     const rootNode: ExportTreeNode = {
       id: `pak:${pakIndex}:${pak.path}`,
-      label: `${pakName} (${pak.files.length} files)`,
+      label: `${pakName} (${pak.files.length} ${t('pack.filesCount')})`,
       type: 'pak',
       path: pak.path,
       children: []
@@ -546,7 +546,7 @@ function formatFileSize(bytes: number) {
               <div class="surface-panel flex h-full min-w-0 flex-col">
                 <div class="desktop-toolbar h-10 justify-between px-3">
                   <div>
-                    <h3 class="section-title">输入文件</h3>
+                    <h3 class="section-title">{{ t('pack.inputFilesTitle') }}</h3>
                   </div>
                   <div class="flex items-center gap-1">
                     <TooltipProvider>
@@ -642,7 +642,7 @@ function formatFileSize(bytes: number) {
                       </div>
 
                       <span class="truncate text-2xs text-muted-foreground">
-                        {{ file.isFile ? 'Pak' : 'Directory' }}
+                        {{ file.isFile ? t('pack.fileTypePak') : t('pack.fileTypeDirectory') }}
                       </span>
 
                       <span class="truncate text-2xs text-muted-foreground">
@@ -668,7 +668,7 @@ function formatFileSize(bytes: number) {
             <ResizableHandle class="bg-border/80 hover:bg-primary data-[dragging]:bg-primary" />
 
             <ResizablePanel :default-size="28" :max-size="42" :min-size="16">
-              <SystemLogPanel title="System Log" />
+              <SystemLogPanel empty-text="No system logs yet" />
             </ResizablePanel>
           </ResizablePanelGroup>
         </ResizablePanel>
@@ -677,11 +677,11 @@ function formatFileSize(bytes: number) {
       <div class="desktop-statusbar">
         <div class="flex items-center gap-4">
           <span>{{ statusText }}</span>
-          <span>{{ packState.inputFiles.length }} items</span>
+          <span>{{ t('pack.itemsCount', { count: packState.inputFiles.length }) }}</span>
           <span>{{ exportModeLabel }}</span>
         </div>
         <div class="min-w-0 truncate text-right">
-          <span>{{ packState.exportConfig.exportDirectory || '未设置导出目录' }}</span>
+          <span>{{ packState.exportConfig.exportDirectory || t('pack.exportDirectoryUnset') }}</span>
         </div>
       </div>
     </div>
@@ -690,7 +690,7 @@ function formatFileSize(bytes: number) {
       <DialogContent class="max-w-4xl rounded-[1rem] border-border/80 bg-background/96">
         <DialogHeader>
           <DialogTitle>{{ t('pack.fileConflictTitle') }}</DialogTitle>
-          <DialogDescription>为存在重复来源的文件选择最终保留版本。</DialogDescription>
+          <DialogDescription>{{ t('pack.conflictDescription') }}</DialogDescription>
         </DialogHeader>
 
         <FileConflict v-model:conflicts="conflictFiles" />
@@ -706,7 +706,7 @@ function formatFileSize(bytes: number) {
       <DialogContent class="max-w-4xl rounded-[1rem] border-border/80 bg-background/96">
         <DialogHeader>
           <DialogTitle>{{ t('pack.exportSuccess') }}</DialogTitle>
-          <DialogDescription> 共导出 {{ exportFileCount }} 个文件。 </DialogDescription>
+          <DialogDescription>{{ t('pack.exportResultDescription', { count: exportFileCount }) }}</DialogDescription>
         </DialogHeader>
 
         <div
@@ -739,7 +739,9 @@ function formatFileSize(bytes: number) {
         </div>
 
         <DialogFooter>
-          <Button variant="outline" @click="resultDialogVisible = false">关闭</Button>
+          <Button variant="outline" @click="resultDialogVisible = false">
+            {{ t('unpack.close') }}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

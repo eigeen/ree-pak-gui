@@ -5,21 +5,21 @@
       class="w-full gap-0 border-l-white/40 bg-background/95 px-0 sm:max-w-md"
     >
       <SheetHeader class="border-b border-border/70 px-6 pb-5">
-        <SheetTitle>Settings</SheetTitle>
-        <SheetDescription>应用行为与本地持久化设置。</SheetDescription>
+        <SheetTitle>{{ t('settings.title') }}</SheetTitle>
+        <SheetDescription>{{ t('settings.drawerDescription') }}</SheetDescription>
       </SheetHeader>
 
       <div class="flex flex-1 flex-col gap-4 px-6 py-6">
         <SettingsItemSwitch
           v-model="autoSave"
-          title="自动保存"
-          description="工作区与设置发生变化后自动写入本地配置文件。"
+          :title="t('settings.autoSaveTitle')"
+          :description="t('settings.autoSaveDescription')"
         />
 
         <Separator />
 
         <div class="app-panel-muted p-4">
-          <p class="text-sm font-medium text-foreground">设置版本</p>
+          <p class="text-sm font-medium text-foreground">{{ t('settings.settingsVersion') }}</p>
           <p class="mt-1 text-sm text-muted-foreground">
             {{ settingsValue?.version ?? '1' }}
           </p>
@@ -31,6 +31,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/store/settings'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -41,6 +42,7 @@ import {
   SheetTitle
 } from '@/components/ui/sheet'
 
+const { t } = useI18n()
 const settingsStore = useSettingsStore()
 const showSettings = computed({
   get: () => settingsStore.showSettings as unknown as boolean,

@@ -139,13 +139,13 @@ watch(
 const getSourceMeta = (source: FileListSource) => {
   if (source.sourceType === 'local') {
     return {
-      label: 'Local',
+      label: t('fileNameTable.sourceLocal'),
       icon: HardDrive
     }
   }
 
   return {
-    label: 'Remote',
+    label: t('fileNameTable.sourceRemote'),
     icon: Cloud
   }
 }
@@ -153,17 +153,17 @@ const getSourceMeta = (source: FileListSource) => {
 const getStatusLabel = (status: RemoteItemStatus) => {
   switch (status) {
     case 'latest':
-      return 'Latest'
+      return t('fileNameTable.statusLatest')
     case 'updateable':
-      return 'Update'
+      return t('fileNameTable.statusUpdate')
     case 'updating':
-      return 'Updating'
+      return t('fileNameTable.statusUpdating')
     case 'downloading':
-      return 'Downloading'
+      return t('fileNameTable.statusDownloading')
     case 'conflict':
-      return 'Conflict'
+      return t('fileNameTable.statusConflict')
     default:
-      return 'Download'
+      return t('fileNameTable.statusDownload')
   }
 }
 
@@ -289,7 +289,7 @@ defineExpose({ openManager })
     >
       <DialogHeader class="border-b border-border/70 px-6 py-5">
         <DialogTitle>{{ t('fileNameTable.manageFileList') }}</DialogTitle>
-        <DialogDescription>本地文件名表与远程清单统一在这里管理。</DialogDescription>
+        <DialogDescription>{{ t('fileNameTable.managerDescription') }}</DialogDescription>
       </DialogHeader>
 
       <div class="flex flex-col gap-6 px-6 py-6">
@@ -439,7 +439,7 @@ defineExpose({ openManager })
       </div>
 
       <DialogFooter class="border-t border-border/70 px-6 py-4">
-        <Button variant="outline" @click="showMenu = false">Close</Button>
+        <Button variant="outline" @click="showMenu = false">{{ t('unpack.close') }}</Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>

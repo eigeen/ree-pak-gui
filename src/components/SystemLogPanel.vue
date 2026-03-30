@@ -17,7 +17,7 @@
       </div>
 
       <div v-if="consoleLines.length === 0" class="flex h-full items-center text-muted-foreground">
-        {{ emptyText }}
+        {{ emptyText || 'No system logs yet' }}
       </div>
     </div>
   </div>
@@ -35,7 +35,7 @@ const props = withDefaults(
   }>(),
   {
     eyebrow: '',
-    emptyText: '暂无 system 日志',
+    emptyText: '',
     maxEntries: 160
   }
 )

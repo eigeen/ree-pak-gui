@@ -20,6 +20,7 @@
 import { computed, defineAsyncComponent, onMounted } from 'vue'
 import { RouterView } from 'vue-router'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import DesktopTabPanels, { type DesktopTabPanelItem } from '@/components/DesktopTabPanels.vue'
 import { useSettingsStore } from '@/store/settings'
 import { useWorkStore } from '@/store/work'
@@ -30,6 +31,7 @@ import { ShowError, ShowWarn } from '@/utils/message'
 const settingsStore = useSettingsStore()
 const workStore = useWorkStore()
 const route = useRoute()
+const { t } = useI18n()
 
 const topLevelTabPanels: DesktopTabPanelItem[] = [
   {
@@ -71,8 +73,8 @@ onMounted(async () => {
       await settingsStore.loadSettings()
     }
   } catch (error) {
-    ShowError(`Failed to load settings: ${error}`)
-    ShowWarn('Will use default settings')
+    ShowError(t('global.failedLoadSettings', { error: String(error) }))
+    ShowWarn(t('global.useDefaultSettings'))
   }
 
   try {

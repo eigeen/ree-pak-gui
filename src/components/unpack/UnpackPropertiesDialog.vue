@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import {
   Dialog,
   DialogContent,
@@ -31,6 +32,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void
 }>()
+const { t } = useI18n()
 </script>
 
 <template>
@@ -47,8 +49,8 @@ const emit = defineEmits<{
 
       <div class="editor-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-6 py-5">
         <div v-if="props.loading" class="empty-state min-h-40 border-border/70">
-          <p class="text-sm font-medium text-foreground">正在读取属性…</p>
-          <p class="section-copy">这可能需要一点时间。</p>
+          <p class="text-sm font-medium text-foreground">{{ t('dialog.loadingProperties') }}</p>
+          <p class="section-copy">{{ t('dialog.loadingPropertiesHint') }}</p>
         </div>
 
         <div
@@ -56,7 +58,7 @@ const emit = defineEmits<{
           class="empty-state min-h-40 border-border/70"
         >
           <p class="text-sm font-medium text-foreground">
-            {{ props.emptyText ?? '没有可显示的属性。' }}
+            {{ props.emptyText ?? t('dialog.emptyProperties') }}
           </p>
         </div>
 

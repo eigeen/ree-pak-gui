@@ -1,6 +1,8 @@
 <template>
   <div :class="props.showLabel ? 'space-y-2' : ''">
-    <label v-if="props.showLabel" class="text-sm font-medium text-foreground">路径列表</label>
+    <label v-if="props.showLabel" class="text-sm font-medium text-foreground">
+      {{ t('fileNameTable.selectorLabel') }}
+    </label>
 
     <Popover v-model:open="open">
       <PopoverTrigger as-child>
@@ -11,7 +13,7 @@
           class="h-8 mt-1 w-full justify-between rounded-md border-border/80 bg-background px-3 text-sm font-normal text-foreground shadow-none hover:bg-secondary/70"
         >
           <span class="truncate text-left">
-            {{ selectedLabel || props.placeholder }}
+            {{ selectedLabel || props.placeholder || t('fileNameTable.selectorPlaceholder') }}
           </span>
           <ChevronsUpDown class="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
@@ -24,7 +26,11 @@
         <div class="border-b border-border/80 p-2">
           <div class="relative">
             <Search class="pointer-events-none absolute left-2.5 top-2 size-4 text-[#8b949e]" />
-            <DenseInput v-model="searchText" class="pl-8" placeholder="搜索 Path List..." />
+            <DenseInput
+              v-model="searchText"
+              class="pl-8"
+              :placeholder="t('fileNameTable.selectorSearchPlaceholder')"
+            />
           </div>
         </div>
 
@@ -45,7 +51,7 @@
             v-if="filteredItems.length === 0"
             class="px-3 py-6 text-center text-sm text-muted-foreground"
           >
-            没有匹配的文件名表
+            {{ t('fileNameTable.selectorNoMatch') }}
           </div>
 
           <button
@@ -75,6 +81,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { Check, ChevronsUpDown, Search, Settings2 } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { DenseInput } from '@/components/ui/input'
@@ -88,6 +95,7 @@ export interface Option {
 const emit = defineEmits<{
   leadingAction: []
 }>()
+const { t } = useI18n()
 const selectedValue = defineModel<string>({ default: '' })
 const props = withDefaults(
   defineProps<{
@@ -98,7 +106,7 @@ const props = withDefaults(
   }>(),
   {
     showLabel: true,
-    placeholder: '请选择文件名表',
+    placeholder: '',
     leadingActionLabel: ''
   }
 )

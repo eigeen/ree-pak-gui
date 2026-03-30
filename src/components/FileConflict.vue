@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { AlertTriangle, ChevronDown, ChevronRight, Trash2 } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 import type { ConflictFile } from '@/lib/packer'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 
 const conflicts = defineModel<ConflictFile[]>('conflicts')
+const { t, locale } = useI18n()
 
 const expandedFiles = ref<Set<string>>(new Set())
 const localConflicts = ref<ConflictFile[]>([])
@@ -43,7 +45,7 @@ const formatFileSize = (bytes: number) => {
 }
 
 const formatDate = (date: Date) =>
-  date.toLocaleString('zh-CN', {
+  date.toLocaleString(locale.value === 'zh_CN' ? 'zh-CN' : 'en-US', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -55,7 +57,7 @@ const formatDate = (date: Date) =>
 
 <template>
   <div class="space-y-4">
-    <p class="section-copy">检测到以下文件存在冲突，请选择要保留的文件版本。</p>
+    <p class="section-copy">{{ t('fileConflict.description') }}</p>
 
     <div class="editor-scrollbar max-h-[30rem] space-y-3 overflow-y-auto pr-2">
       <div
@@ -85,12 +87,16 @@ const formatDate = (date: Date) =>
               <p class="break-all text-sm font-semibold text-foreground">
                 {{ conflict.relativePath }}
               </p>
-              <Badge variant="outline">{{ conflict.sources.length }} 个来源</Badge>
+              <Badge variant="outline">
+                {{ t('fileConflict.sourcesCount', { count: conflict.sources.length }) }}
+              </Badge>
             </div>
             <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              <span v-if="conflict.size">大小: {{ formatFileSize(conflict.size) }}</span>
+              <span v-if="conflict.size">
+                {{ t('fileConflict.sizeLabel', { size: formatFileSize(conflict.size) }) }}
+              </span>
               <span v-if="conflict.modifiedDate">
-                修改时间: {{ formatDate(conflict.modifiedDate) }}
+                {{ t('fileConflict.modifiedAt', { date: formatDate(conflict.modifiedDate) }) }}
               </span>
             </div>
           </div>
@@ -116,7 +122,7 @@ const formatDate = (date: Date) =>
               />
               <div class="flex items-center gap-2 text-sm font-medium text-destructive">
                 <Trash2 class="size-4" />
-                <span>移除该文件</span>
+                <span>{{ t('fileConflict.removeFile') }}</span>
               </div>
             </label>
 

@@ -15,7 +15,7 @@
                     <p class="section-eyebrow">
                       {{ t('unpack.fileList') }} / {{ t('unpack.pakFiles') }}
                     </p>
-                    <h2 class="section-title">资源</h2>
+                    <h2 class="section-title">{{ t('unpack.resourcesTitle') }}</h2>
                   </div>
                 </div>
                 <div class="mb-4">
@@ -74,7 +74,7 @@
                       variant="ghost"
                       class="desktop-icon-button"
                       :disabled="!bringTargetKey"
-                      title="Bring selected file/folder to tree"
+                      :title="t('unpack.bringToTree')"
                       @click="bringSelectedEntryIntoTreeView"
                     >
                       <LocateFixed class="size-4" />
@@ -84,7 +84,7 @@
                       variant="ghost"
                       class="desktop-icon-button"
                       :disabled="!treeData"
-                      title="Collapse all"
+                      :title="t('unpack.collapseAll')"
                       @click="collapseTree"
                     >
                       <FoldVertical class="size-4" />
@@ -105,13 +105,17 @@
                   <div v-if="!treeData" class="empty-state h-full border-0 bg-transparent">
                     <FileArchive class="size-8 text-muted-foreground" />
                     <p class="text-sm font-medium text-foreground">
-                      {{ pakData.length === 0 ? '等待载入 Pak 文件' : '等待生成文件树' }}
+                      {{
+                        pakData.length === 0
+                          ? t('unpack.emptyWaitLoadPaks')
+                          : t('unpack.emptyWaitBuildTree')
+                      }}
                     </p>
                     <p class="section-copy">
                       {{
                         pakData.length === 0
-                          ? '添加 Pak 与路径列表后即可开始浏览。'
-                          : '点击刷新按钮载入资源树。'
+                          ? t('unpack.emptyHintLoadPrerequisite')
+                          : t('unpack.emptyHintLoadTree')
                       }}
                     </p>
                   </div>
@@ -171,7 +175,7 @@
             <ResizableHandle class="bg-border/80 hover:bg-primary data-[dragging]:bg-primary" />
 
             <ResizablePanel :default-size="25" :max-size="42" :min-size="16">
-              <SystemLogPanel title="System Log" />
+              <SystemLogPanel empty-text="No system logs yet" />
             </ResizablePanel>
           </ResizablePanelGroup>
         </ResizablePanel>
@@ -180,7 +184,7 @@
       <div class="desktop-statusbar">
         <div class="flex items-center gap-3">
           <span>{{ statusText }}</span>
-          <span v-if="loadingTree">Loading tree...</span>
+          <span v-if="loadingTree">{{ t('unpack.loadingTree') }}</span>
         </div>
         <div class="flex items-center gap-4">
           <span>{{ currentDirectoryPath }}</span>
@@ -194,7 +198,7 @@
       :description="propertiesDialogDescription"
       :loading="propertiesDialogLoading"
       :sections="propertiesDialogSections"
-      empty-text="没有可显示的原始属性。"
+      :empty-text="t('unpack.propertiesEmptyRaw')"
     />
 
     <el-image-viewer
@@ -344,18 +348,18 @@ const unpackState = computed({
 const filterTextApply = ref('')
 const explorerSearchText = ref('')
 const sidebarTab = ref<SidebarTab>('resources')
-const sidebarTabs: UnpackSidebarTabItem[] = [
+const sidebarTabs = computed<UnpackSidebarTabItem[]>(() => [
   {
     value: 'resources',
-    label: 'Resources',
+    label: t('unpack.resourcesTitle'),
     icon: PackageOpen
   },
   {
     value: 'tree',
-    label: 'Tree',
+    label: t('unpack.treeTab'),
     icon: FolderTree
   }
-]
+])
 const pakData = ref<PakInfo[]>([])
 const initialLoaded = ref(false)
 const treeData = ref<RenderTreeNode[] | null>(null)
@@ -487,7 +491,7 @@ const explorerContextMenuItems = computed<ContextMenuEntry[]>(() => {
       {
         type: 'submenu',
         key: 'explorer-layout',
-        label: '布局',
+        label: t('unpack.layoutMenu'),
         icon: explorerLayoutMode.value === 'tile' ? LayoutGrid : List,
         children: [
           {
@@ -511,7 +515,7 @@ const explorerContextMenuItems = computed<ContextMenuEntry[]>(() => {
       {
         type: 'action',
         key: 'explorer-open-parent',
-        label: '返回上一级目录',
+        label: t('unpack.openParentDirectory'),
         icon: FolderOpen,
         disabled: !currentDirectory.value?.parentId,
         action: openParentDirectory
@@ -545,7 +549,7 @@ const explorerContextMenuItems = computed<ContextMenuEntry[]>(() => {
     {
       type: 'action',
       key: 'explorer-primary-open',
-      label: item.isDir ? '打开目录' : '预览',
+      label: item.isDir ? t('unpack.openDirectory') : t('unpack.previewItem'),
       icon: item.isDir ? FolderOpen : Eye,
       disabled: item.isDir ? false : !canPreview,
       action: () => {
@@ -560,7 +564,7 @@ const explorerContextMenuItems = computed<ContextMenuEntry[]>(() => {
     {
       type: 'action',
       key: 'explorer-locate-tree',
-      label: '在树中定位',
+      label: t('unpack.locateInTree'),
       icon: LocateFixed,
       disabled: !item.isDir && !item.parentId,
       action: () => bringEntryIntoTreeView(item)
@@ -568,7 +572,7 @@ const explorerContextMenuItems = computed<ContextMenuEntry[]>(() => {
     {
       type: 'action',
       key: 'explorer-properties',
-      label: '查看属性',
+      label: t('unpack.viewProperties'),
       icon: Info,
       action: () => void openPropertiesDialog(item)
     },
@@ -599,7 +603,7 @@ const explorerContextMenuItems = computed<ContextMenuEntry[]>(() => {
     {
       type: 'action',
       key: 'explorer-copy-path',
-      label: '复制路径',
+      label: t('unpack.copyPath'),
       icon: Copy,
       shortcut: 'Ctrl+C',
       action: () => void copyText(item.path)
@@ -647,7 +651,7 @@ const treeContextMenuItems = computed<ContextMenuEntry[]>(() => {
       {
         type: 'action',
         key: 'tree-collapse',
-        label: '折叠全部',
+        label: t('unpack.collapseAll'),
         icon: FoldVertical,
         action: collapseTree
       }
@@ -670,14 +674,14 @@ const treeContextMenuItems = computed<ContextMenuEntry[]>(() => {
     {
       type: 'action',
       key: 'tree-open-explorer',
-      label: '在 Explorer 中打开',
+      label: t('unpack.openInExplorer'),
       icon: FolderOpen,
       action: () => openDirectory(node.id)
     },
     {
       type: 'action',
       key: 'tree-properties',
-      label: '查看属性',
+      label: t('unpack.viewProperties'),
       icon: Info,
       disabled: !entry,
       action: () => entry && void openPropertiesDialog(entry)
@@ -709,7 +713,7 @@ const treeContextMenuItems = computed<ContextMenuEntry[]>(() => {
     {
       type: 'action',
       key: 'tree-copy-path',
-      label: '复制路径',
+      label: t('unpack.copyPath'),
       icon: Copy,
       shortcut: 'Ctrl+C',
       action: () => void copyText(node.path)
@@ -753,13 +757,13 @@ const bringTargetKey = computed(() => {
   return explorerRoot.value?.children[0]?.id ?? ''
 })
 const currentDirectoryPath = computed(() =>
-  currentDirectory.value?.path ? currentDirectory.value.path : 'Root'
+  currentDirectory.value?.path ? currentDirectory.value.path : t('unpack.rootLabel')
 )
 const statusText = computed(() => {
   if (taskProgress.working) return taskProgress.title
-  if (loadingTree.value) return 'Loading tree'
-  if (!treeData.value) return 'Idle'
-  return 'Completed'
+  if (loadingTree.value) return t('unpack.loadingTree')
+  if (!treeData.value) return t('unpack.idle')
+  return t('unpack.completed')
 })
 const desktopMenuItems = computed<MenuGroup[]>(() => [
   {
@@ -990,7 +994,7 @@ async function extractFilesWithDialog(extractFiles: ExtractFileInfo[], mode: Ext
 
   try {
     if (extractFiles.length === 0) {
-      ShowWarn('当前没有可提取的文件。')
+      ShowWarn(t('unpack.noExtractableFiles'))
       return
     }
 
@@ -1077,7 +1081,7 @@ async function exportTexturesWithDialog(files: ExtractFileInfo[], format: Textur
 
   try {
     if (files.length === 0) {
-      ShowWarn('当前没有可导出的 Texture。')
+      ShowWarn(t('unpack.noExportableTextures'))
       return
     }
 
@@ -1151,7 +1155,12 @@ async function exportTexturesWithDialog(files: ExtractFileInfo[], format: Textur
       finishFileCount: taskProgress.totalFileCount
     })
 
-    ShowInfo(`已导出 ${exported} 个 Texture${format === 'dds' ? ' (DDS)' : ' (PNG)'}`)
+    ShowInfo(
+      t('unpack.textureExported', {
+        count: exported,
+        format: format.toUpperCase()
+      })
+    )
   } catch (error) {
     finishTaskProgress(`texture-export-${format}`, {
       status: 'error',
@@ -1297,7 +1306,7 @@ function buildExplorerRoot(nodes: RenderTreeNode[]): ExplorerEntry {
   return {
     id: EXPLORER_ROOT_ID,
     name: '',
-    label: 'Root',
+    label: t('unpack.rootLabel'),
     path: '',
     isDir: true,
     compressedSize: 0,
@@ -1468,10 +1477,10 @@ function getExplorerDetailText(item: ExplorerEntry) {
 
 function getExplorerSourceLabel(source?: string) {
   if (!source) {
-    return '来源：—'
+    return t('unpack.sourceEmpty')
   }
 
-  return `来源：${pakFileNameMap.value.get(source) ?? source}`
+  return t('unpack.sourceLabel', { source: pakFileNameMap.value.get(source) ?? source })
 }
 
 async function getPakHeaderInfo(path: string) {
@@ -1546,12 +1555,12 @@ function buildDirectoryPropertySections(node: ExplorerEntry): PropertySection[] 
   return [
     {
       key: 'directory-basic',
-      title: '基本信息',
+      title: 'Basic Info',
       rows: [
-        { key: 'directory-name', label: '名称', value: node.name },
-        { key: 'directory-path', label: '路径', value: normalizeDisplayPath(node.path) },
-        { key: 'directory-folders', label: '文件夹数', value: String(counts.folders) },
-        { key: 'directory-files', label: '文件数', value: String(counts.files) }
+        { key: 'directory-name', label: 'Name', value: node.name },
+        { key: 'directory-path', label: 'Path', value: normalizeDisplayPath(node.path) },
+        { key: 'directory-folders', label: 'Folder Count', value: String(counts.folders) },
+        { key: 'directory-files', label: 'File Count', value: String(counts.files) }
       ]
     }
   ]
@@ -1568,11 +1577,11 @@ function buildFilePropertySections(
   return [
     {
       key: 'file-basic',
-      title: '基本信息',
+      title: 'Basic Info',
       rows: [
-        { key: 'file-name', label: '名称', value: node.name },
-        { key: 'file-path', label: '路径', value: normalizeDisplayPath(node.path) },
-        { key: 'file-source', label: '来源', value: getExplorerSourceLabel(node.belongsTo) },
+        { key: 'file-name', label: 'Name', value: node.name },
+        { key: 'file-path', label: 'Path', value: normalizeDisplayPath(node.path) },
+        { key: 'file-source', label: 'Source', value: getExplorerSourceLabel(node.belongsTo) },
         {
           key: 'file-compressed-size',
           label: 'Compressed Size',
@@ -1583,7 +1592,11 @@ function buildFilePropertySections(
           label: 'Uncompressed Size',
           value: String(node.uncompressedSize)
         },
-        { key: 'file-compressed', label: '已压缩', value: node.isCompressed ? '是' : '否' }
+        {
+          key: 'file-compressed',
+          label: 'Compressed',
+          value: node.isCompressed ? 'Yes' : 'No'
+        }
       ]
     },
     {
@@ -1612,13 +1625,13 @@ function buildFilePropertySections(
     },
     {
       key: 'file-entry',
-      title: '原始 Entry',
+      title: 'Original Entry',
       rows: [
-        { key: 'entry-pak', label: 'Pak 文件', value: pak ? getPakFileName(pak.path) : '—' },
+        { key: 'entry-pak', label: 'Pak File', value: pak ? getPakFileName(pak.path) : '—' },
         {
           key: 'entry-offset',
           label: 'Offset',
-          value: entry ? formatPropertyValue(entry.offset) : '未找到对应 Entry'
+          value: entry ? formatPropertyValue(entry.offset) : 'Matching Entry Not Found'
         },
         {
           key: 'entry-compressed',
@@ -1659,10 +1672,10 @@ function buildPakPropertySections(pak: PakInfo, header: PakHeaderInfo): Property
   return [
     {
       key: 'pak-basic',
-      title: '基本信息',
+      title: 'Basic Info',
       rows: [
-        { key: 'pak-file-name', label: '文件名', value: getPakFileName(pak.path) },
-        { key: 'pak-path', label: '路径', value: pak.path },
+        { key: 'pak-file-name', label: 'File Name', value: getPakFileName(pak.path) },
+        { key: 'pak-path', label: 'Path', value: pak.path },
         { key: 'pak-id', label: 'Pak ID', value: pak.id }
       ]
     },
@@ -1722,11 +1735,11 @@ function buildErrorPropertySections(error: unknown): PropertySection[] {
   return [
     {
       key: 'property-error',
-      title: '读取失败',
+      title: 'Read Failed',
       rows: [
         {
           key: 'property-error-message',
-          label: '错误',
+          label: 'Error',
           value: error instanceof Error ? error.message : String(error)
         }
       ]
@@ -1898,7 +1911,7 @@ async function copyText(text: string) {
 
   try {
     await navigator.clipboard.writeText(normalizedText)
-    ShowInfo(`已复制：${normalizedText}`)
+    ShowInfo(t('unpack.copiedPath', { path: normalizedText }))
   } catch (error) {
     ShowError(error)
   }
@@ -1916,14 +1929,14 @@ async function openPropertiesDialog(target: ExplorerEntry | PakInfo) {
   if ('children' in target) {
     if (target.isDir) {
       propertyTarget.value = { kind: 'directory', node: target }
-      propertiesDialogTitle.value = `目录属性 · ${target.name}`
+      propertiesDialogTitle.value = `Directory Properties · ${target.name}`
       propertiesDialogDescription.value = normalizeDisplayPath(target.path)
       propertiesDialogSections.value = buildDirectoryPropertySections(target)
       return
     }
 
     propertyTarget.value = { kind: 'file', node: target }
-    propertiesDialogTitle.value = `文件属性 · ${target.name}`
+    propertiesDialogTitle.value = `File Properties · ${target.name}`
     propertiesDialogDescription.value = normalizeDisplayPath(target.path)
     propertiesDialogLoading.value = true
 
@@ -1944,7 +1957,7 @@ async function openPropertiesDialog(target: ExplorerEntry | PakInfo) {
   }
 
   propertyTarget.value = { kind: 'pak', pak: target }
-  propertiesDialogTitle.value = `Pak 属性 · ${getPakFileName(target.path)}`
+  propertiesDialogTitle.value = `Pak Properties · ${getPakFileName(target.path)}`
   propertiesDialogDescription.value = normalizeDisplayPath(target.path)
   propertiesDialogLoading.value = true
 

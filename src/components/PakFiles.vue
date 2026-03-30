@@ -69,7 +69,7 @@
 
         <div v-else class="empty-state min-h-full border-border/70 bg-background/45">
           <p class="text-base font-semibold text-foreground">{{ t('pakFiles.openPaks') }}</p>
-          <p class="section-copy">点击右上角导入，或拖拽 Pak 文件到窗口。</p>
+          <p class="section-copy">{{ t('pakFiles.emptyHint') }}</p>
         </div>
       </div>
 
@@ -182,7 +182,7 @@ function getPakMenuItems(pak: OrderedData, index: number): ContextMenuEntry[] {
     {
       type: 'action',
       key: `pak-properties-${pak.id}`,
-      label: '查看属性',
+      label: t('pakFiles.viewProperties'),
       icon: Info,
       action: () => emit('show-properties', pak)
     },
@@ -193,7 +193,7 @@ function getPakMenuItems(pak: OrderedData, index: number): ContextMenuEntry[] {
     {
       type: 'action',
       key: `pak-remove-${pak.id}`,
-      label: '移除',
+      label: t('pakFiles.remove'),
       icon: Trash2,
       destructive: true,
       action: () => emit('close', index)

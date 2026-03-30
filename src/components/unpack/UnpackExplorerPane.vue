@@ -73,7 +73,7 @@ function handleItemContextMenu(item: ExplorerEntry, event: MouseEvent) {
         <DenseInput
           :model-value="props.searchText"
           class="w-44 border-border/60 bg-background/80"
-          placeholder="Search current folder..."
+          :placeholder="t('explorer.searchCurrentFolder')"
           @update:model-value="handleSearchTextUpdate"
         />
       </div>
@@ -114,8 +114,8 @@ function handleItemContextMenu(item: ExplorerEntry, event: MouseEvent) {
           size="sm"
           class="desktop-icon-button h-7 shrink-0 px-2"
           :disabled="!props.hasTree || !props.canGoParentDirectory"
-          title="返回上一级目录"
-          aria-label="返回上一级目录"
+          :title="t('unpack.openParentDirectory')"
+          :aria-label="t('unpack.openParentDirectory')"
           @click="emit('open-parent-directory')"
         >
           <ArrowUp class="size-4" />
@@ -143,14 +143,14 @@ function handleItemContextMenu(item: ExplorerEntry, event: MouseEvent) {
       >
         <div v-if="!props.hasPakData" class="empty-state h-full">
           <FileArchive class="size-10 text-muted-foreground" />
-          <p class="text-sm font-semibold text-foreground">尚未添加文件</p>
-          <p class="section-copy">点击左侧按钮或拖拽文件到窗口中添加 Pak 文件。</p>
+          <p class="text-sm font-semibold text-foreground">{{ t('explorer.emptyNoFiles') }}</p>
+          <p class="section-copy">{{ t('explorer.emptyNoFilesDescription') }}</p>
         </div>
 
         <div v-else-if="!props.hasTree" class="empty-state h-full">
           <FolderTree class="size-10 text-muted-foreground" />
-          <p class="text-sm font-semibold text-foreground">尚未加载资源</p>
-          <p class="section-copy">在左侧添加和加载资源。</p>
+          <p class="text-sm font-semibold text-foreground">{{ t('explorer.emptyNoTree') }}</p>
+          <p class="section-copy">{{ t('explorer.emptyNoTreeDescription') }}</p>
         </div>
 
         <AppContextMenu v-else-if="props.layoutMode === 'tile'" :items="props.contextMenuItems">

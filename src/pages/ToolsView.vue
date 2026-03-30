@@ -1,16 +1,18 @@
 <template>
   <section class="space-y-4">
     <div class="space-y-1">
-      <p class="section-eyebrow">Tools</p>
-      <h2 class="section-title">{{ currentTool ? t(currentTool.title) : 'Unknown Tool' }}</h2>
-      <p class="section-copy">独立工具页保留业务能力，只替换视觉壳与交互原语。</p>
+      <p class="section-eyebrow">{{ t('toolPage.eyebrow') }}</p>
+      <h2 class="section-title">
+        {{ currentTool ? t(currentTool.title) : t('global.unknownTool') }}
+      </h2>
+      <p class="section-copy">{{ t('toolPage.intro') }}</p>
     </div>
 
     <div class="app-panel min-h-[calc(100vh-14rem)] p-4 sm:p-6">
       <component v-if="currentTool" :is="currentTool.component" :key="toolId" />
       <div v-else class="empty-state">
-        <p class="text-base font-semibold text-foreground">工具不存在</p>
-        <p class="section-copy">找不到 ID 为 "{{ toolId }}" 的工具。</p>
+        <p class="text-base font-semibold text-foreground">{{ t('toolPage.missingTitle') }}</p>
+        <p class="section-copy">{{ t('toolPage.missingDescription', { id: toolId }) }}</p>
       </div>
     </div>
   </section>

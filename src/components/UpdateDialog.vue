@@ -13,7 +13,7 @@
           </div>
           <div>
             <DialogTitle>{{ t('updateDialog.updateAvailable') }}</DialogTitle>
-            <DialogDescription>检测到新版本，可直接下载并在完成后重启。</DialogDescription>
+            <DialogDescription>{{ t('updateDialog.description') }}</DialogDescription>
           </div>
         </div>
       </DialogHeader>

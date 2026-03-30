@@ -1,7 +1,7 @@
 <template>
   <div class="mx-auto flex max-w-4xl flex-col gap-6">
     <div class="space-y-2">
-      <p class="section-eyebrow">Tool</p>
+      <p class="section-eyebrow">{{ t('toolPage.eyebrow') }}</p>
       <h3 class="section-title">{{ t('pathScanner.title') }}</h3>
       <p class="section-copy">{{ t('pathScanner.description') }}</p>
     </div>
@@ -41,7 +41,7 @@
         <div class="app-panel-muted p-3">
           <div v-if="pakFiles.length === 0" class="empty-state min-h-32">
             <p class="text-sm font-medium text-foreground">{{ t('pathScanner.selectPakFiles') }}</p>
-            <p class="section-copy">支持选择多个 `.pak` 文件参与扫描。</p>
+            <p class="section-copy">{{ t('pathScanner.selectPakFilesHint') }}</p>
           </div>
 
           <div v-else class="space-y-2">
@@ -156,7 +156,7 @@ const selectPakFiles = async () => {
       multiple: true,
       filters: [
         {
-          name: 'Pak Files',
+          name: t('pack.pakFilesFilter'),
           extensions: ['pak']
         }
       ]
@@ -191,14 +191,17 @@ const startScan = async () => {
     pathScanner = new PathScanner((event) => {
       switch (event.event) {
         case 'startFile':
-          progressMessage.value = `Scanning file ${event.data.current} / ${event.data.total}`
+          progressMessage.value = t('pathScanner.scanningFileProgress', {
+            current: event.data.current,
+            total: event.data.total
+          })
           break
         case 'finish':
           if (event.data.success) {
             scanResult.value = event.data.foundPaths
-            progressMessage.value = 'Scan finished'
+            progressMessage.value = t('pathScanner.scanFinished')
           } else {
-            progressMessage.value = event.data.error ?? 'Unknown Error'
+            progressMessage.value = event.data.error ?? t('pathScanner.unknownError')
           }
           scanning.value = false
           break
@@ -217,7 +220,7 @@ const stopScan = async () => {
     await terminatePathScan()
   }
   scanning.value = false
-  progressMessage.value = 'Scan stopped'
+  progressMessage.value = t('pathScanner.scanStopped')
 }
 
 const copyResults = async () => {

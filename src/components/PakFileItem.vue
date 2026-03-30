@@ -1,6 +1,6 @@
 <template>
   <div
-    class="surface-interactive group select-none flex items-center gap-3 rounded-[0.95rem] px-3 py-3 transition-colors"
+    class="surface-interactive group select-none flex items-center gap-2 rounded-[0.95rem] px-1 py-3 transition-colors"
     @contextmenu="$emit('contextmenu', $event)"
   >
     <div
