@@ -1,5 +1,5 @@
 <template>
-  <div class="app-shell dark">
+  <div class="app-shell">
     <div class="desktop-shell">
       <Menu />
       <main class="desktop-main">

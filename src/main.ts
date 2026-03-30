@@ -11,9 +11,6 @@ import { registerPlugins } from '@/plugins'
 
 const app = createApp(App)
 
-document.documentElement.classList.add('dark')
-document.documentElement.dataset.theme = 'dark'
-
 registerPlugins(app)
 
 app.mount('#app')

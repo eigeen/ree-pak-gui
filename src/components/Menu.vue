@@ -29,6 +29,16 @@
           variant="ghost"
           size="icon-sm"
           class="desktop-icon-button"
+          :title="themeButtonTitle"
+          @click="toggleTheme"
+        >
+          <component :is="isDark ? MoonStar : SunMedium" class="size-4" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          class="desktop-icon-button"
           @click="openUrl('https://github.com/eigeen/ree-pak-rs')"
         >
           <Github class="size-4" />
@@ -45,16 +55,18 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { openUrl } from '@tauri-apps/plugin-opener'
-import { Download, Github, PackageOpen } from 'lucide-vue-next'
+import { Download, Github, MoonStar, PackageOpen, SunMedium } from 'lucide-vue-next'
 import DesktopTabs, { type DesktopTabItem } from '@/components/DesktopTabs.vue'
 import LanguageSelect from '@/components/LanguageSelect.vue'
 import { useUpdateStore } from '@/store/update'
 import { Button } from '@/components/ui/button'
+import { useAppTheme } from '@/composables/theme'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const updateStore = useUpdateStore()
+const { isDark, themeMode, toggleTheme } = useAppTheme()
 
 const updateDialog = ref<{ popup: () => void } | null>(null)
 const topNavTabs = computed<DesktopTabItem[]>(() => [
@@ -94,6 +106,24 @@ const topNavValue = computed({
     }
   }
 })
+
+const themeModeLabelKey = computed(() => {
+  switch (themeMode.value) {
+    case 'light':
+      return 'settings.themeModeLight'
+    case 'dark':
+      return 'settings.themeModeDark'
+    default:
+      return 'settings.themeModeSystem'
+  }
+})
+
+const themeButtonTitle = computed(() =>
+  t('settings.themeToggleTitle', {
+    mode: t(themeModeLabelKey.value),
+    current: isDark.value ? t('settings.themeModeDark') : t('settings.themeModeLight')
+  })
+)
 
 function showUpdateDialog() {
   updateDialog.value?.popup()

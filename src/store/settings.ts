@@ -8,9 +8,12 @@ import { getLocalDir } from '@/lib/localDir'
 
 const SETTINGS_FILE_NAME = 'settings.json'
 
+export type ThemeMode = 'system' | 'light' | 'dark'
+
 export type AppSettings = {
   version: string
   language?: string
+  theme?: ThemeMode
   preview: {
     showTexturePreview: boolean
   }
@@ -21,6 +24,7 @@ export type AppSettings = {
 
 const defaultSettings: AppSettings = {
   version: '1',
+  theme: 'system',
   preview: {
     showTexturePreview: true
   },
@@ -32,10 +36,12 @@ const defaultSettings: AppSettings = {
 function normalizeSettings(raw: Partial<AppSettings> | null | undefined): AppSettings {
   const legacyExtractFullPath = (raw?.unpack as { extractFullPath?: boolean } | undefined)
     ?.extractFullPath
+  const theme = raw?.theme
 
   return {
     version: raw?.version ?? defaultSettings.version,
     language: sanitizeStoredLocale(raw?.language),
+    theme: theme === 'light' || theme === 'dark' || theme === 'system' ? theme : 'system',
     preview: {
       showTexturePreview:
         raw?.preview?.showTexturePreview ?? defaultSettings.preview.showTexturePreview

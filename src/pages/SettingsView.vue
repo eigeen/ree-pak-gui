@@ -8,7 +8,9 @@
         </div>
 
         <div class="relative max-w-none">
-          <Search class="pointer-events-none absolute left-2.5 top-2 size-4 text-muted-foreground" />
+          <Search
+            class="pointer-events-none absolute left-2.5 top-2 size-4 text-muted-foreground"
+          />
           <DenseInput
             v-model="searchText"
             type="text"
@@ -79,6 +81,43 @@
                         <LanguageSelect />
                       </SettingsInlineItem>
                     </div>
+
+                    <div>
+                      <div class="mb-3">
+                        <h4 class="text-base font-semibold text-foreground">
+                          {{ t('settings.themeSection') }}
+                        </h4>
+                      </div>
+
+                      <SettingsInlineItem
+                        :title="t('settings.themeTitle')"
+                        :description="t('settings.themeDescription')"
+                      >
+                        <Select v-model="themeMode">
+                          <SelectTrigger class="w-full max-w-52">
+                            <SelectValue :placeholder="t('settings.themeTitle')" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem
+                              v-for="mode in themeModes"
+                              :key="mode.value"
+                              :value="mode.value"
+                            >
+                              {{ mode.label }}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p class="mt-3 text-sm text-muted-foreground">
+                          {{
+                            t('settings.themeCurrentDescription', {
+                              current: isDark
+                                ? t('settings.themeModeDark')
+                                : t('settings.themeModeLight')
+                            })
+                          }}
+                        </p>
+                      </SettingsInlineItem>
+                    </div>
                   </div>
                 </template>
 
@@ -146,18 +185,32 @@ import { useI18n } from 'vue-i18n'
 import SettingsInlineItem from '@/components/Settings/SettingsInlineItem.vue'
 import LanguageSelect from '@/components/LanguageSelect.vue'
 import { DenseInput } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { useSettingsStore, type AppSettings } from '@/store/settings'
+import { useSettingsStore, type AppSettings, type ThemeMode } from '@/store/settings'
+import { useAppTheme } from '@/composables/theme'
 
 type SettingsSection = {
   id: string
   label: string
 }
 
+type ThemeOption = {
+  value: ThemeMode
+  label: string
+}
+
 const { t } = useI18n()
 const settingsStore = useSettingsStore()
 const settings = computed(() => unref(settingsStore.settings as unknown as Ref<AppSettings>))
+const { isDark, themeMode } = useAppTheme()
 
 const searchText = ref('')
 const activeSection = ref('common')
@@ -175,6 +228,12 @@ const filteredSections = computed(() => {
 
   return sections.value.filter((section) => section.label.toLowerCase().includes(keyword))
 })
+
+const themeModes = computed<ThemeOption[]>(() => [
+  { value: 'system', label: t('settings.themeModeSystem') },
+  { value: 'light', label: t('settings.themeModeLight') },
+  { value: 'dark', label: t('settings.themeModeDark') }
+])
 
 const showTexturePreview = computed({
   get: () => settings.value?.preview?.showTexturePreview ?? true,

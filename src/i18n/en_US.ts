@@ -115,7 +115,8 @@ export default {
       failedDownloadRemote: 'Failed to download remote file: {error}',
       selectedFilesDeleted: 'Selected files deleted.',
       conflictDownloadTip1: 'You have a local file with same identifier.',
-      conflictDownloadTip2: 'If you want to download, please rename or delete the local file first.',
+      conflictDownloadTip2:
+        'If you want to download, please rename or delete the local file first.',
       statusLatest: 'Latest',
       statusUpdate: 'Update',
       statusUpdating: 'Updating',
@@ -225,7 +226,8 @@ export default {
       globalDescription: '',
       drawerDescription: 'Application behavior and local persistence settings.',
       autoSaveTitle: 'Auto Save',
-      autoSaveDescription: 'Automatically write workspace and settings changes to the local config file.',
+      autoSaveDescription:
+        'Automatically write workspace and settings changes to the local config file.',
       settingsVersion: 'Settings Version',
       searchPlaceholder: 'Search settings',
       sectionCommon: 'Commonly Used',
@@ -233,6 +235,15 @@ export default {
       languageSection: 'Language',
       languageTitle: 'Interface Language',
       languageDescription: 'Switch the application language and apply the change immediately.',
+      themeSection: 'Appearance',
+      themeTitle: 'Color Theme',
+      themeDescription:
+        'Follow the system color scheme by default, or pin the app to light or dark.',
+      themeToggleTitle: 'Theme: {mode} (currently {current}, click to toggle)',
+      themeCurrentDescription: 'The app is currently rendered in {current}.',
+      themeModeSystem: 'System',
+      themeModeLight: 'Light',
+      themeModeDark: 'Dark',
       previewSection: 'Preview',
       previewTitle: 'Preview Options',
       texturePreviewTitle: 'Show Texture Preview',
@@ -270,7 +281,8 @@ export default {
     },
     toolPage: {
       eyebrow: 'Tools',
-      intro: 'Standalone tool pages keep the existing capabilities while adopting the new shell and interaction primitives.',
+      intro:
+        'Standalone tool pages keep the existing capabilities while adopting the new shell and interaction primitives.',
       missingTitle: 'Tool not found',
       missingDescription: 'No tool exists with ID "{id}".'
     },
