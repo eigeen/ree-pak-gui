@@ -23,6 +23,8 @@
           <span class="absolute right-2 top-1.5 size-1.5 rounded-full bg-destructive" />
         </Button>
 
+        <LanguageSelect compact :title="t('settings.languageTitle')" />
+
         <Button
           variant="ghost"
           size="icon-sm"
@@ -45,6 +47,7 @@ import { useI18n } from 'vue-i18n'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { Download, Github, PackageOpen } from 'lucide-vue-next'
 import DesktopTabs, { type DesktopTabItem } from '@/components/DesktopTabs.vue'
+import LanguageSelect from '@/components/LanguageSelect.vue'
 import { useUpdateStore } from '@/store/update'
 import { Button } from '@/components/ui/button'
 

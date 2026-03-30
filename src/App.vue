@@ -17,12 +17,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onMounted } from 'vue'
+import { computed, defineAsyncComponent, onMounted, unref, type Ref } from 'vue'
 import { RouterView } from 'vue-router'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import DesktopTabPanels, { type DesktopTabPanelItem } from '@/components/DesktopTabPanels.vue'
-import { useSettingsStore } from '@/store/settings'
+import { setAppLocale } from '@/plugins/i18n'
+import { useSettingsStore, type AppSettings } from '@/store/settings'
 import { useWorkStore } from '@/store/work'
 import Settings from '@/components/Settings/Settings.vue'
 import TaskProgressPanel from '@/components/TaskProgressPanel.vue'
@@ -32,6 +33,7 @@ const settingsStore = useSettingsStore()
 const workStore = useWorkStore()
 const route = useRoute()
 const { t } = useI18n()
+const settings = computed(() => unref(settingsStore.settings as unknown as Ref<AppSettings>))
 
 const topLevelTabPanels: DesktopTabPanelItem[] = [
   {
@@ -69,9 +71,8 @@ const activeTopLevelTab = computed(() => {
 
 onMounted(async () => {
   try {
-    if (!settingsStore.settings) {
-      await settingsStore.loadSettings()
-    }
+    await settingsStore.loadSettings()
+    setAppLocale(settings.value.language)
   } catch (error) {
     ShowError(t('global.failedLoadSettings', { error: String(error) }))
     ShowWarn(t('global.useDefaultSettings'))

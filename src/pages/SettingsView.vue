@@ -64,8 +64,21 @@
                 </div>
 
                 <template v-if="section.id === 'common'">
-                  <div class="text-sm text-muted-foreground">
-                    {{ t('settings.placeholderSection') }}
+                  <div class="max-w-3xl space-y-8">
+                    <div>
+                      <div class="mb-3">
+                        <h4 class="text-base font-semibold text-foreground">
+                          {{ t('settings.languageSection') }}
+                        </h4>
+                      </div>
+
+                      <SettingsInlineItem
+                        :title="t('settings.languageTitle')"
+                        :description="t('settings.languageDescription')"
+                      >
+                        <LanguageSelect />
+                      </SettingsInlineItem>
+                    </div>
                   </div>
                 </template>
 
@@ -78,8 +91,8 @@
                         </h4>
                       </div>
 
-                      <div class="border-l-2 border-primary/90 pl-4">
-                        <div class="mb-1 flex items-center gap-2">
+                      <SettingsInlineItem :description="t('settings.texturePreviewDescription')">
+                        <template #title>
                           <p class="text-sm font-semibold text-foreground">
                             {{ t('settings.texturePreviewTitle') }}
                           </p>
@@ -98,10 +111,7 @@
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
-                        </div>
-                        <p class="mb-3 text-sm text-muted-foreground">
-                          {{ t('settings.texturePreviewDescription') }}
-                        </p>
+                        </template>
                         <label class="inline-flex items-center gap-3">
                           <Switch v-model="showTexturePreview" />
                           <span class="text-sm text-foreground">
@@ -110,7 +120,7 @@
                             }}
                           </span>
                         </label>
-                      </div>
+                      </SettingsInlineItem>
                     </div>
                   </div>
                 </template>
@@ -130,13 +140,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, unref, watch, type Ref } from 'vue'
 import { ChevronRight, CircleAlert, Search, Settings2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
+import SettingsInlineItem from '@/components/Settings/SettingsInlineItem.vue'
+import LanguageSelect from '@/components/LanguageSelect.vue'
 import { DenseInput } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { useSettingsStore } from '@/store/settings'
+import { useSettingsStore, type AppSettings } from '@/store/settings'
 
 type SettingsSection = {
   id: string
@@ -145,6 +157,7 @@ type SettingsSection = {
 
 const { t } = useI18n()
 const settingsStore = useSettingsStore()
+const settings = computed(() => unref(settingsStore.settings as unknown as Ref<AppSettings>))
 
 const searchText = ref('')
 const activeSection = ref('common')
@@ -164,13 +177,13 @@ const filteredSections = computed(() => {
 })
 
 const showTexturePreview = computed({
-  get: () => settingsStore.settings.value?.preview?.showTexturePreview ?? true,
+  get: () => settings.value?.preview?.showTexturePreview ?? true,
   set: (value: boolean) => {
-    if (!settingsStore.settings.value?.preview) {
+    if (!settings.value?.preview) {
       return
     }
 
-    settingsStore.settings.value.preview.showTexturePreview = value
+    settings.value.preview.showTexturePreview = value
   }
 })
 

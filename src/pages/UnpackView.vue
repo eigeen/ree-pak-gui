@@ -222,7 +222,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch, type CSSProperties } from 'vue'
+import { computed, onMounted, onUnmounted, ref, unref, watch, type CSSProperties, type Ref } from 'vue'
 import { Channel, convertFileSrc } from '@tauri-apps/api/core'
 import type { UnlistenFn } from '@tauri-apps/api/event'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
@@ -308,7 +308,7 @@ import {
   useTaskProgressState
 } from '@/service/taskProgress'
 import { fileListService } from '@/service/filelist'
-import { useSettingsStore } from '@/store/settings'
+import { useSettingsStore, type AppSettings } from '@/store/settings'
 import { useWorkStore } from '@/store/work'
 import { ShowError, ShowInfo, ShowWarn } from '@/utils/message'
 import { getExtractRelativeRoot, normalizeDisplayPath, splitNormalizedPath } from '@/utils/path'
@@ -337,6 +337,7 @@ const EXPLORER_ROOT_ID = '__explorer_root__'
 const { t } = useI18n()
 const workStore = useWorkStore()
 const settingsStore = useSettingsStore()
+const settings = computed(() => unref(settingsStore.settings as unknown as Ref<AppSettings>))
 
 const unpackState = computed({
   get: () => workStore.unpack as unknown as UnpackState,
@@ -396,11 +397,9 @@ const canRenderTree = computed(
 )
 const fileTreeComponent = ref<InstanceType<typeof FileTree>>()
 const fileNameTable = ref<{ openManager: () => void } | null>(null)
-const texturePreviewEnabled = computed(
-  () => settingsStore.settings.value?.preview?.showTexturePreview ?? true
-)
+const texturePreviewEnabled = computed(() => settings.value?.preview?.showTexturePreview ?? true)
 const extractMode = computed<ExtractMode>(() =>
-  settingsStore.settings.value?.unpack?.extractAbsolutePath ? 'absolutePath' : 'relativePath'
+  settings.value?.unpack?.extractAbsolutePath ? 'absolutePath' : 'relativePath'
 )
 
 const explorerRoot = computed<ExplorerEntry | null>(() =>

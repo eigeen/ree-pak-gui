@@ -2,12 +2,13 @@ import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import { exists, mkdir, readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import { join } from '@tauri-apps/api/path'
+import { sanitizeStoredLocale } from '@/lib/language'
 import { getParentPath } from '@/utils/path'
 import { getLocalDir } from '@/lib/localDir'
 
 const SETTINGS_FILE_NAME = 'settings.json'
 
-type Settings = {
+export type AppSettings = {
   version: string
   language?: string
   preview: {
@@ -18,7 +19,7 @@ type Settings = {
   }
 }
 
-const defaultSettings: Settings = {
+const defaultSettings: AppSettings = {
   version: '1',
   preview: {
     showTexturePreview: true
@@ -28,13 +29,13 @@ const defaultSettings: Settings = {
   }
 }
 
-function normalizeSettings(raw: Partial<Settings> | null | undefined): Settings {
+function normalizeSettings(raw: Partial<AppSettings> | null | undefined): AppSettings {
   const legacyExtractFullPath = (raw?.unpack as { extractFullPath?: boolean } | undefined)
     ?.extractFullPath
 
   return {
     version: raw?.version ?? defaultSettings.version,
-    language: raw?.language,
+    language: sanitizeStoredLocale(raw?.language),
     preview: {
       showTexturePreview:
         raw?.preview?.showTexturePreview ?? defaultSettings.preview.showTexturePreview
@@ -51,7 +52,7 @@ function normalizeSettings(raw: Partial<Settings> | null | undefined): Settings 
 export const useSettingsStore = defineStore('settings', () => {
   const showSettings = ref(false)
   const autoSave = ref(true)
-  const settings = ref<Settings>(defaultSettings)
+  const settings = ref<AppSettings>(defaultSettings)
 
   async function getSettingsPath(): Promise<string> {
     const dataDir = await getLocalDir()

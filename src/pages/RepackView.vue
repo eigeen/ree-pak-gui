@@ -442,7 +442,7 @@ function formatFileSize(bytes: number) {
                   >
                     <RadioGroupItem id="repack-mode-individual" value="individual" class="mt-0.5" />
                     <div class="min-w-0 flex-1">
-                      <p class="text-xs font-medium text-foreground">
+                      <p class="text-sm font-medium text-foreground">
                         {{ t('pack.exportModeIndividual') }}
                       </p>
                     </div>
@@ -457,7 +457,7 @@ function formatFileSize(bytes: number) {
                   >
                     <RadioGroupItem id="repack-mode-single" value="single" class="mt-0.5" />
                     <div class="min-w-0 flex-1">
-                      <p class="text-xs font-medium text-foreground">
+                      <p class="text-sm font-medium text-foreground">
                         {{ t('pack.exportModeSingle') }}
                       </p>
                     </div>
@@ -470,7 +470,7 @@ function formatFileSize(bytes: number) {
                   >
                     <div class="min-w-0 flex-1 space-y-1">
                       <div class="flex items-center gap-2">
-                        <p class="text-xs font-medium text-foreground">
+                        <p class="text-sm font-medium text-foreground">
                           {{ t('pack.autoDetectRoot') }}
                         </p>
                         <HoverBubble>{{ t('pack.autoDetectRootTooltip') }}</HoverBubble>
@@ -484,7 +484,7 @@ function formatFileSize(bytes: number) {
                   >
                     <div class="min-w-0 flex-1 space-y-1">
                       <div class="flex items-center gap-2">
-                        <p class="text-xs font-medium text-foreground">
+                        <p class="text-sm font-medium text-foreground">
                           {{ t('pack.fastMode') }}
                         </p>
                         <HoverBubble>
