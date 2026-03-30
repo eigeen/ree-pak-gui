@@ -9,7 +9,7 @@
         :key="line.id"
         class="min-w-0 whitespace-pre-wrap break-all"
       >
-        <span class="text-muted-foreground/70">[{{ formatLogTime(line.createdAt) }}]</span>
+        <span class="log-timestamp">[{{ formatLogTime(line.createdAt) }}]</span>
         <span class="mx-1 font-semibold" :class="getLogLevelClass(line.level)">
           {{ getLogLevelLabel(line.level) }}
         </span>
@@ -100,26 +100,64 @@ function getLogLevelLabel(level: SystemLogLevel) {
 function getLogLevelClass(level: SystemLogLevel) {
   switch (level) {
     case 'error':
-      return 'text-destructive'
+      return 'log-level-error'
     case 'warn':
-      return 'text-amber-400'
+      return 'log-level-warn'
     case 'info':
-      return 'text-sky-400'
+      return 'log-level-info'
     case 'debug':
-      return 'text-emerald-400'
+      return 'log-level-debug'
   }
 }
 
 function getLogMessageClass(level: SystemLogLevel) {
   switch (level) {
     case 'error':
-      return 'text-destructive'
+      return 'log-message-error'
     case 'warn':
-      return 'text-amber-200'
+      return 'log-message-warn'
     case 'info':
-      return 'text-foreground'
+      return 'log-message-info'
     case 'debug':
-      return 'text-muted-foreground'
+      return 'log-message-debug'
   }
 }
 </script>
+
+<style scoped>
+.log-timestamp {
+  color: var(--log-timestamp);
+}
+
+.log-level-error {
+  color: var(--log-level-error);
+}
+
+.log-level-warn {
+  color: var(--log-level-warn);
+}
+
+.log-level-info {
+  color: var(--log-level-info);
+}
+
+.log-level-debug {
+  color: var(--log-level-debug);
+}
+
+.log-message-error {
+  color: var(--log-message-error);
+}
+
+.log-message-warn {
+  color: var(--log-message-warn);
+}
+
+.log-message-info {
+  color: var(--log-message-info);
+}
+
+.log-message-debug {
+  color: var(--log-message-debug);
+}
+</style>

@@ -51,7 +51,7 @@
   --card-foreground: oklch(0.24 0.02 248);
   --popover: oklch(0.995 0.003 255);
   --popover-foreground: oklch(0.24 0.02 248);
-  --primary: oklch(0.62 0.16 245);
+  --primary: oklch(0.56 0.13 245);
   --primary-foreground: oklch(0.99 0.002 255);
   --secondary: oklch(0.94 0.01 255);
   --secondary-foreground: oklch(0.28 0.02 248);
@@ -62,7 +62,7 @@
   --destructive: oklch(0.62 0.2 27.2);
   --border: oklch(0.88 0.01 255);
   --input: oklch(0.88 0.01 255);
-  --ring: oklch(0.62 0.16 245);
+  --ring: oklch(0.56 0.13 245);
   --chart-1: oklch(0.63 0.16 222.1);
   --chart-2: oklch(0.72 0.12 176.2);
   --chart-3: oklch(0.75 0.14 76.6);
@@ -70,17 +70,26 @@
   --chart-5: oklch(0.59 0.09 282.2);
   --sidebar: oklch(0.99 0.003 255);
   --sidebar-foreground: oklch(0.24 0.02 248);
-  --sidebar-primary: oklch(0.62 0.16 245);
+  --sidebar-primary: oklch(0.56 0.13 245);
   --sidebar-primary-foreground: oklch(0.99 0.002 255);
   --sidebar-accent: oklch(0.92 0.02 245);
   --sidebar-accent-foreground: oklch(0.26 0.02 248);
   --sidebar-border: oklch(0.88 0.01 255);
-  --sidebar-ring: oklch(0.62 0.16 245);
+  --sidebar-ring: oklch(0.56 0.13 245);
   --surface-canvas: oklch(0.99 0.003 255);
   --surface-panel: oklch(0.965 0.006 255);
   --surface-sidebar: oklch(0.955 0.007 255);
-  --surface-toolbar: oklch(0.945 0.008 255);
+  --surface-toolbar: oklch(0.972 0.005 255);
   --surface-console: oklch(0.94 0.008 255);
+  --log-timestamp: oklch(0.54 0.015 248);
+  --log-level-error: oklch(0.57 0.19 27);
+  --log-level-warn: oklch(0.62 0.14 72);
+  --log-level-info: oklch(0.54 0.12 245);
+  --log-level-debug: oklch(0.5 0.11 170);
+  --log-message-error: oklch(0.42 0.11 27);
+  --log-message-warn: oklch(0.38 0.08 78);
+  --log-message-info: var(--foreground);
+  --log-message-debug: oklch(0.4 0.03 220);
 }
 
 .dark,
@@ -121,6 +130,15 @@
   --surface-sidebar: oklch(0.275 0.004 264);
   --surface-toolbar: oklch(0.29 0.004 264);
   --surface-console: oklch(0.21 0.004 264);
+  --log-timestamp: color-mix(in oklch, var(--muted-foreground) 78%, white);
+  --log-level-error: color-mix(in oklch, var(--destructive) 92%, white);
+  --log-level-warn: oklch(0.8 0.12 86);
+  --log-level-info: oklch(0.76 0.09 240);
+  --log-level-debug: oklch(0.79 0.1 172);
+  --log-message-error: color-mix(in oklch, var(--destructive) 88%, white);
+  --log-message-warn: oklch(0.88 0.05 92);
+  --log-message-info: var(--foreground);
+  --log-message-debug: var(--muted-foreground);
   --el-color-primary: color-mix(in srgb, rgb(0 122 204) 92%, white);
   --el-color-primary-light-3: color-mix(in srgb, var(--el-color-primary) 78%, white);
   --el-color-primary-light-5: color-mix(in srgb, var(--el-color-primary) 58%, white);
@@ -139,10 +157,26 @@
   --el-checkbox-bg-color: color-mix(in oklch, var(--surface-panel) 92%, transparent);
   --el-checkbox-input-border: 1px solid color-mix(in oklch, var(--color-border) 92%, transparent);
   --el-checkbox-disabled-border-color: color-mix(in oklch, var(--color-border) 62%, transparent);
-  --el-checkbox-disabled-input-fill: color-mix(in oklch, var(--surface-toolbar) 92%, var(--surface-panel));
-  --el-checkbox-disabled-icon-color: color-mix(in oklch, var(--color-muted-foreground) 72%, transparent);
-  --el-checkbox-disabled-checked-input-fill: color-mix(in oklch, var(--color-primary) 12%, var(--surface-toolbar));
-  --el-checkbox-disabled-checked-input-border-color: color-mix(in oklch, var(--color-primary) 22%, var(--color-border));
+  --el-checkbox-disabled-input-fill: color-mix(
+    in oklch,
+    var(--surface-toolbar) 92%,
+    var(--surface-panel)
+  );
+  --el-checkbox-disabled-icon-color: color-mix(
+    in oklch,
+    var(--color-muted-foreground) 72%,
+    transparent
+  );
+  --el-checkbox-disabled-checked-input-fill: color-mix(
+    in oklch,
+    var(--color-primary) 12%,
+    var(--surface-toolbar)
+  );
+  --el-checkbox-disabled-checked-input-border-color: color-mix(
+    in oklch,
+    var(--color-primary) 22%,
+    var(--color-border)
+  );
   --el-checkbox-disabled-checked-icon-color: color-mix(in oklch, var(--color-primary) 56%, white);
   --el-checkbox-checked-text-color: var(--color-foreground);
   --el-checkbox-checked-input-border-color: var(--color-primary);
@@ -303,7 +337,7 @@
   }
 
   .surface-console-panel {
-    background: color-mix(in oklch, var(--surface-console) 88%, black);
+    background: color-mix(in oklch, var(--surface-console) 72%, var(--surface-panel));
   }
 
   .surface-raised {
@@ -375,7 +409,7 @@
 
   .desktop-menubar {
     @apply flex h-8 items-center justify-between gap-4 border-b border-border/80 px-3;
-    background: color-mix(in oklch, var(--surface-panel) 86%, black);
+    background: color-mix(in oklch, var(--surface-toolbar) 94%, white);
   }
 
   .desktop-topbar {
@@ -384,7 +418,7 @@
 
   .desktop-window-toolbar {
     @apply flex items-center justify-between gap-3 border-b border-border/80 px-3;
-    background: var(--surface-toolbar);
+    background: color-mix(in oklch, var(--surface-toolbar) 96%, white);
   }
 
   .desktop-topbar-right {
@@ -562,32 +596,6 @@
   .explorer-list-row-active {
     background: color-mix(in oklch, var(--color-primary) 16%, var(--surface-panel));
     box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--color-primary) 34%, transparent);
-  }
-
-  .explorer-grid-card {
-    background: color-mix(in oklch, var(--surface-toolbar) 74%, var(--surface-panel));
-    transition:
-      background-color 150ms ease,
-      border-color 150ms ease,
-      box-shadow 150ms ease;
-  }
-
-  .explorer-grid-card:hover {
-    background: color-mix(in oklch, var(--surface-toolbar) 92%, var(--surface-panel));
-    border-color: color-mix(in oklch, var(--color-border) 88%, transparent);
-    box-shadow: 0 18px 30px -24px rgba(0, 0, 0, 0.72);
-  }
-
-  .explorer-grid-card-active {
-    background: color-mix(in oklch, var(--color-primary) 10%, var(--surface-toolbar));
-    border-color: color-mix(in oklch, var(--color-primary) 54%, transparent);
-    box-shadow:
-      0 0 0 1px color-mix(in oklch, var(--color-primary) 24%, transparent),
-      0 18px 40px -28px rgba(12, 18, 34, 0.72);
-  }
-
-  .explorer-grid-preview {
-    background: color-mix(in oklch, var(--surface-toolbar) 86%, var(--surface-panel));
   }
 
   .asset-count-chip {

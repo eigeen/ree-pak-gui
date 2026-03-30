@@ -33,14 +33,11 @@ export function splitNormalizedPath(path: string): string[] {
   return normalizePathForSegments(path).split('/').filter(Boolean)
 }
 
-export function getExtractRelativeRoot(path: string): string {
-  const segments = splitNormalizedPath(path)
-  const nativesIndex = segments.findIndex((segment) => segment.toLowerCase() === 'natives')
-  const nextSegment = nativesIndex >= 0 ? segments[nativesIndex + 1] : undefined
-
-  if (nativesIndex >= 0 && nextSegment && nextSegment.toLowerCase() === 'stm') {
-    return segments.slice(0, nativesIndex + 2).join('/')
+export function getSelectedItemRelativeRoot(path: string): string {
+  const normalizedPath = normalizePathForSegments(path)
+  if (!normalizedPath) {
+    return ''
   }
 
-  return ''
+  return getParentPath(normalizedPath) ?? ''
 }

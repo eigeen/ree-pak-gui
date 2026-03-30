@@ -90,15 +90,27 @@
                       <FoldVertical class="size-4" />
                     </Button>
                   </div>
-                  <Button
-                    size="icon-sm"
-                    variant="ghost"
-                    class="desktop-icon-button"
-                    :disabled="!showOverlay"
-                    @click="doRender"
-                  >
-                    <RefreshCw class="size-4" :class="loadingTree ? 'animate-spin' : ''" />
-                  </Button>
+                  <div class="flex items-center gap-1.5">
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      class="desktop-icon-button"
+                      :disabled="selectedTreeExtractFiles.length === 0"
+                      :title="t('unpack.extract')"
+                      @click="doExtraction"
+                    >
+                      <Download class="size-4" />
+                    </Button>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      class="desktop-icon-button"
+                      :disabled="!showOverlay"
+                      @click="doRender"
+                    >
+                      <RefreshCw class="size-4" :class="loadingTree ? 'animate-spin' : ''" />
+                    </Button>
+                  </div>
                 </div>
 
                 <div class="min-h-0 flex-1 pt-3">
@@ -146,7 +158,6 @@
             <ResizablePanel :default-size="75" :min-size="52">
               <UnpackExplorerPane
                 v-model:search-text="explorerSearchText"
-                :enable-extract="enableExtract"
                 :has-tree="Boolean(treeData)"
                 :has-pak-data="pakData.length > 0"
                 :layout-mode="explorerLayoutMode"
@@ -160,7 +171,6 @@
                 :renderers="explorerRenderers"
                 :column-labels="explorerColumnLabels"
                 :context-menu-items="explorerContextMenuItems"
-                @extract="doExtraction"
                 @open-directory="openDirectory"
                 @open-parent-directory="openParentDirectory"
                 @toggle-layout="toggleExplorerLayout"
@@ -311,7 +321,7 @@ import { fileListService } from '@/service/filelist'
 import { useSettingsStore, type AppSettings } from '@/store/settings'
 import { useWorkStore } from '@/store/work'
 import { ShowError, ShowInfo, ShowWarn } from '@/utils/message'
-import { getExtractRelativeRoot, normalizeDisplayPath, splitNormalizedPath } from '@/utils/path'
+import { getSelectedItemRelativeRoot, normalizeDisplayPath, splitNormalizedPath } from '@/utils/path'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
@@ -391,7 +401,6 @@ const imageViewerState = ref({
 })
 const taskProgress = useTaskProgressState()
 
-const enableExtract = computed(() => treeData.value !== null)
 const canRenderTree = computed(
   () => Boolean(unpackState.value.fileList) && pakData.value.length > 0
 )
@@ -429,6 +438,13 @@ const currentDirectory = computed(() => {
 const selectedEntry = computed(() =>
   selectedEntryKey.value ? explorerNodeMap.value.get(selectedEntryKey.value) : undefined
 )
+const selectedTreeEntry = computed(() =>
+  treeFocusKey.value ? explorerNodeMap.value.get(treeFocusKey.value) : undefined
+)
+const selectedTreeExtractFiles = computed(() => {
+  const entry = selectedTreeEntry.value
+  return entry?.isDir ? collectExtractFilesFromEntry(entry, 'relativePath') : []
+})
 
 const explorerEntries = computed(() => {
   const dir = currentDirectory.value
@@ -983,7 +999,7 @@ async function handleCloseAll() {
 }
 
 async function doExtraction() {
-  await extractFilesWithDialog(fileTreeComponent.value?.getCheckedNodes() ?? [], 'relativePath')
+  await extractFilesWithDialog(selectedTreeExtractFiles.value, 'relativePath')
 }
 
 async function extractFilesWithDialog(extractFiles: ExtractFileInfo[], mode: ExtractMode) {
@@ -1837,7 +1853,7 @@ function collectExtractFilesFromEntry(
   mode: ExtractMode = 'relativePath'
 ): ExtractFileInfo[] {
   const files = new Map<string, ExtractFileInfo>()
-  const relativeRoot = mode === 'relativePath' ? getExtractRelativeRoot(entry.path) : undefined
+  const relativeRoot = mode === 'relativePath' ? getSelectedItemRelativeRoot(entry.path) : undefined
 
   const walk = (node: ExplorerEntry) => {
     if (node.isDir) {
@@ -1865,7 +1881,7 @@ function collectTextureFilesFromEntry(
   mode: ExtractMode = 'relativePath'
 ): ExtractFileInfo[] {
   const files = new Map<string, ExtractFileInfo>()
-  const relativeRoot = mode === 'relativePath' ? getExtractRelativeRoot(entry.path) : undefined
+  const relativeRoot = mode === 'relativePath' ? getSelectedItemRelativeRoot(entry.path) : undefined
 
   const walk = (node: ExplorerEntry) => {
     if (node.isDir) {

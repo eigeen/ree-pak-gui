@@ -118,9 +118,10 @@ function getRowStyle(start: number) {
 }
 
 function getCardClass(item: TItem) {
-  const baseClass = 'explorer-grid-card relative isolate group flex min-h-0 flex-col overflow-hidden rounded-[0.4rem] border-2 text-left shadow-[0_14px_28px_-24px_rgba(0,0,0,0.72)]'
+  const baseClass =
+    'explorer-grid-card relative isolate group flex min-h-0 flex-col overflow-hidden rounded-[0.4rem] border-2 text-left transition-[background-color,border-color,box-shadow] duration-150'
   if (props.selectedKey !== item.id) {
-    return `${baseClass} border-transparent`
+    return baseClass
   }
 
   return `${baseClass} explorer-grid-card-active`
@@ -168,3 +169,44 @@ function handleBackgroundContextMenu(event: MouseEvent) {
     </div>
   </div>
 </template>
+
+<style scoped>
+.explorer-grid-card {
+  background: color-mix(in oklch, var(--surface-console) 26%, var(--surface-panel));
+  border-color: color-mix(in oklch, var(--surface-console) 26%, var(--surface-panel));
+  box-shadow: none;
+}
+
+.explorer-grid-card:hover {
+  background: color-mix(in oklch, var(--surface-console) 38%, var(--surface-panel));
+  border-color: color-mix(in oklch, var(--color-border) 54%, transparent);
+}
+
+.dark .explorer-grid-card {
+  background: color-mix(in oklch, var(--surface-toolbar) 74%, var(--surface-panel));
+  border-color: color-mix(in oklch, var(--surface-toolbar) 74%, var(--surface-panel));
+  box-shadow: 0 14px 28px -24px rgb(0 0 0 / 0.72);
+}
+
+.dark .explorer-grid-card:hover {
+  background: color-mix(in oklch, var(--surface-toolbar) 92%, var(--surface-panel));
+  border-color: color-mix(in oklch, var(--color-border) 88%, transparent);
+  box-shadow: 0 18px 30px -24px rgb(0 0 0 / 0.72);
+}
+
+.explorer-grid-card-active,
+.explorer-grid-card-active:hover {
+  background: color-mix(in oklch, var(--color-primary) 16%, var(--surface-panel));
+  border-color: color-mix(in oklch, var(--color-primary) 48%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--color-primary) 28%, transparent);
+}
+
+.dark .explorer-grid-card-active,
+.dark .explorer-grid-card-active:hover {
+  background: color-mix(in oklch, var(--color-primary) 12%, var(--surface-toolbar));
+  border-color: color-mix(in oklch, var(--color-primary) 42%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklch, var(--color-primary) 28%, transparent),
+    0 18px 40px -28px rgb(12 18 34 / 0.72);
+}
+</style>

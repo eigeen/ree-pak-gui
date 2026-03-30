@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {
   ArrowUp,
-  Download,
   FileArchive,
   FolderTree,
   LayoutGrid,
@@ -25,7 +24,6 @@ import type {
 
 const props = defineProps<{
   searchText: string
-  enableExtract: boolean
   hasTree: boolean
   hasPakData: boolean
   layoutMode: ExplorerLayoutMode
@@ -43,7 +41,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:search-text', value: string): void
-  (e: 'extract'): void
   (e: 'open-directory', id: string): void
   (e: 'open-parent-directory'): void
   (e: 'toggle-layout'): void
@@ -67,7 +64,7 @@ function handleItemContextMenu(item: ExplorerEntry, event: MouseEvent) {
 
 <template>
   <div class="flex h-full min-w-0 flex-col">
-    <div class="desktop-toolbar justify-between">
+    <div class="desktop-toolbar">
       <div class="flex min-w-0 flex-1 items-center gap-2 px-2">
         <Search class="size-4 text-muted-foreground" />
         <DenseInput
@@ -77,16 +74,6 @@ function handleItemContextMenu(item: ExplorerEntry, event: MouseEvent) {
           @update:model-value="handleSearchTextUpdate"
         />
       </div>
-      <Button
-        variant="outline"
-        size="sm"
-        class="desktop-command-button"
-        :disabled="!props.enableExtract"
-        @click="emit('extract')"
-      >
-        <Download class="size-4" />
-        {{ t('unpack.extract') }}
-      </Button>
     </div>
 
     <div class="desktop-subtoolbar items-center justify-between gap-3">
@@ -143,14 +130,14 @@ function handleItemContextMenu(item: ExplorerEntry, event: MouseEvent) {
       >
         <div v-if="!props.hasPakData" class="empty-state h-full">
           <FileArchive class="size-10 text-muted-foreground" />
-          <p class="text-sm font-semibold text-foreground">{{ t('explorer.emptyNoFiles') }}</p>
-          <p class="section-copy">{{ t('explorer.emptyNoFilesDescription') }}</p>
+          <p class="text-lg font-semibold text-foreground">{{ t('explorer.emptyNoFiles') }}</p>
+          <p class="text-sm text-muted-foreground">{{ t('explorer.emptyNoFilesDescription') }}</p>
         </div>
 
         <div v-else-if="!props.hasTree" class="empty-state h-full">
           <FolderTree class="size-10 text-muted-foreground" />
-          <p class="text-sm font-semibold text-foreground">{{ t('explorer.emptyNoTree') }}</p>
-          <p class="section-copy">{{ t('explorer.emptyNoTreeDescription') }}</p>
+          <p class="text-lg font-semibold text-foreground">{{ t('explorer.emptyNoTree') }}</p>
+          <p class="text-sm text-muted-foreground">{{ t('explorer.emptyNoTreeDescription') }}</p>
         </div>
 
         <AppContextMenu v-else-if="props.layoutMode === 'tile'" :items="props.contextMenuItems">

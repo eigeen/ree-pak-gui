@@ -40,7 +40,7 @@ function handleItemContextMenu(item: ExplorerEntry, event: MouseEvent) {
       <div class="flex h-full min-h-0 flex-col">
         <div
           :class="[
-            'explorer-grid-preview relative flex h-30 overflow-hidden',
+            'relative flex h-30 overflow-hidden bg-[color-mix(in_oklch,var(--surface-console)_18%,var(--surface-toolbar))] dark:bg-[color-mix(in_oklch,var(--surface-toolbar)_86%,var(--surface-panel))]',
             props.texturePreviewEnabled && props.renderers.getTexturePreview(item)
               ? 'items-stretch justify-stretch'
               : 'items-center justify-center px-3 py-3'
