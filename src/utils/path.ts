@@ -20,3 +20,27 @@ export function getFileStem(path: string): string {
   }
   return fileName.substring(0, firstDotIndex)
 }
+
+export function normalizeDisplayPath(path: string): string {
+  return path.replace(/\\/g, '/').replace(/\s*\/\s*/g, '/').trim()
+}
+
+export function normalizePathForSegments(path: string): string {
+  return normalizeDisplayPath(path).replace(/\/+$/g, '')
+}
+
+export function splitNormalizedPath(path: string): string[] {
+  return normalizePathForSegments(path).split('/').filter(Boolean)
+}
+
+export function getExtractRelativeRoot(path: string): string {
+  const segments = splitNormalizedPath(path)
+  const nativesIndex = segments.findIndex((segment) => segment.toLowerCase() === 'natives')
+  const nextSegment = nativesIndex >= 0 ? segments[nativesIndex + 1] : undefined
+
+  if (nativesIndex >= 0 && nextSegment && nextSegment.toLowerCase() === 'stm') {
+    return segments.slice(0, nativesIndex + 2).join('/')
+  }
+
+  return ''
+}

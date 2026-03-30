@@ -4,6 +4,7 @@ import type { TreeV2Instance } from 'element-plus/es/components/tree-v2/src/inst
 import type { ExtractFileInfo, JsSafeHash, RenderTreeNode } from '@/api/tauri/pak'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Folder } from 'lucide-vue-next'
+import { getExtractRelativeRoot } from '@/utils/path'
 
 export interface TreeData {
   id: string
@@ -188,18 +189,19 @@ function getCheckedNodes(): ExtractFileInfo[] {
 
   const files = new Map<string, ExtractFileInfo>()
 
-  const collectFiles = (node: TreeData) => {
+  const collectFilesWithRoot = (node: TreeData, relativeRoot: string) => {
     if (!node.isDir) {
       if (node.hash && node.belongsTo) {
         files.set(node.id, {
           hash: node.hash,
-          belongsTo: node.belongsTo
+          belongsTo: node.belongsTo,
+          relativeRoot
         })
       }
       return
     }
 
-    node.children.forEach(collectFiles)
+    node.children.forEach((child) => collectFilesWithRoot(child, relativeRoot))
   }
 
   const fullTreeMap = new Map<string, TreeData>()
@@ -212,10 +214,10 @@ function getCheckedNodes(): ExtractFileInfo[] {
   checkedDirectories.forEach((node) => {
     const source = fullTreeMap.get(node.id)
     if (source) {
-      collectFiles(source)
+      const relativeRoot = getExtractRelativeRoot(source.path)
+      collectFilesWithRoot(source, relativeRoot)
     }
   })
-
   return [...files.values()]
 }
 

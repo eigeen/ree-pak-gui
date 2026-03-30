@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { JsSafeHash } from './pak'
+import type { ExtractFileInfo, JsSafeHash } from './pak'
 
 export interface CompileInfo {
   version: string
@@ -9,8 +9,20 @@ export interface CompileInfo {
   arch: string
 }
 
+export type TextureExportFormat = 'dds' | 'png'
+
+export interface TextureExportOptions {
+  outputPath: string
+  format: TextureExportFormat
+  files: ExtractFileInfo[]
+}
+
 export function getPreviewFile(hash: JsSafeHash): Promise<string> {
   return invoke('get_preview_file', { hash })
+}
+
+export function exportTextureFiles(options: TextureExportOptions): Promise<number> {
+  return invoke('export_texture_files', { options })
 }
 
 export function getExePath(): Promise<string> {

@@ -9,12 +9,12 @@ use crate::{
     },
     common::JsSafeHash,
     pak::{
-        ExtractOptions, PakId, PakInfo,
+        ExtractFileInfo, ExtractOptions, PakId, PakInfo,
         tree::{FileTree, RenderTreeNode, RenderTreeOptions},
     },
     service::{
         pak::{PakHeaderInfo, PakService},
-        preview::PreviewService,
+        preview::{PreviewService, TextureExportFormat},
         tools::ToolsService,
     },
     utility, warp_result_elapsed,
@@ -175,6 +175,29 @@ pub async fn get_preview_file(hash: JsSafeHash) -> Result<String, String> {
         .await
         .map_err(|e| e.to_string())
         .map(|p| p.to_string_lossy().to_string())
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextureExportOptions {
+    pub output_path: String,
+    pub format: String,
+    pub files: Vec<ExtractFileInfo>,
+}
+
+#[tauri::command]
+pub async fn export_texture_files(options: TextureExportOptions) -> Result<usize, String> {
+    let preview_service = PreviewService::get();
+    let format = match options.format.as_str() {
+        "dds" => TextureExportFormat::Dds,
+        "png" => TextureExportFormat::Png,
+        other => return Err(format!("Unsupported texture export format: {other}")),
+    };
+
+    preview_service
+        .export_texture_files(format, &options.output_path, &options.files)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

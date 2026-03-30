@@ -13,22 +13,37 @@ type Settings = {
   preview: {
     showTexturePreview: boolean
   }
+  unpack: {
+    extractAbsolutePath: boolean
+  }
 }
 
 const defaultSettings: Settings = {
   version: '1',
   preview: {
     showTexturePreview: true
+  },
+  unpack: {
+    extractAbsolutePath: false
   }
 }
 
 function normalizeSettings(raw: Partial<Settings> | null | undefined): Settings {
+  const legacyExtractFullPath = (raw?.unpack as { extractFullPath?: boolean } | undefined)
+    ?.extractFullPath
+
   return {
     version: raw?.version ?? defaultSettings.version,
     language: raw?.language,
     preview: {
       showTexturePreview:
         raw?.preview?.showTexturePreview ?? defaultSettings.preview.showTexturePreview
+    },
+    unpack: {
+      extractAbsolutePath:
+        raw?.unpack?.extractAbsolutePath ??
+        legacyExtractFullPath ??
+        defaultSettings.unpack.extractAbsolutePath
     }
   }
 }

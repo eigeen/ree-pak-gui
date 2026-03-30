@@ -23,6 +23,12 @@ export default {
       applyFilter: 'Apply Filter',
       loadFileTree: 'Load File Tree',
       extract: 'Extract',
+      extractWithFullPath: 'Extract with Full Path',
+      exportFullPath: 'Export Full Path',
+      exportCurrentPath: 'Export Current Path',
+      otherExportActions: 'Export...',
+      exportTexturesAsDds: 'Export Texture as DDS',
+      exportTexturesAsPng: 'Export Texture as PNG',
       columnName: 'Name',
       columnType: 'Type',
       columnSize: 'Size',
@@ -146,6 +152,12 @@ export default {
       texturePreviewDescription: 'Whether to show Texture thumbnails inside explorer cards.',
       texturePreviewHint:
         'Enabling this loads texture previews asynchronously and may affect browsing performance.',
+      extractBehaviorTitle: 'Extraction Behavior',
+      extractFullPathTitle: 'Extract with Full Path',
+      extractFullPathDescription:
+        'When enabled, extraction preserves the full original path; when disabled, extraction keeps paths relative to the current selected item.',
+      extractFullPathHint:
+        'When disabled, selecting c/d exports as c/d instead of a/b/c/d.',
       enabled: 'Enabled',
       disabled: 'Disabled',
       placeholderSection: 'This category is empty for now.'

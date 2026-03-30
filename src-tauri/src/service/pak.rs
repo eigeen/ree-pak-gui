@@ -26,7 +26,7 @@ use crate::{
     common::JsSafeHash,
     error::{Error, Result},
     pak::{
-        ExtractOptions, Pak, PakId, PakInfo,
+        ExtractMode, ExtractOptions, Pak, PakId, PakInfo,
         group::PakGroup,
         tree::{FileTree, RenderTreeNode, RenderTreeOptions},
     },
@@ -69,7 +69,12 @@ impl From<PakMetadata> for PakHeaderInfo {
     fn from(value: PakMetadata) -> Self {
         Self {
             header: PakHeader::from(value.header().clone()),
-            entries: value.entries().iter().cloned().map(PakEntry::from).collect(),
+            entries: value
+                .entries()
+                .iter()
+                .cloned()
+                .map(PakEntry::from)
+                .collect(),
         }
     }
 }
@@ -301,6 +306,13 @@ impl PakService {
             let mut _pak_group = pak_group.lock();
             let file_name_table = Arc::new(_pak_group.file_name_table().unwrap().clone());
             let output_root = PathBuf::from(&options1.output_path);
+            let relative_roots = Arc::new(
+                options1
+                    .extract_files
+                    .iter()
+                    .map(|info| (info.hash.hash_u64(), info.relative_root.clone()))
+                    .collect::<std::collections::HashMap<_, _>>(),
+            );
             for pak in _pak_group.paks() {
                 if should_terminate.load(Ordering::Relaxed) {
                     break;
@@ -326,10 +338,9 @@ impl PakService {
 
                 let mut extractor = pak
                     .pakfile
-                    .extractor(&output_root)
+                    .extractor_callback()
                     .file_name_table_arc(file_name_table.clone())
                     .skip_unknown(false)
-                    .overwrite(options1.r#override)
                     .continue_on_error(true)
                     .cancel_flag(should_terminate.clone());
 
@@ -347,7 +358,43 @@ impl PakService {
                             progress1.file_done(path.to_string_lossy().as_ref(), hash, error);
                         }
                     })
-                    .run();
+                    .run_with_reader({
+                        let output_root = output_root.clone();
+                        let extract_mode = options1.mode;
+                        let relative_roots = relative_roots.clone();
+                        move |_entry, rel_path, reader| {
+                            let relative_root = relative_roots
+                                .get(&_entry.hash())
+                                .map(|value| value.as_deref())
+                                .flatten();
+                            let output_path = match extract_mode {
+                                ExtractMode::RelativePath => {
+                                    output_root
+                                        .join(build_extract_relative_path(rel_path, relative_root))
+                                }
+                                ExtractMode::AbsolutePath => output_root.join(rel_path),
+                            };
+
+                            if let Some(parent) = output_path.parent()
+                                && !parent.exists()
+                            {
+                                std::fs::create_dir_all(parent)?;
+                            }
+
+                            let mut open_options = std::fs::OpenOptions::new();
+                            open_options.write(true).create(true);
+
+                            if options1.r#override {
+                                open_options.truncate(true);
+                            } else {
+                                open_options.create_new(true);
+                            }
+
+                            let mut file = open_options.open(&output_path)?;
+                            std::io::copy(reader, &mut file)?;
+                            Ok(())
+                        }
+                    });
 
                 if let Err(e) = result {
                     eprintln!("Error unpacking pak: {}", e);
@@ -686,6 +733,51 @@ fn get_relative_path_with_parent(root_path: &Path, file_path: &Path) -> Result<S
     Ok(relative_path.replace("\\", "/"))
 }
 
+fn build_extract_relative_path(rel_path: &Path, relative_root: Option<&str>) -> PathBuf {
+    let rel_components = path_components(rel_path);
+    let root_components = relative_root
+        .filter(|root| !root.trim().is_empty())
+        .map(path_string_components)
+        .filter(|components| !components.is_empty())
+        .unwrap_or_default();
+
+    let stripped_components = if !root_components.is_empty()
+        && rel_components
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>()
+            .starts_with(&root_components)
+    {
+        &rel_components[root_components.len()..]
+    } else {
+        &rel_components[..]
+    };
+
+    stripped_components
+        .iter()
+        .fold(PathBuf::new(), |mut path, component| {
+            path.push(component);
+            path
+        })
+}
+
+fn path_components(path: &Path) -> Vec<String> {
+    path.components()
+        .filter_map(|component| match component {
+            std::path::Component::Normal(value) => Some(value.to_string_lossy().into_owned()),
+            std::path::Component::CurDir => None,
+            std::path::Component::ParentDir => Some("..".to_string()),
+            std::path::Component::Prefix(_) | std::path::Component::RootDir => None,
+        })
+        .collect()
+}
+
+fn path_string_components(path: &str) -> Vec<&str> {
+    path.split(['/', '\\'])
+        .filter(|component| !component.is_empty())
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -702,5 +794,30 @@ mod tests {
         let file_path = Path::new("C:/Data/MyMod/assets/texture.png");
         let relative_path = get_relative_path_with_parent(root_path, file_path).unwrap();
         assert_eq!(relative_path, "MyMod/assets/texture.png");
+    }
+
+    #[test]
+    fn test_build_extract_relative_path_strips_relative_root() {
+        let path = build_extract_relative_path(
+            Path::new("natives/STM/stage/test.txt"),
+            Some("natives/STM"),
+        );
+        assert_eq!(path, PathBuf::from("stage/test.txt"));
+    }
+
+    #[test]
+    fn test_build_extract_relative_path_preserves_path_when_root_does_not_match() {
+        let path =
+            build_extract_relative_path(Path::new("natives/STM/stage/test.txt"), Some("x/y"));
+        assert_eq!(path, PathBuf::from("natives/STM/stage/test.txt"));
+    }
+
+    #[test]
+    fn test_build_extract_relative_path_supports_windows_style_root() {
+        let path = build_extract_relative_path(
+            Path::new("natives/STM/stage/test.txt"),
+            Some(r"natives\STM"),
+        );
+        assert_eq!(path, PathBuf::from("stage/test.txt"));
     }
 }

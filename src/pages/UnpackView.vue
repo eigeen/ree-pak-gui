@@ -308,6 +308,7 @@ import {
 } from '@/api/tauri/pak'
 import type {
   ExtractFileInfo,
+  ExtractMode,
   ExtractOptions,
   PakEntry,
   PakHeaderInfo,
@@ -315,7 +316,7 @@ import type {
   RenderTreeNode,
   UnpackProgressEvent
 } from '@/api/tauri/pak'
-import { getPreviewFile } from '@/api/tauri/utils'
+import { exportTextureFiles, getPreviewFile, type TextureExportFormat } from '@/api/tauri/utils'
 import AppContextMenu from '@/components/context-menu/AppContextMenu.vue'
 import FileTree, { type TreeData } from '@/components/FileTree.vue'
 import type { MenuGroup } from '@/components/DesktopMenuBar.vue'
@@ -347,6 +348,11 @@ import { fileListService } from '@/service/filelist'
 import { useSettingsStore } from '@/store/settings'
 import { useWorkStore } from '@/store/work'
 import { ShowError, ShowInfo, ShowWarn } from '@/utils/message'
+import {
+  getExtractRelativeRoot,
+  normalizeDisplayPath,
+  splitNormalizedPath
+} from '@/utils/path'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -463,6 +469,9 @@ const fileNameTable = ref<{ openManager: () => void } | null>(null)
 const texturePreviewEnabled = computed(
   () => settingsStore.settings.value?.preview?.showTexturePreview ?? true
 )
+const extractMode = computed<ExtractMode>(() =>
+  settingsStore.settings.value?.unpack?.extractAbsolutePath ? 'absolutePath' : 'relativePath'
+)
 
 const explorerRoot = computed<ExplorerEntry | null>(() =>
   treeData.value ? buildExplorerRoot(treeData.value) : null
@@ -514,8 +523,7 @@ const pakFileNameMap = computed(() => {
   const map = new Map<string, string>()
 
   for (const pak of pakData.value) {
-    const normalizedPath = pak.path.replace(/\\/g, '/')
-    const segments = normalizedPath.split('/')
+    const segments = splitNormalizedPath(pak.path)
     const fileName = segments[segments.length - 1] ?? pak.path
     map.set(pak.id, fileName)
   }
@@ -603,6 +611,8 @@ const explorerContextMenuItems = computed<ContextMenuEntry[]>(() => {
   }
 
   const extractFiles = collectExtractFilesFromEntry(item)
+  const extractDirectoryFiles = item.isDir ? collectExtractFilesFromEntry(item, 'relativePath') : []
+  const textureFiles = collectTextureFilesFromEntry(item, 'relativePath')
   const canPreview = canPreviewExplorerItem(item)
 
   return [
@@ -642,11 +652,23 @@ const explorerContextMenuItems = computed<ContextMenuEntry[]>(() => {
     },
     {
       type: 'action',
-      key: 'explorer-extract',
-      label: item.isDir ? '提取目录' : '提取文件',
+      key: 'explorer-extract-full-path',
+      label: t('unpack.exportFullPath'),
+      icon: FolderTree,
+      disabled: extractFiles.length === 0,
+      action: () => void extractFilesWithDialog(extractFiles, 'absolutePath')
+    },
+    {
+      type: 'action',
+      key: 'explorer-extract-current-path',
+      label: t('unpack.exportCurrentPath'),
       icon: Download,
       disabled: extractFiles.length === 0,
-      action: () => void extractFilesWithDialog(extractFiles)
+      action: () =>
+        void extractFilesWithDialog(
+          item.isDir ? extractDirectoryFiles : extractFiles,
+          'relativePath'
+        )
     },
     {
       type: 'action',
@@ -655,6 +677,29 @@ const explorerContextMenuItems = computed<ContextMenuEntry[]>(() => {
       icon: Copy,
       shortcut: 'Ctrl+C',
       action: () => void copyText(item.path)
+    },
+    {
+      type: 'submenu',
+      key: 'explorer-other-export-actions',
+      label: t('unpack.otherExportActions'),
+      icon: Download,
+      disabled: textureFiles.length === 0,
+      children: [
+        {
+          type: 'action',
+          key: 'explorer-export-texture-dds',
+          label: t('unpack.exportTexturesAsDds'),
+          disabled: textureFiles.length === 0,
+          action: () => void exportTexturesWithDialog(textureFiles, 'dds')
+        },
+        {
+          type: 'action',
+          key: 'explorer-export-texture-png',
+          label: t('unpack.exportTexturesAsPng'),
+          disabled: textureFiles.length === 0,
+          action: () => void exportTexturesWithDialog(textureFiles, 'png')
+        }
+      ]
     }
   ]
 })
@@ -690,6 +735,10 @@ const treeContextMenuItems = computed<ContextMenuEntry[]>(() => {
 
   const entry = explorerNodeMap.value.get(node.id)
   const extractFiles = entry ? collectExtractFilesFromEntry(entry) : []
+  const extractDirectoryFiles = entry?.isDir
+    ? collectExtractFilesFromEntry(entry, 'relativePath')
+    : []
+  const textureFiles = entry ? collectTextureFilesFromEntry(entry, 'relativePath') : []
 
   return [
     {
@@ -713,11 +762,23 @@ const treeContextMenuItems = computed<ContextMenuEntry[]>(() => {
     },
     {
       type: 'action',
-      key: 'tree-extract-directory',
-      label: '提取目录',
+      key: 'tree-extract-full-path',
+      label: t('unpack.exportFullPath'),
+      icon: FolderTree,
+      disabled: extractFiles.length === 0,
+      action: () => void extractFilesWithDialog(extractFiles, 'absolutePath')
+    },
+    {
+      type: 'action',
+      key: 'tree-extract-current-path',
+      label: t('unpack.exportCurrentPath'),
       icon: Download,
       disabled: extractFiles.length === 0,
-      action: () => void extractFilesWithDialog(extractFiles)
+      action: () =>
+        void extractFilesWithDialog(
+          entry?.isDir ? extractDirectoryFiles : extractFiles,
+          'relativePath'
+        )
     },
     {
       type: 'action',
@@ -726,6 +787,29 @@ const treeContextMenuItems = computed<ContextMenuEntry[]>(() => {
       icon: Copy,
       shortcut: 'Ctrl+C',
       action: () => void copyText(node.path)
+    },
+    {
+      type: 'submenu',
+      key: 'tree-other-export-actions',
+      label: t('unpack.otherExportActions'),
+      icon: Download,
+      disabled: textureFiles.length === 0,
+      children: [
+        {
+          type: 'action',
+          key: 'tree-export-texture-dds',
+          label: t('unpack.exportTexturesAsDds'),
+          disabled: textureFiles.length === 0,
+          action: () => void exportTexturesWithDialog(textureFiles, 'dds')
+        },
+        {
+          type: 'action',
+          key: 'tree-export-texture-png',
+          label: t('unpack.exportTexturesAsPng'),
+          disabled: textureFiles.length === 0,
+          action: () => void exportTexturesWithDialog(textureFiles, 'png')
+        }
+      ]
     }
   ]
 })
@@ -967,10 +1051,10 @@ async function handleCloseAll() {
 }
 
 async function doExtraction() {
-  await extractFilesWithDialog(fileTreeComponent.value?.getCheckedNodes() ?? [])
+  await extractFilesWithDialog(fileTreeComponent.value?.getCheckedNodes() ?? [], 'relativePath')
 }
 
-async function extractFilesWithDialog(extractFiles: ExtractFileInfo[]) {
+async function extractFilesWithDialog(extractFiles: ExtractFileInfo[], mode: ExtractMode) {
   try {
     if (extractFiles.length === 0) {
       ShowWarn('当前没有可提取的文件。')
@@ -988,6 +1072,7 @@ async function extractFilesWithDialog(extractFiles: ExtractFileInfo[]) {
     const options: ExtractOptions = {
       outputPath: selected as string,
       override: true,
+      mode,
       extractAll: false,
       extractFiles
     }
@@ -1019,6 +1104,36 @@ async function extractFilesWithDialog(extractFiles: ExtractFileInfo[]) {
     unpackWorking.value = true
     showProgressPanel.value = true
     await pak_extract_all(options, onEvent)
+  } catch (error) {
+    ShowError(error)
+  }
+}
+
+async function exportTexturesWithDialog(
+  files: ExtractFileInfo[],
+  format: TextureExportFormat
+) {
+  try {
+    if (files.length === 0) {
+      ShowWarn('当前没有可导出的 Texture。')
+      return
+    }
+
+    let selected = await dialogOpen({
+      directory: true,
+      multiple: false
+    })
+
+    if (!selected) return
+    if (Array.isArray(selected)) selected = selected[0]
+
+    const exported = await exportTextureFiles({
+      outputPath: selected as string,
+      format,
+      files
+    })
+
+    ShowInfo(`已导出 ${exported} 个 Texture${format === 'dds' ? ' (DDS)' : ' (PNG)'}`)
   } catch (error) {
     ShowError(error)
   }
@@ -1272,8 +1387,12 @@ function getExplorerTypeKey(item: ExplorerEntry) {
   return resolveExplorerFileTypeKey(item.name, item.isDir)
 }
 
+function isTextureEntry(item: ExplorerEntry) {
+  return !item.isDir && getExplorerTypeKey(item) === 'texture'
+}
+
 function canPreviewExplorerItem(item: ExplorerEntry) {
-  return !item.isDir && texturePreviewEnabled.value && getExplorerTypeKey(item) === 'texture'
+  return texturePreviewEnabled.value && isTextureEntry(item)
 }
 
 function getDefaultExplorerLayout(directory: ExplorerEntry | null): ExplorerLayoutMode {
@@ -1418,16 +1537,8 @@ function formatPropertyValue(value: unknown) {
 }
 
 function getPakFileName(path: string) {
-  const normalizedPath = normalizeDisplayPath(path)
-  const segments = normalizedPath.split('/')
+  const segments = splitNormalizedPath(path)
   return segments[segments.length - 1] ?? path
-}
-
-function normalizeDisplayPath(path: string) {
-  return path
-    .replace(/\\/g, '/')
-    .replace(/\s*\/\s*/g, '/')
-    .trim()
 }
 
 function buildDirectoryPropertySections(node: ExplorerEntry): PropertySection[] {
@@ -1687,8 +1798,12 @@ function closeImageViewer() {
   }
 }
 
-function collectExtractFilesFromEntry(entry: ExplorerEntry): ExtractFileInfo[] {
+function collectExtractFilesFromEntry(
+  entry: ExplorerEntry,
+  mode: ExtractMode = 'relativePath'
+): ExtractFileInfo[] {
   const files = new Map<string, ExtractFileInfo>()
+  const relativeRoot = mode === 'relativePath' ? getExtractRelativeRoot(entry.path) : undefined
 
   const walk = (node: ExplorerEntry) => {
     if (node.isDir) {
@@ -1702,7 +1817,36 @@ function collectExtractFilesFromEntry(entry: ExplorerEntry): ExtractFileInfo[] {
 
     files.set(node.id, {
       hash: node.hash,
-      belongsTo: node.belongsTo
+      belongsTo: node.belongsTo,
+      relativeRoot
+    })
+  }
+
+  walk(entry)
+  return [...files.values()]
+}
+
+function collectTextureFilesFromEntry(
+  entry: ExplorerEntry,
+  mode: ExtractMode = 'relativePath'
+): ExtractFileInfo[] {
+  const files = new Map<string, ExtractFileInfo>()
+  const relativeRoot = mode === 'relativePath' ? getExtractRelativeRoot(entry.path) : undefined
+
+  const walk = (node: ExplorerEntry) => {
+    if (node.isDir) {
+      node.children.forEach(walk)
+      return
+    }
+
+    if (!node.hash || !node.belongsTo || !isTextureEntry(node)) {
+      return
+    }
+
+    files.set(node.id, {
+      hash: node.hash,
+      belongsTo: node.belongsTo,
+      relativeRoot
     })
   }
 

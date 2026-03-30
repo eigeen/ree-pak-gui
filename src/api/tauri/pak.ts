@@ -50,13 +50,17 @@ export interface RenderTreeNode {
 export interface ExtractOptions {
   outputPath: string
   override: boolean
+  mode: ExtractMode
   extractAll: boolean
   extractFiles: ExtractFileInfo[]
 }
 
+export type ExtractMode = 'relativePath' | 'absolutePath'
+
 export interface ExtractFileInfo {
   hash: JsSafeHash
   belongsTo: PakId
+  relativeRoot?: string
 }
 
 type WorkProgressEventImpl<T> =

@@ -31,8 +31,16 @@ pub struct PakInfo {
 pub struct ExtractOptions {
     pub output_path: String,
     pub r#override: bool,
+    pub mode: ExtractMode,
     pub extract_all: bool,
     pub extract_files: Vec<ExtractFileInfo>,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ExtractMode {
+    RelativePath,
+    AbsolutePath,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -40,6 +48,7 @@ pub struct ExtractOptions {
 pub struct ExtractFileInfo {
     pub hash: JsSafeHash,
     pub belongs_to: PakId,
+    pub relative_root: Option<String>,
 }
 
 pub struct Pak {

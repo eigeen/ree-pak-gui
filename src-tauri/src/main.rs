@@ -95,6 +95,7 @@ fn main() {
             command::file_table_load,
             command::file_table_push_paths,
             command::get_preview_file,
+            command::export_texture_files,
             command::get_exe_path,
             command::get_compile_info,
             command::perform_update,
