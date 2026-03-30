@@ -22,6 +22,7 @@ import PageToolbar from '@/components/PageToolbar.vue'
 import { useWorkStore, type FileItem } from '@/store/work'
 import { Packer, type ConflictFile, type ExportResult, type PackProgress } from '@/lib/packer'
 import type { PackedPak } from '@/api/tauri/pak'
+import { ensureTaskProgressIdle } from '@/service/taskProgress'
 import { ShowError } from '@/utils/message'
 import { useI18n } from 'vue-i18n'
 import { Button } from '@/components/ui/button'
@@ -242,6 +243,10 @@ const handleRemoveFile = (index: number) => {
 }
 
 const handleExport = async () => {
+  if (!ensureTaskProgressIdle(t('global.taskBusy'))) {
+    return
+  }
+
   await packer.handleExport(packState.value.inputFiles, packState.value.exportConfig)
 }
 

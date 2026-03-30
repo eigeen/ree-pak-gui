@@ -26,12 +26,7 @@
                   />
                 </div>
                 <div class="mb-4">
-                  <Button
-                    size="sm"
-                    class="w-full"
-                    :disabled="!canRenderTree"
-                    @click="doRender"
-                  >
+                  <Button size="sm" class="w-full" :disabled="!canRenderTree" @click="doRender">
                     <RefreshCw class="size-4" :class="loadingTree ? 'animate-spin' : ''" />
                     {{ t('unpack.loadFileTree') }}
                   </Button>
@@ -195,53 +190,6 @@
       </div>
     </div>
 
-    <Dialog v-model:open="showProgressPanel">
-      <DialogContent
-        class="max-w-lg rounded-[1rem] border-border/80 bg-background/96"
-        :show-close-button="false"
-      >
-        <DialogHeader>
-          <DialogTitle>{{ t('unpack.extractingFiles') }}</DialogTitle>
-          <DialogDescription>
-            <span v-if="!unpackWorking">{{ t('unpack.done') }}</span>
-            <span v-else>处理中，请稍候。</span>
-          </DialogDescription>
-        </DialogHeader>
-
-        <div class="space-y-4">
-          <Progress :model-value="progressValue" class="h-2 rounded-full" />
-          <p class="text-sm text-muted-foreground">
-            {{ finishFileCount }} / {{ totalFileCount }} {{ t('unpack.files') }}
-          </p>
-          <div class="space-y-1">
-            <p class="text-sm font-medium text-foreground">{{ t('unpack.extracting') }}</p>
-            <p class="truncate text-sm text-muted-foreground">{{ currentFile }}</p>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button :variant="unpackWorking ? 'destructive' : 'outline'" @click="handleCloseProgress">
-            {{ unpackWorking ? t('unpack.terminate') : t('unpack.close') }}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-
-    <AlertDialog v-model:open="showConfirmTermination">
-      <AlertDialogContent class="rounded-[1rem] border-border/80 bg-background/96">
-        <AlertDialogHeader>
-          <AlertDialogTitle>{{ t('unpack.confirmTermination') }}</AlertDialogTitle>
-          <AlertDialogDescription>{{ t('unpack.confirmTerminationText') }}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{{ t('unpack.cancel') }}</AlertDialogCancel>
-          <AlertDialogAction @click="handleConfirmTermination">
-            {{ t('unpack.confirm') }}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-
     <UnpackPropertiesDialog
       v-model:open="propertiesDialogOpen"
       :title="propertiesDialogTitle"
@@ -275,7 +223,6 @@
 import { computed, onMounted, onUnmounted, ref, watch, type CSSProperties } from 'vue'
 import { Channel, convertFileSrc } from '@tauri-apps/api/core'
 import type { UnlistenFn } from '@tauri-apps/api/event'
-import { ProgressBarStatus, getCurrentWindow } from '@tauri-apps/api/window'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { open as dialogOpen } from '@tauri-apps/plugin-dialog'
 import { exists } from '@tauri-apps/plugin-fs'
@@ -316,7 +263,13 @@ import type {
   RenderTreeNode,
   UnpackProgressEvent
 } from '@/api/tauri/pak'
-import { exportTextureFiles, getPreviewFile, type TextureExportFormat } from '@/api/tauri/utils'
+import {
+  exportTextureFiles,
+  getPreviewFile,
+  terminateTextureExport,
+  type TextureExportFormat,
+  type TextureExportProgressEvent
+} from '@/api/tauri/utils'
 import AppContextMenu from '@/components/context-menu/AppContextMenu.vue'
 import FileTree, { type TreeData } from '@/components/FileTree.vue'
 import type { MenuGroup } from '@/components/DesktopMenuBar.vue'
@@ -344,35 +297,19 @@ import type {
   ExplorerLayoutMode,
   ExplorerRenderers
 } from '@/lib/unpackExplorer'
+import {
+  ensureTaskProgressIdle,
+  finishTaskProgress,
+  tryStartTaskProgress,
+  updateTaskProgress,
+  useTaskProgressState
+} from '@/service/taskProgress'
 import { fileListService } from '@/service/filelist'
 import { useSettingsStore } from '@/store/settings'
 import { useWorkStore } from '@/store/work'
 import { ShowError, ShowInfo, ShowWarn } from '@/utils/message'
-import {
-  getExtractRelativeRoot,
-  normalizeDisplayPath,
-  splitNormalizedPath
-} from '@/utils/path'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle
-} from '@/components/ui/alert-dialog'
+import { getExtractRelativeRoot, normalizeDisplayPath, splitNormalizedPath } from '@/utils/path'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle
-} from '@/components/ui/dialog'
-import { Progress } from '@/components/ui/progress'
 import { Switch } from '@/components/ui/switch'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 
@@ -428,12 +365,6 @@ const loadingTree = ref(false)
 const currentDirectoryKey = ref('')
 const treeFocusKey = ref('')
 const selectedEntryKey = ref('')
-const unpackWorking = ref(false)
-const showProgressPanel = ref(false)
-const currentFile = ref('')
-const totalFileCount = ref(0)
-const finishFileCount = ref(0)
-const showConfirmTermination = ref(false)
 const visibleExplorerEntries = ref<ExplorerEntry[]>([])
 const texturePreviewCache = ref<Record<string, string | null>>({})
 const texturePreviewPending = new Set<string>()
@@ -454,10 +385,7 @@ const imageViewerState = ref({
   urls: [] as string[],
   index: 0
 })
-
-const progressValue = computed(() =>
-  totalFileCount.value === 0 ? 0 : (finishFileCount.value / totalFileCount.value) * 100
-)
+const taskProgress = useTaskProgressState()
 
 const enableAddPaks = computed(() => unpackState.value.fileList !== '')
 const enableExtract = computed(() => treeData.value !== null)
@@ -830,7 +758,7 @@ const currentDirectoryPath = computed(() =>
   currentDirectory.value?.path ? currentDirectory.value.path : 'Root'
 )
 const statusText = computed(() => {
-  if (unpackWorking.value) return 'Extracting'
+  if (taskProgress.working) return taskProgress.title
   if (loadingTree.value) return 'Loading tree'
   if (!treeData.value) return 'Idle'
   return 'Completed'
@@ -1055,6 +983,10 @@ async function doExtraction() {
 }
 
 async function extractFilesWithDialog(extractFiles: ExtractFileInfo[], mode: ExtractMode) {
+  if (!ensureTaskProgressIdle(t('global.taskBusy'))) {
+    return
+  }
+
   try {
     if (extractFiles.length === 0) {
       ShowWarn('当前没有可提取的文件。')
@@ -1077,42 +1009,71 @@ async function extractFilesWithDialog(extractFiles: ExtractFileInfo[], mode: Ext
       extractFiles
     }
 
-    const window = getCurrentWindow()
     const onEvent = new Channel<UnpackProgressEvent>()
+    const taskId = tryStartTaskProgress({
+      taskId: 'unpack-extract',
+      title: t('unpack.extractingFiles'),
+      progressLabel: t('unpack.extracting'),
+      runningDescription: t('unpack.processing'),
+      successDescription: t('unpack.done'),
+      terminatedDescription: t('unpack.taskStopped'),
+      closeLabel: t('unpack.close'),
+      terminateLabel: t('unpack.terminate'),
+      confirmTitle: t('unpack.confirmTermination'),
+      confirmDescription: t('unpack.confirmTerminationText'),
+      busyMessage: t('global.taskBusy'),
+      onTerminate: async () => {
+        await pak_terminate_extraction()
+        ShowWarn(t('global.extractionTerminated'))
+      }
+    })
+    if (!taskId) return
 
     onEvent.onmessage = (event) => {
       if (event.event === 'workStart') {
-        totalFileCount.value = event.data.count
-        finishFileCount.value = 0
-        window.setProgressBar({ status: ProgressBarStatus.Normal, progress: 0 })
+        updateTaskProgress(taskId, {
+          totalFileCount: event.data.count,
+          finishFileCount: 0,
+          currentFile: '',
+          description: t('unpack.processing')
+        })
       } else if (event.event === 'workFinished') {
-        unpackWorking.value = false
-        if (finishFileCount.value !== totalFileCount.value) {
-          finishFileCount.value = totalFileCount.value
-        }
-        window.setProgressBar({ status: ProgressBarStatus.None, progress: 0 })
+        finishTaskProgress(taskId, {
+          status: 'success',
+          finishFileCount: taskProgress.totalFileCount
+        })
       } else if (event.event === 'fileDone') {
-        finishFileCount.value = event.data.finishCount
-        currentFile.value = event.data.path
-        window.setProgressBar({
-          status: ProgressBarStatus.Normal,
-          progress: Math.floor(progressValue.value)
+        updateTaskProgress(taskId, {
+          finishFileCount: event.data.finishCount,
+          currentFile: event.data.path
+        })
+      } else if (event.event === 'error') {
+        finishTaskProgress(taskId, {
+          status: 'error',
+          errorMessage: event.data.error,
+          currentFile: event.data.error,
+          description: t('unpack.taskStopped')
         })
       }
     }
 
-    unpackWorking.value = true
-    showProgressPanel.value = true
     await pak_extract_all(options, onEvent)
   } catch (error) {
+    finishTaskProgress('unpack-extract', {
+      status: 'error',
+      errorMessage: String(error),
+      currentFile: String(error),
+      description: t('unpack.taskStopped')
+    })
     ShowError(error)
   }
 }
 
-async function exportTexturesWithDialog(
-  files: ExtractFileInfo[],
-  format: TextureExportFormat
-) {
+async function exportTexturesWithDialog(files: ExtractFileInfo[], format: TextureExportFormat) {
+  if (!ensureTaskProgressIdle(t('global.taskBusy'))) {
+    return
+  }
+
   try {
     if (files.length === 0) {
       ShowWarn('当前没有可导出的 Texture。')
@@ -1127,14 +1088,76 @@ async function exportTexturesWithDialog(
     if (!selected) return
     if (Array.isArray(selected)) selected = selected[0]
 
-    const exported = await exportTextureFiles({
-      outputPath: selected as string,
-      format,
-      files
+    const onEvent = new Channel<TextureExportProgressEvent>()
+    const taskId = tryStartTaskProgress({
+      taskId: `texture-export-${format}`,
+      title: t('unpack.exportingTextures'),
+      progressLabel: t('unpack.exporting'),
+      runningDescription: t('unpack.processing'),
+      successDescription: t('unpack.done'),
+      terminatedDescription: t('unpack.taskStopped'),
+      closeLabel: t('unpack.close'),
+      terminateLabel: t('unpack.terminate'),
+      confirmTitle: t('unpack.confirmTermination'),
+      confirmDescription: t('unpack.confirmTerminationText'),
+      busyMessage: t('global.taskBusy'),
+      onTerminate: async () => {
+        await terminateTextureExport()
+        ShowWarn(t('unpack.taskStopped'))
+      }
+    })
+    if (!taskId) return
+
+    onEvent.onmessage = (event) => {
+      if (event.event === 'workStart') {
+        updateTaskProgress(taskId, {
+          totalFileCount: event.data.count,
+          finishFileCount: 0,
+          currentFile: '',
+          description: t('unpack.processing')
+        })
+      } else if (event.event === 'fileDone') {
+        updateTaskProgress(taskId, {
+          finishFileCount: event.data.finishCount,
+          currentFile: event.data.path
+        })
+      } else if (event.event === 'workFinished') {
+        finishTaskProgress(taskId, {
+          status: 'success',
+          finishFileCount: taskProgress.totalFileCount
+        })
+      } else if (event.event === 'error') {
+        finishTaskProgress(taskId, {
+          status: 'error',
+          errorMessage: event.data.error,
+          currentFile: event.data.error,
+          description: t('unpack.taskStopped')
+        })
+      }
+    }
+
+    const exported = await exportTextureFiles(
+      {
+        outputPath: selected as string,
+        format,
+        files
+      },
+      onEvent
+    )
+
+    finishTaskProgress(taskId, {
+      status: 'success',
+      finishFileCount: taskProgress.totalFileCount
     })
 
     ShowInfo(`已导出 ${exported} 个 Texture${format === 'dds' ? ' (DDS)' : ' (PNG)'}`)
   } catch (error) {
+    finishTaskProgress(`texture-export-${format}`, {
+      status: 'error',
+      errorMessage: String(error),
+      currentFile: String(error),
+      description: t('unpack.taskStopped')
+    })
     ShowError(error)
   }
 }
@@ -1178,31 +1201,6 @@ async function startListenToDrop() {
 async function stopListenToDrop() {
   await unlisten?.()
   unlisten = undefined
-}
-
-function resetProgress() {
-  finishFileCount.value = 0
-  totalFileCount.value = 0
-  currentFile.value = ''
-}
-
-async function handleCloseProgress() {
-  if (unpackWorking.value) {
-    showConfirmTermination.value = true
-    return
-  }
-
-  resetProgress()
-  showProgressPanel.value = false
-}
-
-async function handleConfirmTermination() {
-  await pak_terminate_extraction()
-  unpackWorking.value = false
-  showConfirmTermination.value = false
-  resetProgress()
-  showProgressPanel.value = false
-  ShowWarn(t('global.extractionTerminated'))
 }
 
 function handleNodeClick(data: TreeData) {
@@ -1547,14 +1545,14 @@ function buildDirectoryPropertySections(node: ExplorerEntry): PropertySection[] 
   return [
     {
       key: 'directory-basic',
-        title: '基本信息',
-        rows: [
-          { key: 'directory-name', label: '名称', value: node.name },
-          { key: 'directory-path', label: '路径', value: normalizeDisplayPath(node.path) },
-          { key: 'directory-folders', label: '文件夹数', value: String(counts.folders) },
-          { key: 'directory-files', label: '文件数', value: String(counts.files) }
-        ]
-      }
+      title: '基本信息',
+      rows: [
+        { key: 'directory-name', label: '名称', value: node.name },
+        { key: 'directory-path', label: '路径', value: normalizeDisplayPath(node.path) },
+        { key: 'directory-folders', label: '文件夹数', value: String(counts.folders) },
+        { key: 'directory-files', label: '文件数', value: String(counts.files) }
+      ]
+    }
   ]
 }
 
@@ -1569,13 +1567,21 @@ function buildFilePropertySections(
   return [
     {
       key: 'file-basic',
-        title: '基本信息',
-        rows: [
-          { key: 'file-name', label: '名称', value: node.name },
-          { key: 'file-path', label: '路径', value: normalizeDisplayPath(node.path) },
-          { key: 'file-source', label: '来源', value: getExplorerSourceLabel(node.belongsTo) },
-        { key: 'file-compressed-size', label: 'Compressed Size', value: String(node.compressedSize) },
-        { key: 'file-uncompressed-size', label: 'Uncompressed Size', value: String(node.uncompressedSize) },
+      title: '基本信息',
+      rows: [
+        { key: 'file-name', label: '名称', value: node.name },
+        { key: 'file-path', label: '路径', value: normalizeDisplayPath(node.path) },
+        { key: 'file-source', label: '来源', value: getExplorerSourceLabel(node.belongsTo) },
+        {
+          key: 'file-compressed-size',
+          label: 'Compressed Size',
+          value: String(node.compressedSize)
+        },
+        {
+          key: 'file-uncompressed-size',
+          label: 'Uncompressed Size',
+          value: String(node.uncompressedSize)
+        },
         { key: 'file-compressed', label: '已压缩', value: node.isCompressed ? '是' : '否' }
       ]
     },
@@ -1583,54 +1589,69 @@ function buildFilePropertySections(
       key: 'file-hash',
       title: 'Hash',
       rows: [
-        { key: 'hash-lower', label: 'Hash Lower', value: hashLower === undefined ? '—' : formatHex32(hashLower) },
-        { key: 'hash-upper', label: 'Hash Upper', value: hashUpper === undefined ? '—' : formatHex32(hashUpper) },
-        { key: 'hash-mixed', label: 'Hash Mixed', value: hashLower === undefined || hashUpper === undefined ? '—' : formatHex64(hashLower, hashUpper) }
+        {
+          key: 'hash-lower',
+          label: 'Hash Lower',
+          value: hashLower === undefined ? '—' : formatHex32(hashLower)
+        },
+        {
+          key: 'hash-upper',
+          label: 'Hash Upper',
+          value: hashUpper === undefined ? '—' : formatHex32(hashUpper)
+        },
+        {
+          key: 'hash-mixed',
+          label: 'Hash Mixed',
+          value:
+            hashLower === undefined || hashUpper === undefined
+              ? '—'
+              : formatHex64(hashLower, hashUpper)
+        }
       ]
     },
     {
       key: 'file-entry',
-        title: '原始 Entry',
-        rows: [
-          { key: 'entry-pak', label: 'Pak 文件', value: pak ? getPakFileName(pak.path) : '—' },
-          {
-            key: 'entry-offset',
-            label: 'Offset',
-            value: entry ? formatPropertyValue(entry.offset) : '未找到对应 Entry'
-          },
-          {
-            key: 'entry-compressed',
-            label: 'Compressed Size',
-            value: entry ? String(entry.compressedSize) : '—'
-          },
-          {
-            key: 'entry-uncompressed',
-            label: 'Uncompressed Size',
-            value: entry ? String(entry.uncompressedSize) : '—'
-          },
-          {
-            key: 'entry-compression-type',
-            label: 'Compression Type',
-            value: entry ? String(entry.compressionType) : '—'
-          },
-          {
-            key: 'entry-encryption-type',
-            label: 'Encryption Type',
-            value: entry ? entry.encryptionType : '—'
-          },
-          {
-            key: 'entry-checksum',
-            label: 'Checksum',
-            value: entry ? entry.checksum : '—'
-          },
-          {
-            key: 'entry-unk-attr',
-            label: 'Unk Attr',
-            value: entry ? entry.unkAttr : '—'
-          }
-        ]
-      }
-    ]
+      title: '原始 Entry',
+      rows: [
+        { key: 'entry-pak', label: 'Pak 文件', value: pak ? getPakFileName(pak.path) : '—' },
+        {
+          key: 'entry-offset',
+          label: 'Offset',
+          value: entry ? formatPropertyValue(entry.offset) : '未找到对应 Entry'
+        },
+        {
+          key: 'entry-compressed',
+          label: 'Compressed Size',
+          value: entry ? String(entry.compressedSize) : '—'
+        },
+        {
+          key: 'entry-uncompressed',
+          label: 'Uncompressed Size',
+          value: entry ? String(entry.uncompressedSize) : '—'
+        },
+        {
+          key: 'entry-compression-type',
+          label: 'Compression Type',
+          value: entry ? String(entry.compressionType) : '—'
+        },
+        {
+          key: 'entry-encryption-type',
+          label: 'Encryption Type',
+          value: entry ? entry.encryptionType : '—'
+        },
+        {
+          key: 'entry-checksum',
+          label: 'Checksum',
+          value: entry ? entry.checksum : '—'
+        },
+        {
+          key: 'entry-unk-attr',
+          label: 'Unk Attr',
+          value: entry ? entry.unkAttr : '—'
+        }
+      ]
+    }
+  ]
 }
 
 function buildPakPropertySections(pak: PakInfo, header: PakHeaderInfo): PropertySection[] {
@@ -1644,37 +1665,37 @@ function buildPakPropertySections(pak: PakInfo, header: PakHeaderInfo): Property
         { key: 'pak-id', label: 'Pak ID', value: pak.id }
       ]
     },
-      {
-        key: 'pak-header',
-        title: 'Pak Header',
-        rows: [
-          { key: 'pak-magic', label: 'Magic', value: formatPakMagic(header.header.magic) },
-          {
-            key: 'pak-major-version',
-            label: 'Major Version',
-            value: formatPropertyValue(header.header.majorVersion)
-          },
-          {
-            key: 'pak-minor-version',
-            label: 'Minor Version',
-            value: formatPropertyValue(header.header.minorVersion)
-          },
-          { key: 'pak-feature', label: 'Feature', value: formatPropertyValue(header.header.feature) },
-          {
-            key: 'pak-total-files',
-            label: 'Total Files',
-            value: formatPropertyValue(header.header.totalFiles)
-          },
-          { key: 'pak-hash', label: 'Hash', value: formatPropertyValue(header.header.hash) },
-          {
-            key: 'pak-unk-sig',
-            label: 'Unk U32 Sig',
-            value: formatPropertyValue(header.header.unkU32Sig)
-          },
-          { key: 'pak-entry-count', label: 'Entry Count', value: String(header.entries.length) }
-        ]
-      }
-    ]
+    {
+      key: 'pak-header',
+      title: 'Pak Header',
+      rows: [
+        { key: 'pak-magic', label: 'Magic', value: formatPakMagic(header.header.magic) },
+        {
+          key: 'pak-major-version',
+          label: 'Major Version',
+          value: formatPropertyValue(header.header.majorVersion)
+        },
+        {
+          key: 'pak-minor-version',
+          label: 'Minor Version',
+          value: formatPropertyValue(header.header.minorVersion)
+        },
+        { key: 'pak-feature', label: 'Feature', value: formatPropertyValue(header.header.feature) },
+        {
+          key: 'pak-total-files',
+          label: 'Total Files',
+          value: formatPropertyValue(header.header.totalFiles)
+        },
+        { key: 'pak-hash', label: 'Hash', value: formatPropertyValue(header.header.hash) },
+        {
+          key: 'pak-unk-sig',
+          label: 'Unk U32 Sig',
+          value: formatPropertyValue(header.header.unkU32Sig)
+        },
+        { key: 'pak-entry-count', label: 'Entry Count', value: String(header.entries.length) }
+      ]
+    }
+  ]
 }
 
 function formatPakMagic(value: unknown) {
@@ -1686,7 +1707,7 @@ function formatPakMagic(value: unknown) {
     return String.fromCharCode(...value)
   }
 
-   if (value && typeof value === 'object' && 'length' in value) {
+  if (value && typeof value === 'object' && 'length' in value) {
     const list = Array.from(value as ArrayLike<unknown>)
     if (list.every((item) => typeof item === 'number')) {
       return String.fromCharCode(...(list as number[]))
@@ -1892,18 +1913,18 @@ async function openPropertiesDialog(target: ExplorerEntry | PakInfo) {
   propertiesDialogSections.value = []
 
   if ('children' in target) {
-      if (target.isDir) {
-        propertyTarget.value = { kind: 'directory', node: target }
-        propertiesDialogTitle.value = `目录属性 · ${target.name}`
-        propertiesDialogDescription.value = normalizeDisplayPath(target.path)
-        propertiesDialogSections.value = buildDirectoryPropertySections(target)
-        return
-      }
-
-      propertyTarget.value = { kind: 'file', node: target }
-      propertiesDialogTitle.value = `文件属性 · ${target.name}`
+    if (target.isDir) {
+      propertyTarget.value = { kind: 'directory', node: target }
+      propertiesDialogTitle.value = `目录属性 · ${target.name}`
       propertiesDialogDescription.value = normalizeDisplayPath(target.path)
-      propertiesDialogLoading.value = true
+      propertiesDialogSections.value = buildDirectoryPropertySections(target)
+      return
+    }
+
+    propertyTarget.value = { kind: 'file', node: target }
+    propertiesDialogTitle.value = `文件属性 · ${target.name}`
+    propertiesDialogDescription.value = normalizeDisplayPath(target.path)
+    propertiesDialogLoading.value = true
 
     try {
       const pak = findPakInfo(target.belongsTo)

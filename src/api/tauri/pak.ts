@@ -63,7 +63,7 @@ export interface ExtractFileInfo {
   relativeRoot?: string
 }
 
-type WorkProgressEventImpl<T> =
+export type WorkProgressEvent<T> =
   | {
       event: 'workStart'
       data: {
@@ -110,8 +110,8 @@ export type PackedPak = {
   }>
 }
 
-export type UnpackProgressEvent = WorkProgressEventImpl<UnpackProgressData>
-export type PackProgressEvent = WorkProgressEventImpl<PackProgressData>
+export type UnpackProgressEvent = WorkProgressEvent<UnpackProgressData>
+export type PackProgressEvent = WorkProgressEvent<PackProgressData>
 
 export function pak_clear_all(): Promise<void> {
   return invoke('pak_clear_all')
@@ -152,7 +152,9 @@ export function pak_read_file_tree(): Promise<FileTree> {
   return invoke('pak_read_file_tree')
 }
 
-export function pak_read_file_tree_optimized(options?: RenderTreeOptions): Promise<RenderTreeNode[]> {
+export function pak_read_file_tree_optimized(
+  options?: RenderTreeOptions
+): Promise<RenderTreeNode[]> {
   return invoke('pak_read_file_tree_optimized', { options })
 }
 

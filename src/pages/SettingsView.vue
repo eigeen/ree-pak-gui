@@ -112,49 +112,6 @@
                         </label>
                       </div>
                     </div>
-
-                    <div>
-                      <div class="mb-3">
-                        <h4 class="text-base font-semibold text-foreground">
-                          {{ t('settings.extractBehaviorTitle') }}
-                        </h4>
-                      </div>
-
-                      <div class="border-l-2 border-primary/90 pl-4">
-                        <div class="mb-1 flex items-center gap-2">
-                          <p class="text-sm font-semibold text-foreground">
-                            {{ t('settings.extractFullPathTitle') }}
-                          </p>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger as-child>
-                                <button
-                                  type="button"
-                                  class="inline-flex size-4 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
-                                >
-                                  <CircleAlert class="size-4" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                {{ t('settings.extractFullPathHint') }}
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                        <p class="mb-3 text-sm text-muted-foreground">
-                          {{ t('settings.extractFullPathDescription') }}
-                        </p>
-                        <label class="inline-flex items-center gap-3">
-                          <Switch v-model="extractAbsolutePath" />
-                          <span class="text-sm text-foreground">
-                            {{
-                              extractAbsolutePath ? t('settings.enabled') : t('settings.disabled')
-                            }}
-                          </span>
-                        </label>
-                      </div>
-                    </div>
-
                   </div>
                 </template>
 
@@ -214,17 +171,6 @@ const showTexturePreview = computed({
     }
 
     settingsStore.settings.value.preview.showTexturePreview = value
-  }
-})
-
-const extractAbsolutePath = computed({
-  get: () => settingsStore.settings.value?.unpack?.extractAbsolutePath ?? false,
-  set: (value: boolean) => {
-    if (!settingsStore.settings.value?.unpack) {
-      return
-    }
-
-    settingsStore.settings.value.unpack.extractAbsolutePath = value
   }
 })
 

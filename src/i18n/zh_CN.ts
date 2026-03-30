@@ -8,7 +8,7 @@ export default {
       actions: '操作',
       managePathLists: '管理路径列表',
       openPaks: '打开 Pak',
-      reloadTree: '载入资源树',
+      reloadTree: '加载文件树',
       unpack: '解包',
       repack: '打包',
       tools: '工具',
@@ -38,13 +38,17 @@ export default {
       layoutDetails: '详细列表',
       switchLayout: '切换显示方式',
       extractingFiles: '正在提取文件...',
+      exportingTextures: '正在导出贴图...',
+      processing: '处理中，请稍候。',
+      taskStopped: '任务已终止。',
       done: '完成！',
       files: '个文件',
       extracting: '正在提取：',
+      exporting: '正在导出：',
       terminate: '终止',
       close: '关闭',
       confirmTermination: '确认终止',
-      confirmTerminationText: '你确定要终止当前的提取操作吗？已提取的文件将被保留。',
+      confirmTerminationText: '你确定要终止当前任务吗？已处理的文件将被保留。',
       cancel: '取消',
       confirm: '确认'
     },
@@ -162,7 +166,8 @@ export default {
       failedDownloadUpdate: '下载更新失败: {error}',
       failedCheckUpdate: '检查更新失败: {error}',
       updateAvailable: '有新版本可用，点击右上角按钮下载。',
-      extractionTerminated: '已终止提取。'
+      extractionTerminated: '已终止提取。',
+      taskBusy: '已有任务正在进行，请稍候。'
     }
   }
 }

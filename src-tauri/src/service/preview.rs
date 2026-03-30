@@ -3,7 +3,10 @@ use std::{
     fs::File,
     io::{BufReader, BufWriter},
     path::{Path, PathBuf},
-    sync::OnceLock,
+    sync::{
+        Arc, OnceLock,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
 use parking_lot::Mutex;
@@ -15,6 +18,7 @@ use crate::pak::ExtractFileInfo;
 
 use crate::{
     TEMP_DIR_NAME,
+    channel::TextureExportProgressChannel,
     error::{Error, Result},
     get_local_dir,
     service::pak::PakService,
@@ -27,6 +31,8 @@ pub struct PreviewService {
     pak_service: &'static PakService,
     temp_dir: PathBuf,
     preview_files: Mutex<HashMap<u64, PathBuf>>,
+    export_running: Arc<AtomicBool>,
+    should_terminate: Arc<AtomicBool>,
 }
 
 impl PreviewService {
@@ -41,6 +47,8 @@ impl PreviewService {
             pak_service: PakService::get(),
             temp_dir,
             preview_files: Mutex::new(HashMap::new()),
+            export_running: Arc::new(AtomicBool::new(false)),
+            should_terminate: Arc::new(AtomicBool::new(false)),
         }))
     }
 
@@ -167,17 +175,41 @@ impl PreviewService {
         format: TextureExportFormat,
         output_dir: impl AsRef<Path>,
         files: &[ExtractFileInfo],
+        progress: TextureExportProgressChannel,
     ) -> Result<usize> {
+        if self.export_running.swap(true, Ordering::SeqCst) {
+            return Err(Error::TextureExportAlreadyRunning);
+        }
+
+        self.should_terminate.store(false, Ordering::SeqCst);
+
         let output_dir = output_dir.as_ref().to_path_buf();
         let files = files.to_vec();
         let temp_dir = self.temp_dir.clone();
         let pak_service = self.pak_service;
+        let should_terminate = self.should_terminate.clone();
+        let export_running = self.export_running.clone();
 
-        tokio::task::spawn_blocking(move || {
-            export_texture_files_blocking(pak_service, &temp_dir, format, &output_dir, &files)
+        let result = tokio::task::spawn_blocking(move || {
+            export_texture_files_blocking(
+                pak_service,
+                &temp_dir,
+                format,
+                &output_dir,
+                &files,
+                should_terminate,
+                progress,
+            )
         })
         .await
-        .map_err(|error| Error::Internal(error.to_string()))?
+        .map_err(|error| Error::Internal(error.to_string()))?;
+
+        export_running.store(false, Ordering::SeqCst);
+        Ok(result?)
+    }
+
+    pub fn terminate_export(&self) {
+        self.should_terminate.store(true, Ordering::SeqCst);
     }
 }
 
@@ -187,15 +219,24 @@ fn export_texture_files_blocking(
     format: TextureExportFormat,
     output_dir: &Path,
     files: &[ExtractFileInfo],
+    should_terminate: Arc<AtomicBool>,
+    progress: TextureExportProgressChannel,
 ) -> Result<usize> {
     if !output_dir.exists() {
         std::fs::create_dir_all(output_dir)?;
     }
 
+    progress.work_start(files.len() as u32);
+
     let mut exported = 0usize;
     let mut used_paths = HashSet::new();
 
     for file in files {
+        if should_terminate.load(Ordering::Relaxed) {
+            progress.error(Error::Terminated.to_string());
+            return Err(Error::Terminated);
+        }
+
         let entry_path = resolve_entry_path(pak_service, file.hash.hash_u64())?;
         let extension = entry_path.split('.').rev().nth(1).unwrap_or_default();
         let file_type = PreviewFileType::from_extension(extension)
@@ -232,10 +273,12 @@ fn export_texture_files_blocking(
                 output_path.display(),
                 error
             );
+            progress.file_done(&entry_path);
             continue;
         }
 
         exported += 1;
+        progress.file_done(&entry_path);
     }
 
     log::info!(
@@ -244,6 +287,8 @@ fn export_texture_files_blocking(
         exported,
         files.len().saturating_sub(exported)
     );
+
+    progress.work_finished();
 
     Ok(exported)
 }

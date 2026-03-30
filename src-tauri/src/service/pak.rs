@@ -147,6 +147,8 @@ impl PakTreeBuilder {
 pub struct PakService {
     pak_group: Arc<Mutex<PakGroup>>,
     work_thread: Mutex<Option<JoinHandle<()>>>,
+    unpack_running: Arc<AtomicBool>,
+    unpack_should_terminate: Arc<AtomicBool>,
     should_terminate: Arc<AtomicBool>,
 }
 
@@ -191,6 +193,8 @@ impl PakService {
         Self {
             pak_group: Arc::new(Mutex::new(pak_group)),
             work_thread: Mutex::new(None),
+            unpack_running: Arc::new(AtomicBool::new(false)),
+            unpack_should_terminate: Arc::new(AtomicBool::new(false)),
             should_terminate: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -205,6 +209,10 @@ impl PakService {
             let _ = handle.join();
             self.should_terminate.store(false, Ordering::Relaxed);
         }
+    }
+
+    pub fn terminate_unpack(&self) {
+        self.unpack_should_terminate.store(true, Ordering::SeqCst);
     }
 
     pub fn clear_all_paks(&self) {
@@ -266,144 +274,46 @@ impl PakService {
     }
 
     /// Unpack all loaded paks with given options.
-    ///
-    /// Will run in a new thread.
-    ///
     /// # Errors
     ///
     /// - No paks or no file list is loaded.
     /// - Unpack already running.
-    pub fn unpack_optional(
+    pub async fn unpack_optional(
         &self,
         options: &ExtractOptions,
         progress: UnpackProgressChannel,
     ) -> Result<()> {
-        if let Some(handle) = &*self.work_thread.lock()
-            && !handle.is_finished()
-        {
+        if self.unpack_running.swap(true, Ordering::SeqCst) {
             return Err(Error::UnpackAlreadyRunning);
         }
 
-        let _pak_group = self.pak_group.lock();
-        if _pak_group.paks().is_empty() {
-            return Err(Error::NoPaksLoaded);
-        }
-        if _pak_group.file_name_table().is_none() {
-            return Err(Error::MissingFileList);
-        }
-
-        let file_count = if options.extract_all {
-            _pak_group.total_files() as u32
-        } else {
-            options.extract_files.len() as u32
-        };
-        progress.work_start(file_count);
-
-        let should_terminate = self.should_terminate.clone();
-        let pak_group = self.pak_group.clone();
-        let options1 = options.clone();
-        *self.work_thread.lock() = Some(thread::spawn(move || {
-            let mut _pak_group = pak_group.lock();
-            let file_name_table = Arc::new(_pak_group.file_name_table().unwrap().clone());
-            let output_root = PathBuf::from(&options1.output_path);
-            let relative_roots = Arc::new(
-                options1
-                    .extract_files
-                    .iter()
-                    .map(|info| (info.hash.hash_u64(), info.relative_root.clone()))
-                    .collect::<std::collections::HashMap<_, _>>(),
-            );
-            for pak in _pak_group.paks() {
-                if should_terminate.load(Ordering::Relaxed) {
-                    break;
-                }
-
-                let target_hashes = if options1.extract_all {
-                    None
-                } else {
-                    Some(Arc::new(
-                        options1
-                            .extract_files
-                            .iter()
-                            .filter_map(|info| {
-                                if info.belongs_to == pak.id {
-                                    Some(info.hash.hash_u64())
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect::<std::collections::HashSet<_>>(),
-                    ))
-                };
-
-                let mut extractor = pak
-                    .pakfile
-                    .extractor_callback()
-                    .file_name_table_arc(file_name_table.clone())
-                    .skip_unknown(false)
-                    .continue_on_error(true)
-                    .cancel_flag(should_terminate.clone());
-
-                if let Some(target_hashes) = target_hashes {
-                    extractor =
-                        extractor.filter(move |entry, _path| target_hashes.contains(&entry.hash()));
-                }
-
-                let progress1 = progress.clone();
-                let result = extractor
-                    .on_event(move |event| {
-                        if let ree_pak_core::extract::ExtractEvent::FileDone { hash, path, error } =
-                            event
-                        {
-                            progress1.file_done(path.to_string_lossy().as_ref(), hash, error);
-                        }
-                    })
-                    .run_with_reader({
-                        let output_root = output_root.clone();
-                        let extract_mode = options1.mode;
-                        let relative_roots = relative_roots.clone();
-                        move |_entry, rel_path, reader| {
-                            let relative_root = relative_roots
-                                .get(&_entry.hash())
-                                .map(|value| value.as_deref())
-                                .flatten();
-                            let output_path = match extract_mode {
-                                ExtractMode::RelativePath => {
-                                    output_root
-                                        .join(build_extract_relative_path(rel_path, relative_root))
-                                }
-                                ExtractMode::AbsolutePath => output_root.join(rel_path),
-                            };
-
-                            if let Some(parent) = output_path.parent()
-                                && !parent.exists()
-                            {
-                                std::fs::create_dir_all(parent)?;
-                            }
-
-                            let mut open_options = std::fs::OpenOptions::new();
-                            open_options.write(true).create(true);
-
-                            if options1.r#override {
-                                open_options.truncate(true);
-                            } else {
-                                open_options.create_new(true);
-                            }
-
-                            let mut file = open_options.open(&output_path)?;
-                            std::io::copy(reader, &mut file)?;
-                            Ok(())
-                        }
-                    });
-
-                if let Err(e) = result {
-                    eprintln!("Error unpacking pak: {}", e);
-                }
+        {
+            let pak_group = self.pak_group.lock();
+            if pak_group.paks().is_empty() {
+                self.unpack_running.store(false, Ordering::SeqCst);
+                return Err(Error::NoPaksLoaded);
             }
-            progress.work_finished();
-        }));
+            if pak_group.file_name_table().is_none() {
+                self.unpack_running.store(false, Ordering::SeqCst);
+                return Err(Error::MissingFileList);
+            }
+        }
 
-        Ok(())
+        self.unpack_should_terminate.store(false, Ordering::SeqCst);
+
+        let pak_group = self.pak_group.clone();
+        let options = options.clone();
+        let should_terminate = self.unpack_should_terminate.clone();
+        let unpack_running = self.unpack_running.clone();
+
+        let result = tokio::task::spawn_blocking(move || {
+            unpack_optional_blocking(pak_group, options, should_terminate, progress)
+        })
+        .await
+        .map_err(|error| Error::Internal(error.to_string()))?;
+
+        unpack_running.store(false, Ordering::SeqCst);
+        result
     }
 
     /// Unpack a specific file from Paks.
@@ -661,6 +571,137 @@ impl PakService {
 
         Ok(())
     }
+}
+
+fn unpack_optional_blocking(
+    pak_group: Arc<Mutex<PakGroup>>,
+    options: ExtractOptions,
+    should_terminate: Arc<AtomicBool>,
+    progress: UnpackProgressChannel,
+) -> Result<()> {
+    let file_count = {
+        let pak_group = pak_group.lock();
+        if options.extract_all {
+            pak_group.total_files() as u32
+        } else {
+            options.extract_files.len() as u32
+        }
+    };
+    progress.work_start(file_count);
+
+    let mut terminated = false;
+    let pak_group = pak_group.lock();
+    let file_name_table = Arc::new(
+        pak_group
+            .file_name_table()
+            .expect("file name table checked before spawn")
+            .clone(),
+    );
+    let output_root = PathBuf::from(&options.output_path);
+    let relative_roots = Arc::new(
+        options
+            .extract_files
+            .iter()
+            .map(|info| (info.hash.hash_u64(), info.relative_root.clone()))
+            .collect::<std::collections::HashMap<_, _>>(),
+    );
+
+    for pak in pak_group.paks() {
+        if should_terminate.load(Ordering::Relaxed) {
+            terminated = true;
+            break;
+        }
+
+        let target_hashes = if options.extract_all {
+            None
+        } else {
+            Some(Arc::new(
+                options
+                    .extract_files
+                    .iter()
+                    .filter_map(|info| {
+                        if info.belongs_to == pak.id {
+                            Some(info.hash.hash_u64())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<std::collections::HashSet<_>>(),
+            ))
+        };
+
+        let mut extractor = pak
+            .pakfile
+            .extractor_callback()
+            .file_name_table_arc(file_name_table.clone())
+            .skip_unknown(false)
+            .continue_on_error(true)
+            .cancel_flag(should_terminate.clone());
+
+        if let Some(target_hashes) = target_hashes {
+            extractor = extractor.filter(move |entry, _path| target_hashes.contains(&entry.hash()));
+        }
+
+        let progress1 = progress.clone();
+        let result = extractor
+            .on_event(move |event| {
+                if let ree_pak_core::extract::ExtractEvent::FileDone { hash, path, error } = event {
+                    progress1.file_done(path.to_string_lossy().as_ref(), hash, error);
+                }
+            })
+            .run_with_reader({
+                let output_root = output_root.clone();
+                let extract_mode = options.mode;
+                let relative_roots = relative_roots.clone();
+                move |entry, rel_path, reader| {
+                    let relative_root = relative_roots
+                        .get(&entry.hash())
+                        .map(|value| value.as_deref())
+                        .flatten();
+                    let output_path = match extract_mode {
+                        ExtractMode::RelativePath => {
+                            output_root.join(build_extract_relative_path(rel_path, relative_root))
+                        }
+                        ExtractMode::AbsolutePath => output_root.join(rel_path),
+                    };
+
+                    if let Some(parent) = output_path.parent()
+                        && !parent.exists()
+                    {
+                        std::fs::create_dir_all(parent)?;
+                    }
+
+                    let mut open_options = std::fs::OpenOptions::new();
+                    open_options.write(true).create(true);
+
+                    if options.r#override {
+                        open_options.truncate(true);
+                    } else {
+                        open_options.create_new(true);
+                    }
+
+                    let mut file = open_options.open(&output_path)?;
+                    std::io::copy(reader, &mut file)?;
+                    Ok(())
+                }
+            });
+
+        if let Err(error) = result {
+            if should_terminate.load(Ordering::Relaxed) {
+                terminated = true;
+                break;
+            }
+            eprintln!("Error unpacking pak: {}", error);
+        }
+    }
+
+    if terminated {
+        progress.error(Error::Terminated.to_string());
+        return Err(Error::Terminated);
+    }
+
+    progress.work_finished();
+    Ok(())
 }
 
 impl PakService {

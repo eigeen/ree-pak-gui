@@ -38,14 +38,18 @@ export default {
       layoutDetails: 'Details',
       switchLayout: 'Switch layout',
       extractingFiles: 'Extracting Files...',
+      exportingTextures: 'Exporting Textures...',
+      processing: 'Working, please wait.',
+      taskStopped: 'Task terminated.',
       done: 'Done!',
       files: 'files',
       extracting: 'Extracting:',
+      exporting: 'Exporting:',
       terminate: 'Terminate',
       close: 'Close',
       confirmTermination: 'Confirm Termination',
       confirmTerminationText:
-        'Did you want to terminate the current extraction operation? The extracted files will be retained.',
+        'Did you want to terminate the current task? Processed files will be retained.',
       cancel: 'Cancel',
       confirm: 'Confirm'
     },
@@ -156,8 +160,7 @@ export default {
       extractFullPathTitle: 'Extract with Full Path',
       extractFullPathDescription:
         'When enabled, extraction preserves the full original path; when disabled, extraction keeps paths relative to the current selected item.',
-      extractFullPathHint:
-        'When disabled, selecting c/d exports as c/d instead of a/b/c/d.',
+      extractFullPathHint: 'When disabled, selecting c/d exports as c/d instead of a/b/c/d.',
       enabled: 'Enabled',
       disabled: 'Disabled',
       placeholderSection: 'This category is empty for now.'
@@ -168,7 +171,8 @@ export default {
       failedDownloadUpdate: 'Failed to download update: {error}',
       failedCheckUpdate: 'Failed to check for updates: {error}',
       updateAvailable: 'Update available. Click the button on the top right to download.',
-      extractionTerminated: 'Extraction terminated.'
+      extractionTerminated: 'Extraction terminated.',
+      taskBusy: 'Another task is already running. Please wait.'
     }
   }
 }

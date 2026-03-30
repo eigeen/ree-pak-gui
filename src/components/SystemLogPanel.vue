@@ -1,12 +1,5 @@
 <template>
   <div class="surface-console flex h-full min-w-0 flex-col">
-    <div class="desktop-toolbar h-10 justify-between px-3">
-      <div>
-        <p v-if="eyebrow" class="section-eyebrow">{{ eyebrow }}</p>
-        <h3 class="section-title">{{ title }}</h3>
-      </div>
-    </div>
-
     <div
       ref="consoleContainer"
       class="surface-console-panel text-2xs editor-scrollbar min-h-0 min-w-0 flex-1 overflow-auto border border-border/60 px-3 py-2 font-mono"
@@ -36,13 +29,11 @@ import { useSystemLogStore, type SystemLogEntry, type SystemLogLevel } from '@/s
 
 const props = withDefaults(
   defineProps<{
-    title?: string
     eyebrow?: string
     emptyText?: string
     maxEntries?: number
   }>(),
   {
-    title: 'System Log',
     eyebrow: '',
     emptyText: '暂无 system 日志',
     maxEntries: 160

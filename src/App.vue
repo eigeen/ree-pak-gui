@@ -12,6 +12,7 @@
       </main>
     </div>
     <Settings />
+    <TaskProgressPanel />
   </div>
 </template>
 
@@ -23,6 +24,7 @@ import DesktopTabPanels, { type DesktopTabPanelItem } from '@/components/Desktop
 import { useSettingsStore } from '@/store/settings'
 import { useWorkStore } from '@/store/work'
 import Settings from '@/components/Settings/Settings.vue'
+import TaskProgressPanel from '@/components/TaskProgressPanel.vue'
 import { ShowError, ShowWarn } from '@/utils/message'
 
 const settingsStore = useSettingsStore()

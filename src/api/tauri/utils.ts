@@ -1,5 +1,5 @@
-import { invoke } from '@tauri-apps/api/core'
-import type { ExtractFileInfo, JsSafeHash } from './pak'
+import { Channel, invoke } from '@tauri-apps/api/core'
+import type { ExtractFileInfo, JsSafeHash, WorkProgressEvent } from './pak'
 
 export interface CompileInfo {
   version: string
@@ -17,12 +17,26 @@ export interface TextureExportOptions {
   files: ExtractFileInfo[]
 }
 
+export type TextureExportProgressData = {
+  path: string
+  finishCount: number
+}
+
+export type TextureExportProgressEvent = WorkProgressEvent<TextureExportProgressData>
+
 export function getPreviewFile(hash: JsSafeHash): Promise<string> {
   return invoke('get_preview_file', { hash })
 }
 
-export function exportTextureFiles(options: TextureExportOptions): Promise<number> {
-  return invoke('export_texture_files', { options })
+export function exportTextureFiles(
+  options: TextureExportOptions,
+  onEvent: Channel<TextureExportProgressEvent>
+): Promise<number> {
+  return invoke('export_texture_files', { options, onEvent })
+}
+
+export function terminateTextureExport(): Promise<void> {
+  return invoke('terminate_texture_export')
 }
 
 export function getExePath(): Promise<string> {

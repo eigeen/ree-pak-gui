@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     channel::{
         PackProgressChannel, PackProgressChannelInner, PathScanProgressChannel,
-        PathScanProgressChannelInner, UnpackProgressChannel, UnpackProgressChannelInner,
+        PathScanProgressChannelInner, TextureExportProgressChannel,
+        TextureExportProgressChannelInner, UnpackProgressChannel, UnpackProgressChannelInner,
     },
     common::JsSafeHash,
     pak::{
@@ -90,7 +91,7 @@ pub fn pak_read_file_tree_optimized(
 
 /// Extract all loaded paks.
 #[tauri::command]
-pub fn pak_extract_all(
+pub async fn pak_extract_all(
     options: ExtractOptions,
     on_event: UnpackProgressChannelInner,
 ) -> Result<(), String> {
@@ -104,6 +105,7 @@ pub fn pak_extract_all(
     let channel = UnpackProgressChannel::new(on_event);
     pak_service
         .unpack_optional(&options, channel)
+        .await
         .map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -112,7 +114,7 @@ pub fn pak_extract_all(
 #[tauri::command]
 pub fn pak_terminate_extraction() -> Result<(), String> {
     let pak_service = PakService::get();
-    pak_service.terminate_work();
+    pak_service.terminate_unpack();
     log::warn!("Extraction process terminated.");
     Ok(())
 }
@@ -186,18 +188,30 @@ pub struct TextureExportOptions {
 }
 
 #[tauri::command]
-pub async fn export_texture_files(options: TextureExportOptions) -> Result<usize, String> {
+pub async fn export_texture_files(
+    options: TextureExportOptions,
+    on_event: TextureExportProgressChannelInner,
+) -> Result<usize, String> {
     let preview_service = PreviewService::get();
     let format = match options.format.as_str() {
         "dds" => TextureExportFormat::Dds,
         "png" => TextureExportFormat::Png,
         other => return Err(format!("Unsupported texture export format: {other}")),
     };
+    let progress = TextureExportProgressChannel::new(on_event);
 
     preview_service
-        .export_texture_files(format, &options.output_path, &options.files)
+        .export_texture_files(format, &options.output_path, &options.files, progress)
         .await
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn terminate_texture_export() -> Result<(), String> {
+    let preview_service = PreviewService::get();
+    preview_service.terminate_export();
+    log::warn!("Texture export process terminated.");
+    Ok(())
 }
 
 #[tauri::command]

@@ -9,6 +9,32 @@ use tauri::ipc::Channel;
 
 use crate::common::JsSafeHash;
 
+const PROGRESS_EVENT_INTERVAL: Duration = Duration::from_millis(100);
+
+#[derive(Clone)]
+struct ProgressThrottle {
+    steady_tick: Duration,
+    last_tick: Arc<Mutex<Instant>>,
+}
+
+impl ProgressThrottle {
+    fn new(steady_tick: Duration) -> Self {
+        Self {
+            steady_tick,
+            last_tick: Arc::new(Mutex::new(Instant::now() - steady_tick)),
+        }
+    }
+
+    fn should_emit(&self) -> bool {
+        let mut last_tick = self.last_tick.lock();
+        if last_tick.elapsed() < self.steady_tick {
+            return false;
+        }
+        *last_tick = Instant::now();
+        true
+    }
+}
+
 /// Work progress event.
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase", tag = "event", content = "data")]
@@ -41,18 +67,15 @@ pub type UnpackProgressChannelInner = Channel<WorkProgressEvent<UnpackProgressDa
 pub struct UnpackProgressChannelImpl<T> {
     channel: Channel<WorkProgressEvent<T>>,
     finish_count: Arc<AtomicU32>,
-    steady_tick: Duration,
-    last_tick: Arc<Mutex<Instant>>,
+    throttle: ProgressThrottle,
 }
 
 impl UnpackProgressChannelImpl<UnpackProgressData> {
     pub fn new(channel: Channel<WorkProgressEvent<UnpackProgressData>>) -> Self {
-        let steady_tick = Duration::from_millis(100);
         Self {
             channel,
             finish_count: Arc::new(AtomicU32::new(0)),
-            steady_tick,
-            last_tick: Arc::new(Mutex::new(Instant::now() - steady_tick)),
+            throttle: ProgressThrottle::new(PROGRESS_EVENT_INTERVAL),
         }
     }
 
@@ -68,11 +91,9 @@ impl UnpackProgressChannelImpl<UnpackProgressData> {
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
             + 1;
 
-        let mut last_tick = self.last_tick.lock();
-        if last_tick.elapsed() < self.steady_tick {
+        if !self.throttle.should_emit() {
             return;
         }
-        *last_tick = Instant::now();
 
         if let Err(e) = self
             .channel
@@ -89,6 +110,80 @@ impl UnpackProgressChannelImpl<UnpackProgressData> {
     pub fn work_finished(&self) {
         if let Err(e) = self.channel.send(WorkProgressEvent::WorkFinished(None)) {
             log::error!("Failed to send work finished event: {}", e);
+        }
+    }
+
+    pub fn error(&self, error: String) {
+        if let Err(e) = self.channel.send(WorkProgressEvent::Error { error }) {
+            log::error!("Failed to send work error event: {}", e);
+        }
+    }
+}
+
+// Texture export progress
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextureExportProgressData {
+    path: String,
+    finish_count: u32,
+}
+
+pub type TextureExportProgressChannel = TextureExportProgressChannelImpl<TextureExportProgressData>;
+pub type TextureExportProgressChannelInner = Channel<WorkProgressEvent<TextureExportProgressData>>;
+
+#[derive(Clone)]
+pub struct TextureExportProgressChannelImpl<T> {
+    channel: Channel<WorkProgressEvent<T>>,
+    finish_count: Arc<AtomicU32>,
+    throttle: ProgressThrottle,
+}
+
+impl TextureExportProgressChannelImpl<TextureExportProgressData> {
+    pub fn new(channel: Channel<WorkProgressEvent<TextureExportProgressData>>) -> Self {
+        Self {
+            channel,
+            finish_count: Arc::new(AtomicU32::new(0)),
+            throttle: ProgressThrottle::new(PROGRESS_EVENT_INTERVAL),
+        }
+    }
+
+    pub fn work_start(&self, count: u32) {
+        if let Err(e) = self.channel.send(WorkProgressEvent::WorkStart { count }) {
+            log::error!("Failed to send texture export start event: {}", e);
+        }
+    }
+
+    pub fn file_done(&self, path: &str) {
+        let finish_count = self
+            .finish_count
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+            + 1;
+
+        if !self.throttle.should_emit() {
+            return;
+        }
+
+        if let Err(e) = self
+            .channel
+            .send(WorkProgressEvent::FileDone(TextureExportProgressData {
+                path: path.to_string(),
+                finish_count,
+            }))
+        {
+            log::error!("Failed to send texture export file done event: {}", e);
+        }
+    }
+
+    pub fn work_finished(&self) {
+        if let Err(e) = self.channel.send(WorkProgressEvent::WorkFinished(None)) {
+            log::error!("Failed to send texture export finished event: {}", e);
+        }
+    }
+
+    pub fn error(&self, error: String) {
+        if let Err(e) = self.channel.send(WorkProgressEvent::Error { error }) {
+            log::error!("Failed to send texture export error event: {}", e);
         }
     }
 }
@@ -149,18 +244,15 @@ impl PackedFile {
 pub struct PackProgressChannelImpl<T> {
     channel: Channel<WorkProgressEvent<T>>,
     finish_count: Arc<AtomicU32>,
-    steady_tick: Duration,
-    last_tick: Arc<Mutex<Instant>>,
+    throttle: ProgressThrottle,
 }
 
 impl PackProgressChannelImpl<PackProgressData> {
     pub fn new(channel: Channel<WorkProgressEvent<PackProgressData>>) -> Self {
-        let steady_tick = Duration::from_millis(50);
         Self {
             channel,
             finish_count: Arc::new(AtomicU32::new(0)),
-            steady_tick,
-            last_tick: Arc::new(Mutex::new(Instant::now() - steady_tick)),
+            throttle: ProgressThrottle::new(PROGRESS_EVENT_INTERVAL),
         }
     }
 
@@ -212,12 +304,7 @@ impl PackProgressChannelImpl<PackProgressData> {
     }
 
     fn check_tick(&self) -> bool {
-        let mut last_tick = self.last_tick.lock();
-        if last_tick.elapsed() < self.steady_tick {
-            return false;
-        }
-        *last_tick = Instant::now();
-        true
+        self.throttle.should_emit()
     }
 }
 
