@@ -194,7 +194,6 @@
       <div class="desktop-statusbar">
         <div class="flex items-center gap-3">
           <span>{{ statusText }}</span>
-          <span v-if="loadingTree">{{ t('unpack.loadingTree') }}</span>
         </div>
         <div class="flex items-center gap-4">
           <span>{{ currentDirectoryPath }}</span>
@@ -232,7 +231,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, unref, watch, type CSSProperties, type Ref } from 'vue'
+import {
+  computed,
+  onMounted,
+  onUnmounted,
+  ref,
+  unref,
+  watch,
+  type CSSProperties,
+  type Ref
+} from 'vue'
 import { Channel, convertFileSrc } from '@tauri-apps/api/core'
 import type { UnlistenFn } from '@tauri-apps/api/event'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
@@ -321,7 +329,11 @@ import { fileListService } from '@/service/filelist'
 import { useSettingsStore, type AppSettings } from '@/store/settings'
 import { useWorkStore } from '@/store/work'
 import { ShowError, ShowInfo, ShowWarn } from '@/utils/message'
-import { getSelectedItemRelativeRoot, normalizeDisplayPath, splitNormalizedPath } from '@/utils/path'
+import {
+  getSelectedItemRelativeRoot,
+  normalizeDisplayPath,
+  splitNormalizedPath
+} from '@/utils/path'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'

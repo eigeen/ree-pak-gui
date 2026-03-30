@@ -20,7 +20,6 @@ tauri-build = { version = "2", features = [] }
 
 ree-pak-core = { git = "https://github.com/eigeen/ree-pak-rs", rev = "56b3003", package = "ree-pak-core" }
 re-tex = { git = "https://github.com/eigeen/re-tex", features = ["image"] }
-ree-path-searcher = { git = "https://github.com/eigeen/ree-path-searcher", rev = "0def98148e0d8a98b9ff684c8c09587cd2e87e30" }
 
 tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"

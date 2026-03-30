@@ -195,31 +195,6 @@ export default {
       unsupportedFileType: 'Unsupported file type for preview',
       selectFileToPreview: 'Select a file to preview content'
     },
-    pathScanner: {
-      title: 'Path Scanner',
-      description: 'Try to scan file paths contained within Pak files.',
-      lightVersionTip: 'This is a lite version. If you need to scan large files, please use',
-      standaloneVersion: 'standalone version',
-      betterPerformance: 'for better performance.',
-      pakFiles: 'Pak Files',
-      selectPakFiles: 'Select Pak Files',
-      selectPakFilesHint: 'You can select multiple `.pak` files for one scan.',
-      knownPathList: 'Known Path List (Optional)',
-      scanStatus: 'Scan Status',
-      scanComplete: 'Scan complete - found',
-      scanningFileProgress: 'Scanning file {current} / {total}',
-      scanFinished: 'Scan finished',
-      scanStopped: 'Scan stopped',
-      unknownError: 'Unknown error',
-      foundPaths: 'paths',
-      copyResults: 'Copy Results',
-      stopScan: 'Stop Scan',
-      startScan: 'Start Scan',
-      resultsCopied: 'Results copied to clipboard',
-      selectFilesFailed: 'Failed to select files: {error}',
-      scanFailed: 'Scan failed: {error}',
-      copyFailed: 'Copy failed: {error}'
-    },
     settings: {
       title: 'Settings',
       globalTitle: 'Global Settings',
@@ -278,13 +253,6 @@ export default {
       sizeLabel: 'Size: {size}',
       modifiedAt: 'Modified: {date}',
       removeFile: 'Remove this file'
-    },
-    toolPage: {
-      eyebrow: 'Tools',
-      intro:
-        'Standalone tool pages keep the existing capabilities while adopting the new shell and interaction primitives.',
-      missingTitle: 'Tool not found',
-      missingDescription: 'No tool exists with ID "{id}".'
     },
     explorer: {
       searchCurrentFolder: 'Search current folder...',

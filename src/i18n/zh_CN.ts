@@ -191,31 +191,6 @@ export default {
       unsupportedFileType: '不支持预览此文件类型',
       selectFileToPreview: '选择文件以预览内容'
     },
-    pathScanner: {
-      title: '路径扫描',
-      description: '尝试扫描Pak文件内包含的子文件路径。',
-      lightVersionTip: '这是一个轻量版，如果需要扫描较大文件，请使用',
-      standaloneVersion: '独立版本',
-      betterPerformance: '以获得更高性能。',
-      pakFiles: 'Pak 文件',
-      selectPakFiles: '选择 Pak 文件',
-      selectPakFilesHint: '支持选择多个 `.pak` 文件参与扫描。',
-      knownPathList: '已知路径列表（可选）',
-      scanStatus: '扫描状态',
-      scanComplete: '扫描完成 - 找到',
-      scanningFileProgress: '正在扫描文件 {current} / {total}',
-      scanFinished: '扫描完成',
-      scanStopped: '扫描已停止',
-      unknownError: '未知错误',
-      foundPaths: '个路径',
-      copyResults: '复制结果',
-      stopScan: '停止扫描',
-      startScan: '开始扫描',
-      resultsCopied: '结果已复制到剪贴板',
-      selectFilesFailed: '选择文件失败: {error}',
-      scanFailed: '扫描失败: {error}',
-      copyFailed: '复制失败: {error}'
-    },
     settings: {
       title: '设置',
       globalTitle: '全局设置',
@@ -270,12 +245,6 @@ export default {
       sizeLabel: '大小: {size}',
       modifiedAt: '修改时间: {date}',
       removeFile: '移除该文件'
-    },
-    toolPage: {
-      eyebrow: '工具',
-      intro: '独立工具页保留业务能力，只替换视觉壳与交互原语。',
-      missingTitle: '工具不存在',
-      missingDescription: '找不到 ID 为 "{id}" 的工具。'
     },
     explorer: {
       searchCurrentFolder: '搜索当前目录...',

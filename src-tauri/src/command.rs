@@ -4,8 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     channel::{
-        PackProgressChannel, PackProgressChannelInner, PathScanProgressChannel,
-        PathScanProgressChannelInner, TextureExportProgressChannel,
+        PackProgressChannel, PackProgressChannelInner, TextureExportProgressChannel,
         TextureExportProgressChannelInner, UnpackProgressChannel, UnpackProgressChannelInner,
     },
     common::JsSafeHash,
@@ -16,7 +15,6 @@ use crate::{
     service::{
         pak::{PakHeaderInfo, PakService},
         preview::{PreviewService, TextureExportFormat},
-        tools::ToolsService,
     },
     utility, warp_result_elapsed,
 };
@@ -271,37 +269,4 @@ pub fn murmur32(buffer: Vec<u8>) -> Result<u32, String> {
 pub fn murmur32_utf16(str: String) -> Result<u64, String> {
     use ree_pak_core::utf16_hash::Utf16HashExt;
     Ok(str.hash_mixed())
-}
-
-// Tools commands
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PathScanOptions {
-    pub pak_files: Vec<String>,
-    pub dump_files: Vec<String>,
-    pub path_list_file: Option<String>,
-}
-
-/// Path scanning command
-#[tauri::command]
-pub fn tools_scan_paths(
-    options: PathScanOptions,
-    on_event: PathScanProgressChannelInner,
-) -> Result<(), String> {
-    let channel = PathScanProgressChannel::new(on_event);
-
-    // Call path scanning service
-    let tools_service = ToolsService::get();
-    tools_service
-        .scan_paths(&options, channel)
-        .map_err(|e| e.to_string())
-}
-
-/// Terminate path scanning
-#[tauri::command]
-pub fn tools_terminate_scan() -> Result<(), String> {
-    let tools_service = ToolsService::get();
-    tools_service.terminate_scan();
-    Ok(())
 }
