@@ -37,6 +37,7 @@ const { t } = useI18n()
 interface Props {
   showManageButton?: boolean
   showSelector?: boolean
+  showManageEntryInSelector?: boolean
 }
 
 type RemoteItemStatus =
@@ -58,7 +59,8 @@ const filelistStore = useFileListStore()
 const selectedValue = defineModel<string>({ default: '' })
 const props = withDefaults(defineProps<Props>(), {
   showManageButton: true,
-  showSelector: true
+  showSelector: true,
+  showManageEntryInSelector: false
 })
 
 const showMenu = ref(false)
@@ -270,7 +272,15 @@ defineExpose({ openManager })
       {{ t('fileNameTable.manageFileList') }}
     </Button>
 
-    <FileNameTableSelector v-if="props.showSelector" v-model="selectedValue" :items="comboItems" />
+    <FileNameTableSelector
+      v-if="props.showSelector"
+      v-model="selectedValue"
+      :items="comboItems"
+      :leading-action-label="
+        props.showManageEntryInSelector ? t('fileNameTable.manageFileList') : undefined
+      "
+      @leading-action="openManager"
+    />
   </div>
 
   <Dialog v-model:open="showMenu">
@@ -294,8 +304,8 @@ defineExpose({ openManager })
           </Button>
         </div>
 
-        <div class="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.95fr)]">
-          <section class="app-panel-muted flex min-h-[28rem] flex-col p-4">
+        <div class="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_1px_minmax(0,0.95fr)] lg:gap-0">
+          <section class="flex min-h-[28rem] flex-col p-1 pr-3 lg:p-0 lg:pr-6">
             <div class="mb-4 flex items-center justify-between gap-3">
               <div>
                 <p class="section-eyebrow">{{ t('fileNameTable.local') }}</p>
@@ -344,7 +354,9 @@ defineExpose({ openManager })
             </div>
           </section>
 
-          <section class="app-panel-muted flex min-h-[28rem] flex-col p-4">
+          <div class="hidden bg-border/70 lg:block" aria-hidden="true" />
+
+          <section class="flex min-h-[28rem] flex-col p-1 pl-3 lg:p-0 lg:pl-6">
             <div class="mb-4 flex items-center justify-between gap-3">
               <div>
                 <p class="section-eyebrow">{{ t('fileNameTable.downloadable') }}</p>

@@ -32,12 +32,15 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 export interface Props {
+  pakId: string
   filePath: string
 }
 
 const props = defineProps<Props>()
 
-defineEmits(['remove'])
+defineEmits<{
+  (e: 'remove'): void
+}>()
 
 const fileName = computed(() => {
   const parts = props.filePath.split(/[\\/]/)

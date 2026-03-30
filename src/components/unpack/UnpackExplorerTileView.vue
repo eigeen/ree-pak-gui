@@ -14,8 +14,14 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'item-click', item: ExplorerEntry): void
   (e: 'item-open', item: ExplorerEntry): void
+  (e: 'item-contextmenu', item: ExplorerEntry, event: MouseEvent): void
+  (e: 'background-contextmenu', event: MouseEvent): void
   (e: 'visible-items-change', items: ExplorerEntry[]): void
 }>()
+
+function handleItemContextMenu(item: ExplorerEntry, event: MouseEvent) {
+  emit('item-contextmenu', item, event)
+}
 </script>
 
 <template>
@@ -26,6 +32,8 @@ const emit = defineEmits<{
     class="h-full"
     @item-click="emit('item-click', $event)"
     @item-open="emit('item-open', $event)"
+    @item-contextmenu="handleItemContextMenu"
+    @background-contextmenu="emit('background-contextmenu', $event)"
     @visible-items-change="emit('visible-items-change', $event)"
   >
     <template #item="{ item }">

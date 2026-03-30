@@ -160,13 +160,13 @@ export interface PakHeaderInfo {
 }
 
 export interface PakHeader {
-  magic: string
+  magic: number[]
   majorVersion: number
   minorVersion: number
   feature: number
   totalFiles: number
   hash: string
-  unkU32Sig: string
+  unkU32Sig: number
 }
 
 export interface PakEntry {
@@ -177,8 +177,8 @@ export interface PakEntry {
   uncompressedSize: number
   compressionType: number
   encryptionType: string
-  checksum: number
-  unkAttr: number
+  checksum: string
+  unkAttr: string
 }
 
 // Get pak file header information

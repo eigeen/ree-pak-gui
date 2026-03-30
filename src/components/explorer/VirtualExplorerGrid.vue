@@ -22,6 +22,8 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   (e: 'item-click', item: TItem): void
   (e: 'item-open', item: TItem): void
+  (e: 'item-contextmenu', item: TItem, event: MouseEvent): void
+  (e: 'background-contextmenu', event: MouseEvent): void
   (e: 'visible-items-change', items: TItem[]): void
 }>()
 
@@ -123,10 +125,23 @@ function getCardClass(item: TItem) {
 
   return `${baseClass} explorer-grid-card-active`
 }
+
+function handleBackgroundContextMenu(event: MouseEvent) {
+  const target = event.target
+  if (target instanceof Element && target.closest('[data-explorer-item-root]')) {
+    return
+  }
+
+  emit('background-contextmenu', event)
+}
 </script>
 
 <template>
-  <div ref="scrollElementRef" class="editor-scrollbar h-full overflow-auto px-1.5 py-1.5">
+  <div
+    ref="scrollElementRef"
+    class="editor-scrollbar h-full overflow-auto px-1.5 py-1.5"
+    @contextmenu="handleBackgroundContextMenu"
+  >
     <div class="relative min-h-full" :style="{ height: `${totalSize}px` }">
       <div
         v-for="virtualRow in virtualRows"
@@ -139,10 +154,12 @@ function getCardClass(item: TItem) {
             v-for="item in getRowItems(virtualRow.index)"
             :key="item.id"
             type="button"
+            data-explorer-item-root
             :class="getCardClass(item)"
             :style="{ height: `${props.cardHeight}px`, marginBottom: `${props.gap}px` }"
             @click="emit('item-click', item)"
             @dblclick="emit('item-open', item)"
+            @contextmenu="emit('item-contextmenu', item, $event)"
           >
             <slot name="item" :item="item" />
           </button>

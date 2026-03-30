@@ -12,7 +12,9 @@
         @change="onChange"
       >
         <template #item="{ element, index }">
-          <PakFileItem :file-path="element.path" @remove="$emit('close', index)" />
+          <AppContextMenu :items="getPakMenuItems(element, index)">
+            <PakFileItem :pak-id="element.id" :file-path="element.path" @remove="$emit('close', index)" />
+          </AppContextMenu>
         </template>
       </draggable>
 
@@ -66,12 +68,14 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import draggable from 'vuedraggable'
-import { FolderPlus, X } from 'lucide-vue-next'
+import { FolderPlus, Info, Trash2, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { pak_order, type PakId, type PakInfo } from '@/api/tauri/pak'
+import AppContextMenu from '@/components/context-menu/AppContextMenu.vue'
 import PakFileItem from '@/components/PakFileItem.vue'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import type { ContextMenuEntry } from '@/lib/contextMenu'
 
 const { t } = useI18n()
 
@@ -91,7 +95,13 @@ const props = withDefaults(defineProps<Props>(), {
   showOpenButton: true
 })
 
-const emit = defineEmits(['open', 'close', 'order', 'closeAll'])
+const emit = defineEmits<{
+  (e: 'open'): void
+  (e: 'close', index: number): void
+  (e: 'order', order: PakId[]): void
+  (e: 'closeAll'): void
+  (e: 'show-properties', pak: OrderedData): void
+}>()
 
 const orderedPakList = ref<OrderedData[]>([])
 
@@ -126,6 +136,30 @@ async function onChange(event: any) {
   const orderList = newList.map((current) => current.id)
   await pak_order(orderList)
   emit('order', orderList)
+}
+
+function getPakMenuItems(pak: OrderedData, index: number): ContextMenuEntry[] {
+  return [
+    {
+      type: 'action',
+      key: `pak-properties-${pak.id}`,
+      label: '查看属性',
+      icon: Info,
+      action: () => emit('show-properties', pak)
+    },
+    {
+      type: 'separator',
+      key: `pak-separator-${pak.id}`
+    },
+    {
+      type: 'action',
+      key: `pak-remove-${pak.id}`,
+      label: '移除',
+      icon: Trash2,
+      destructive: true,
+      action: () => emit('close', index)
+    }
+  ]
 }
 </script>
 

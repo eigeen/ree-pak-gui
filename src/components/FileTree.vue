@@ -13,6 +13,9 @@ export interface TreeData {
   parentId?: string
   hash?: JsSafeHash
   isDir: boolean
+  compressedSize: number
+  uncompressedSize: number
+  isCompressed: boolean
   sizeText: string
   children: TreeData[]
   belongsTo: string | undefined
@@ -29,6 +32,8 @@ const props = defineProps<Props>()
 
 const emit = defineEmits<{
   (e: 'node-click', data: TreeData, node: TreeNode, event: MouseEvent): void
+  (e: 'node-contextmenu', data: TreeData, node: TreeNode, event: MouseEvent): void
+  (e: 'background-contextmenu', event: MouseEvent): void
 }>()
 
 const treeComponent = ref<TreeV2Instance>()
@@ -109,6 +114,9 @@ function createTreeData(node: RenderTreeNode, parentPath = '', parentId?: string
     parentId,
     hash: node.hash,
     isDir: node.isDir,
+    compressedSize: node.compressedSize,
+    uncompressedSize: node.uncompressedSize,
+    isCompressed: node.isCompressed,
     sizeText: formatSize(
       node.uncompressedSize !== undefined
         ? node.isCompressed
@@ -242,11 +250,24 @@ function collapseAll() {
   treeComponent.value?.setExpandedKeys([])
 }
 
+function handleBackgroundContextMenu(event: MouseEvent) {
+  const target = event.target
+  if (target instanceof Element && target.closest('.el-tree-node')) {
+    return
+  }
+
+  emit('background-contextmenu', event)
+}
+
+function handleNodeContextMenu(event: Event, data: TreeData, node: TreeNode) {
+  emit('node-contextmenu', data, node, event as MouseEvent)
+}
+
 defineExpose({ bringNodeIntoView, collapseAll, getCheckedNodes })
 </script>
 
 <template>
-  <div ref="containerRef" class="h-full">
+  <div ref="containerRef" class="h-full" @contextmenu="handleBackgroundContextMenu">
     <el-tree-v2
       ref="treeComponent"
       :current-node-key="currentNodeKey"
@@ -260,6 +281,7 @@ defineExpose({ bringNodeIntoView, collapseAll, getCheckedNodes })
       @node-click="
         (data: TreeData, node: TreeNode, e: MouseEvent) => emit('node-click', data, node, e)
       "
+      @node-contextmenu="handleNodeContextMenu"
     >
       <template #default="{ node }">
         <div class="flex w-full items-center gap-2 text-sm">

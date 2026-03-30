@@ -6,14 +6,15 @@ import {
   FolderTree,
   LayoutGrid,
   List,
-  RefreshCw,
   Search
 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
+import AppContextMenu from '@/components/context-menu/AppContextMenu.vue'
 import UnpackExplorerDetailsView from '@/components/unpack/UnpackExplorerDetailsView.vue'
 import UnpackExplorerTileView from '@/components/unpack/UnpackExplorerTileView.vue'
 import { Button } from '@/components/ui/button'
 import { DenseInput } from '@/components/ui/input'
+import type { ContextMenuEntry } from '@/lib/contextMenu'
 import type {
   ExplorerBreadcrumbSegment,
   ExplorerColumnLabels,
@@ -27,8 +28,6 @@ const props = defineProps<{
   enableExtract: boolean
   hasTree: boolean
   hasPakData: boolean
-  showOverlay: boolean
-  loadingTree: boolean
   layoutMode: ExplorerLayoutMode
   items: ExplorerEntry[]
   selectedKey: string
@@ -39,17 +38,19 @@ const props = defineProps<{
   texturePreviewEnabled: boolean
   renderers: ExplorerRenderers
   columnLabels: ExplorerColumnLabels
+  contextMenuItems: ContextMenuEntry[]
 }>()
 
 const emit = defineEmits<{
   (e: 'update:search-text', value: string): void
   (e: 'extract'): void
-  (e: 'render'): void
   (e: 'open-directory', id: string): void
   (e: 'open-parent-directory'): void
   (e: 'toggle-layout'): void
   (e: 'item-click', item: ExplorerEntry): void
   (e: 'item-open', item: ExplorerEntry): void
+  (e: 'item-contextmenu', item: ExplorerEntry, event: MouseEvent): void
+  (e: 'background-contextmenu', event: MouseEvent): void
   (e: 'visible-items-change', items: ExplorerEntry[]): void
 }>()
 
@@ -57,6 +58,10 @@ const { t } = useI18n()
 
 function handleSearchTextUpdate(value: string | number) {
   emit('update:search-text', String(value))
+}
+
+function handleItemContextMenu(item: ExplorerEntry, event: MouseEvent) {
+  emit('item-contextmenu', item, event)
 }
 </script>
 
@@ -103,7 +108,7 @@ function handleSearchTextUpdate(value: string | number) {
         </div>
       </div>
 
-      <div class="flex shrink-0 items-center gap-2">
+      <div class="flex shrink-0 items-center">
         <Button
           variant="ghost"
           size="sm"
@@ -133,17 +138,6 @@ function handleSearchTextUpdate(value: string | number) {
 
     <div class="relative min-h-0 flex-1">
       <div
-        v-if="props.showOverlay"
-        class="absolute inset-4 z-20 flex items-center justify-center border border-border/80 bg-background/88 backdrop-blur-sm"
-        @click.stop
-      >
-        <Button :disabled="props.loadingTree" @click="emit('render')">
-          <RefreshCw class="size-4" :class="props.loadingTree ? 'animate-spin' : ''" />
-          {{ t('unpack.loadFileTree') }}
-        </Button>
-      </div>
-
-      <div
         class="h-full"
         :class="props.hasPakData && props.hasTree && props.layoutMode === 'details' ? '' : 'p-4'"
       >
@@ -155,33 +149,39 @@ function handleSearchTextUpdate(value: string | number) {
 
         <div v-else-if="!props.hasTree" class="empty-state h-full">
           <FolderTree class="size-10 text-muted-foreground" />
-          <p class="text-sm font-semibold text-foreground">资源树尚未载入</p>
-          <p class="section-copy">选择路径列表后，点击左侧刷新按钮生成 Explorer。</p>
+          <p class="text-sm font-semibold text-foreground">尚未加载资源</p>
+          <p class="section-copy">在左侧添加和加载资源。</p>
         </div>
 
-        <UnpackExplorerTileView
-          v-else-if="props.layoutMode === 'tile'"
-          :items="props.items"
-          :selected-key="props.selectedKey"
-          :reset-key="props.resetKey"
-          :texture-preview-enabled="props.texturePreviewEnabled"
-          :renderers="props.renderers"
-          @item-click="emit('item-click', $event)"
-          @item-open="emit('item-open', $event)"
-          @visible-items-change="emit('visible-items-change', $event)"
-        />
+        <AppContextMenu v-else-if="props.layoutMode === 'tile'" :items="props.contextMenuItems">
+          <UnpackExplorerTileView
+            :items="props.items"
+            :selected-key="props.selectedKey"
+            :reset-key="props.resetKey"
+            :texture-preview-enabled="props.texturePreviewEnabled"
+            :renderers="props.renderers"
+            @item-click="emit('item-click', $event)"
+            @item-open="emit('item-open', $event)"
+            @item-contextmenu="handleItemContextMenu"
+            @background-contextmenu="emit('background-contextmenu', $event)"
+            @visible-items-change="emit('visible-items-change', $event)"
+          />
+        </AppContextMenu>
 
-        <UnpackExplorerDetailsView
-          v-else
-          :items="props.items"
-          :selected-key="props.selectedKey"
-          :reset-key="props.resetKey"
-          :renderers="props.renderers"
-          :column-labels="props.columnLabels"
-          @item-click="emit('item-click', $event)"
-          @item-open="emit('item-open', $event)"
-          @visible-items-change="emit('visible-items-change', $event)"
-        />
+        <AppContextMenu v-else :items="props.contextMenuItems">
+          <UnpackExplorerDetailsView
+            :items="props.items"
+            :selected-key="props.selectedKey"
+            :reset-key="props.resetKey"
+            :renderers="props.renderers"
+            :column-labels="props.columnLabels"
+            @item-click="emit('item-click', $event)"
+            @item-open="emit('item-open', $event)"
+            @item-contextmenu="handleItemContextMenu"
+            @background-contextmenu="emit('background-contextmenu', $event)"
+            @visible-items-change="emit('visible-items-change', $event)"
+          />
+        </AppContextMenu>
       </div>
     </div>
   </div>

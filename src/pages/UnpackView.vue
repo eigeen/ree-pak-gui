@@ -19,7 +19,22 @@
                   </div>
                 </div>
                 <div class="mb-4">
-                  <FileNameTable v-model="unpackState.fileList" :show-manage-button="false" />
+                  <FileNameTable
+                    v-model="unpackState.fileList"
+                    :show-manage-button="false"
+                    :show-manage-entry-in-selector="true"
+                  />
+                </div>
+                <div class="mb-4">
+                  <Button
+                    size="sm"
+                    class="w-full"
+                    :disabled="!canRenderTree"
+                    @click="doRender"
+                  >
+                    <RefreshCw class="size-4" :class="loadingTree ? 'animate-spin' : ''" />
+                    {{ t('unpack.loadFileTree') }}
+                  </Button>
                 </div>
                 <div class="min-h-0 flex-1">
                   <PakFiles
@@ -30,11 +45,15 @@
                     @close-all="handleCloseAll"
                     @open="handleOpen"
                     @order="handleOrder"
+                    @show-properties="handlePakShowProperties"
                   />
                 </div>
               </section>
 
-              <section v-show="sidebarTab === 'tree'" class="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <section
+                v-show="sidebarTab === 'tree'"
+                class="flex min-h-0 flex-1 flex-col overflow-hidden"
+              >
                 <div class="mb-3 flex items-center gap-2">
                   <DenseInput
                     v-model="unpackState.filterText"
@@ -55,9 +74,7 @@
                   <span>{{ t('unpack.regex') }}</span>
                 </label>
 
-                <div
-                  class="desktop-toolbar h-8 min-h-8 justify-between border-x-0 border-t border-border/80 px-0"
-                >
+                <div class="flex items-center h-8 min-h-8 justify-between px-0">
                   <div class="flex items-center gap-1.5">
                     <Button
                       size="icon-sm"
@@ -106,16 +123,19 @@
                     </p>
                   </div>
 
-                  <FileTree
-                    v-else
-                    ref="fileTreeComponent"
-                    :current-node-key="treeFocusKey"
-                    :data="treeData"
-                    :filter-text="filterTextApply"
-                    :regex-mode="unpackState.filterUseRegex"
-                    class="h-full"
-                    @node-click="handleNodeClick"
-                  />
+                  <AppContextMenu v-else :items="treeContextMenuItems">
+                    <FileTree
+                      ref="fileTreeComponent"
+                      :current-node-key="treeFocusKey"
+                      :data="treeData"
+                      :filter-text="filterTextApply"
+                      :regex-mode="unpackState.filterUseRegex"
+                      class="h-full"
+                      @node-click="handleNodeClick"
+                      @node-contextmenu="handleTreeNodeContextMenu"
+                      @background-contextmenu="handleTreeBackgroundContextMenu"
+                    />
+                  </AppContextMenu>
                 </div>
               </section>
             </div>
@@ -132,8 +152,6 @@
                 :enable-extract="enableExtract"
                 :has-tree="Boolean(treeData)"
                 :has-pak-data="pakData.length > 0"
-                :show-overlay="showOverlay"
-                :loading-tree="loadingTree"
                 :layout-mode="explorerLayoutMode"
                 :items="explorerEntries"
                 :selected-key="selectedEntryKey"
@@ -144,13 +162,15 @@
                 :texture-preview-enabled="texturePreviewEnabled"
                 :renderers="explorerRenderers"
                 :column-labels="explorerColumnLabels"
+                :context-menu-items="explorerContextMenuItems"
                 @extract="doExtraction"
-                @render="doRender"
                 @open-directory="openDirectory"
                 @open-parent-directory="openParentDirectory"
                 @toggle-layout="toggleExplorerLayout"
                 @item-click="handleExplorerItemClick"
                 @item-open="handleExplorerItemOpen"
+                @item-contextmenu="handleExplorerItemContextMenu"
+                @background-contextmenu="handleExplorerBackgroundContextMenu"
                 @visible-items-change="handleVisibleExplorerItemsChange"
               />
             </ResizablePanel>
@@ -222,6 +242,15 @@
       </AlertDialogContent>
     </AlertDialog>
 
+    <UnpackPropertiesDialog
+      v-model:open="propertiesDialogOpen"
+      :title="propertiesDialogTitle"
+      :description="propertiesDialogDescription"
+      :loading="propertiesDialogLoading"
+      :sections="propertiesDialogSections"
+      empty-text="没有可显示的原始属性。"
+    />
+
     <el-image-viewer
       v-if="imageViewerState.open"
       :url-list="imageViewerState.urls"
@@ -243,14 +272,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-  computed,
-  onMounted,
-  onUnmounted,
-  ref,
-  watch,
-  type CSSProperties
-} from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch, type CSSProperties } from 'vue'
 import { Channel, convertFileSrc } from '@tauri-apps/api/core'
 import type { UnlistenFn } from '@tauri-apps/api/event'
 import { ProgressBarStatus, getCurrentWindow } from '@tauri-apps/api/window'
@@ -258,27 +280,43 @@ import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { open as dialogOpen } from '@tauri-apps/plugin-dialog'
 import { exists } from '@tauri-apps/plugin-fs'
 import {
+  Copy,
+  Download,
+  Eye,
+  Info,
   FoldVertical,
   Filter,
+  FileArchive,
   FolderOpen,
-  Wrench,
+  FolderTree,
+  LayoutGrid,
+  List,
   LocateFixed,
   PackageOpen,
   RefreshCw,
-  FolderTree,
-  FileArchive
+  Wrench
 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import {
   pak_close,
   pak_extract_all,
+  pak_get_header,
   pak_list_all,
   pak_open,
   pak_read_file_tree_optimized,
   pak_terminate_extraction
 } from '@/api/tauri/pak'
-import type { ExtractOptions, PakInfo, RenderTreeNode, UnpackProgressEvent } from '@/api/tauri/pak'
+import type {
+  ExtractFileInfo,
+  ExtractOptions,
+  PakEntry,
+  PakHeaderInfo,
+  PakInfo,
+  RenderTreeNode,
+  UnpackProgressEvent
+} from '@/api/tauri/pak'
 import { getPreviewFile } from '@/api/tauri/utils'
+import AppContextMenu from '@/components/context-menu/AppContextMenu.vue'
 import FileTree, { type TreeData } from '@/components/FileTree.vue'
 import type { MenuGroup } from '@/components/DesktopMenuBar.vue'
 import FileNameTable from '@/components/FileNameTable/FileNameTable.vue'
@@ -289,11 +327,15 @@ import UnpackSidebarTabs, {
   type UnpackSidebarTabItem
 } from '@/components/unpack/UnpackSidebarTabs.vue'
 import UnpackExplorerPane from '@/components/unpack/UnpackExplorerPane.vue'
+import UnpackPropertiesDialog, {
+  type PropertySection
+} from '@/components/unpack/UnpackPropertiesDialog.vue'
 import {
   getExplorerFileTypeDefinition,
   getExplorerThemeForType,
   resolveExplorerFileTypeKey
 } from '@/lib/explorerTypeTheme'
+import type { ContextMenuEntry } from '@/lib/contextMenu'
 import type {
   ExplorerColumnLabels,
   ExplorerDirectoryCounts,
@@ -304,7 +346,7 @@ import type {
 import { fileListService } from '@/service/filelist'
 import { useSettingsStore } from '@/store/settings'
 import { useWorkStore } from '@/store/work'
-import { ShowError, ShowWarn } from '@/utils/message'
+import { ShowError, ShowInfo, ShowWarn } from '@/utils/message'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -337,6 +379,12 @@ type UnpackState = {
 }
 
 type SidebarTab = 'resources' | 'tree'
+type ExplorerContextMenuKind = 'item' | 'background'
+type TreeContextMenuKind = 'node' | 'background'
+type PropertyTarget =
+  | { kind: 'directory'; node: ExplorerEntry }
+  | { kind: 'file'; node: ExplorerEntry }
+  | { kind: 'pak'; pak: PakInfo }
 
 const EXPLORER_ROOT_ID = '__explorer_root__'
 
@@ -384,6 +432,17 @@ const visibleExplorerEntries = ref<ExplorerEntry[]>([])
 const texturePreviewCache = ref<Record<string, string | null>>({})
 const texturePreviewPending = new Set<string>()
 const explorerLayoutMode = ref<ExplorerLayoutMode>('details')
+const explorerContextMenuKind = ref<ExplorerContextMenuKind>('background')
+const explorerContextMenuTarget = ref<ExplorerEntry | null>(null)
+const treeContextMenuKind = ref<TreeContextMenuKind>('background')
+const treeContextMenuTarget = ref<TreeData | null>(null)
+const pakHeaderCache = ref<Record<string, PakHeaderInfo>>({})
+const propertiesDialogOpen = ref(false)
+const propertiesDialogLoading = ref(false)
+const propertiesDialogTitle = ref('')
+const propertiesDialogDescription = ref('')
+const propertiesDialogSections = ref<PropertySection[]>([])
+const propertyTarget = ref<PropertyTarget | null>(null)
 const imageViewerState = ref({
   open: false,
   urls: [] as string[],
@@ -396,6 +455,9 @@ const progressValue = computed(() =>
 
 const enableAddPaks = computed(() => unpackState.value.fileList !== '')
 const enableExtract = computed(() => treeData.value !== null)
+const canRenderTree = computed(
+  () => Boolean(unpackState.value.fileList) && pakData.value.length > 0
+)
 const fileTreeComponent = ref<InstanceType<typeof FileTree>>()
 const fileNameTable = ref<{ openManager: () => void } | null>(null)
 const texturePreviewEnabled = computed(
@@ -448,6 +510,18 @@ const explorerEntries = computed(() => {
       return a.name.localeCompare(b.name)
     })
 })
+const pakFileNameMap = computed(() => {
+  const map = new Map<string, string>()
+
+  for (const pak of pakData.value) {
+    const normalizedPath = pak.path.replace(/\\/g, '/')
+    const segments = normalizedPath.split('/')
+    const fileName = segments[segments.length - 1] ?? pak.path
+    map.set(pak.id, fileName)
+  }
+
+  return map
+})
 
 const explorerViewResetKey = computed(
   () =>
@@ -469,6 +543,192 @@ const explorerColumnLabels = computed<ExplorerColumnLabels>(() => ({
   size: t('unpack.columnSize'),
   details: t('unpack.columnDetails')
 }))
+const explorerContextMenuItems = computed<ContextMenuEntry[]>(() => {
+  if (!treeData.value) {
+    return []
+  }
+
+  if (explorerContextMenuKind.value === 'background') {
+    return [
+      {
+        type: 'submenu',
+        key: 'explorer-layout',
+        label: '布局',
+        icon: explorerLayoutMode.value === 'tile' ? LayoutGrid : List,
+        children: [
+          {
+            type: 'action',
+            key: 'explorer-layout-details',
+            label: t('unpack.layoutDetails'),
+            icon: List,
+            disabled: explorerLayoutMode.value === 'details',
+            action: () => setExplorerLayout('details')
+          },
+          {
+            type: 'action',
+            key: 'explorer-layout-tile',
+            label: t('unpack.layoutTile'),
+            icon: LayoutGrid,
+            disabled: explorerLayoutMode.value === 'tile',
+            action: () => setExplorerLayout('tile')
+          }
+        ]
+      },
+      {
+        type: 'action',
+        key: 'explorer-open-parent',
+        label: '返回上一级目录',
+        icon: FolderOpen,
+        disabled: !currentDirectory.value?.parentId,
+        action: openParentDirectory
+      },
+      {
+        type: 'separator',
+        key: 'explorer-background-separator'
+      },
+      {
+        type: 'action',
+        key: 'explorer-refresh-tree',
+        label: t('menu.reloadTree'),
+        icon: RefreshCw,
+        disabled: !canRenderTree.value,
+        action: handleToolbarRenderTree
+      }
+    ]
+  }
+
+  const item = explorerContextMenuTarget.value
+  if (!item) {
+    return []
+  }
+
+  const extractFiles = collectExtractFilesFromEntry(item)
+  const canPreview = canPreviewExplorerItem(item)
+
+  return [
+    {
+      type: 'action',
+      key: 'explorer-primary-open',
+      label: item.isDir ? '打开目录' : '预览',
+      icon: item.isDir ? FolderOpen : Eye,
+      disabled: item.isDir ? false : !canPreview,
+      action: () => {
+        if (item.isDir) {
+          openDirectory(item.id)
+          return
+        }
+
+        void handleExplorerItemOpen(item)
+      }
+    },
+    {
+      type: 'action',
+      key: 'explorer-locate-tree',
+      label: '在树中定位',
+      icon: LocateFixed,
+      disabled: !item.isDir && !item.parentId,
+      action: () => bringEntryIntoTreeView(item)
+    },
+    {
+      type: 'action',
+      key: 'explorer-properties',
+      label: '查看属性',
+      icon: Info,
+      action: () => void openPropertiesDialog(item)
+    },
+    {
+      type: 'separator',
+      key: 'explorer-item-separator'
+    },
+    {
+      type: 'action',
+      key: 'explorer-extract',
+      label: item.isDir ? '提取目录' : '提取文件',
+      icon: Download,
+      disabled: extractFiles.length === 0,
+      action: () => void extractFilesWithDialog(extractFiles)
+    },
+    {
+      type: 'action',
+      key: 'explorer-copy-path',
+      label: '复制路径',
+      icon: Copy,
+      shortcut: 'Ctrl+C',
+      action: () => void copyText(item.path)
+    }
+  ]
+})
+const treeContextMenuItems = computed<ContextMenuEntry[]>(() => {
+  if (!treeData.value) {
+    return []
+  }
+
+  if (treeContextMenuKind.value === 'background') {
+    return [
+      {
+        type: 'action',
+        key: 'tree-refresh',
+        label: t('menu.reloadTree'),
+        icon: RefreshCw,
+        disabled: !canRenderTree.value,
+        action: handleToolbarRenderTree
+      },
+      {
+        type: 'action',
+        key: 'tree-collapse',
+        label: '折叠全部',
+        icon: FoldVertical,
+        action: collapseTree
+      }
+    ]
+  }
+
+  const node = treeContextMenuTarget.value
+  if (!node) {
+    return []
+  }
+
+  const entry = explorerNodeMap.value.get(node.id)
+  const extractFiles = entry ? collectExtractFilesFromEntry(entry) : []
+
+  return [
+    {
+      type: 'action',
+      key: 'tree-open-explorer',
+      label: '在 Explorer 中打开',
+      icon: FolderOpen,
+      action: () => openDirectory(node.id)
+    },
+    {
+      type: 'action',
+      key: 'tree-properties',
+      label: '查看属性',
+      icon: Info,
+      disabled: !entry,
+      action: () => entry && void openPropertiesDialog(entry)
+    },
+    {
+      type: 'separator',
+      key: 'tree-node-separator'
+    },
+    {
+      type: 'action',
+      key: 'tree-extract-directory',
+      label: '提取目录',
+      icon: Download,
+      disabled: extractFiles.length === 0,
+      action: () => void extractFilesWithDialog(extractFiles)
+    },
+    {
+      type: 'action',
+      key: 'tree-copy-path',
+      label: '复制路径',
+      icon: Copy,
+      shortcut: 'Ctrl+C',
+      action: () => void copyText(node.path)
+    }
+  ]
+})
 
 const bringTargetKey = computed(() => {
   const entry = selectedEntry.value
@@ -552,10 +812,21 @@ function openPathListManager() {
   fileNameTable.value?.openManager()
 }
 
+function setExplorerLayout(mode: ExplorerLayoutMode) {
+  explorerLayoutMode.value = mode
+  unpackState.value = {
+    ...unpackState.value,
+    explorerLayoutMode: mode
+  }
+}
+
 watch(pakData, async () => {
   treeData.value = null
   currentDirectoryKey.value = ''
   selectedEntryKey.value = ''
+  explorerContextMenuTarget.value = null
+  treeContextMenuTarget.value = null
+  pakHeaderCache.value = {}
   visibleExplorerEntries.value = []
   texturePreviewCache.value = {}
   texturePreviewPending.clear()
@@ -696,7 +967,16 @@ async function handleCloseAll() {
 }
 
 async function doExtraction() {
+  await extractFilesWithDialog(fileTreeComponent.value?.getCheckedNodes() ?? [])
+}
+
+async function extractFilesWithDialog(extractFiles: ExtractFileInfo[]) {
   try {
+    if (extractFiles.length === 0) {
+      ShowWarn('当前没有可提取的文件。')
+      return
+    }
+
     let selected = await dialogOpen({
       directory: true,
       multiple: false
@@ -709,7 +989,7 @@ async function doExtraction() {
       outputPath: selected as string,
       override: true,
       extractAll: false,
-      extractFiles: fileTreeComponent.value?.getCheckedNodes() ?? []
+      extractFiles
     }
 
     const window = getCurrentWindow()
@@ -812,6 +1092,8 @@ async function handleConfirmTermination() {
 
 function handleNodeClick(data: TreeData) {
   treeFocusKey.value = data.id
+  treeContextMenuKind.value = 'node'
+  treeContextMenuTarget.value = data
 
   if (data.isDir) {
     openDirectory(data.id)
@@ -829,6 +1111,19 @@ function bringSelectedEntryIntoTreeView() {
 
   treeFocusKey.value = key
   fileTreeComponent.value?.bringNodeIntoView(key)
+}
+
+function handleTreeNodeContextMenu(data: TreeData) {
+  treeContextMenuKind.value = 'node'
+  treeContextMenuTarget.value = data
+  treeFocusKey.value = data.id
+  openDirectory(data.id)
+  selectedEntryKey.value = ''
+}
+
+function handleTreeBackgroundContextMenu() {
+  treeContextMenuKind.value = 'background'
+  treeContextMenuTarget.value = null
 }
 
 async function loadWorkRecords() {
@@ -869,6 +1164,9 @@ function buildExplorerTree(
     parentId,
     hash: node.hash,
     isDir: node.isDir,
+    compressedSize: node.compressedSize,
+    uncompressedSize: node.uncompressedSize,
+    isCompressed: node.isCompressed,
     sizeText: formatSize(
       node.uncompressedSize !== undefined
         ? node.isCompressed
@@ -888,6 +1186,9 @@ function buildExplorerRoot(nodes: RenderTreeNode[]): ExplorerEntry {
     label: 'Root',
     path: '',
     isDir: true,
+    compressedSize: 0,
+    uncompressedSize: 0,
+    isCompressed: false,
     sizeText: '',
     children: nodes.map((node) => buildExplorerTree(node, '', EXPLORER_ROOT_ID)),
     belongsTo: undefined
@@ -923,11 +1224,7 @@ function openParentDirectory() {
 }
 
 function toggleExplorerLayout() {
-  explorerLayoutMode.value = explorerLayoutMode.value === 'tile' ? 'details' : 'tile'
-  unpackState.value = {
-    ...unpackState.value,
-    explorerLayoutMode: explorerLayoutMode.value
-  }
+  setExplorerLayout(explorerLayoutMode.value === 'tile' ? 'details' : 'tile')
 }
 
 function collapseTree() {
@@ -936,6 +1233,17 @@ function collapseTree() {
 
 function handleExplorerItemClick(item: ExplorerEntry) {
   selectedEntryKey.value = item.id
+}
+
+function handleExplorerItemContextMenu(item: ExplorerEntry) {
+  explorerContextMenuKind.value = 'item'
+  explorerContextMenuTarget.value = item
+  selectedEntryKey.value = item.id
+}
+
+function handleExplorerBackgroundContextMenu() {
+  explorerContextMenuKind.value = 'background'
+  explorerContextMenuTarget.value = null
 }
 
 function handleVisibleExplorerItemsChange(items: ExplorerEntry[]) {
@@ -969,7 +1277,10 @@ function canPreviewExplorerItem(item: ExplorerEntry) {
 }
 
 function getDefaultExplorerLayout(directory: ExplorerEntry | null): ExplorerLayoutMode {
-  if (directory && directory.children.some((child) => !child.isDir && getExplorerTypeKey(child) === 'texture')) {
+  if (
+    directory &&
+    directory.children.some((child) => !child.isDir && getExplorerTypeKey(child) === 'texture')
+  ) {
     return 'tile'
   }
 
@@ -1039,11 +1350,255 @@ function getExplorerDetailText(item: ExplorerEntry) {
 
 function getExplorerSourceLabel(source?: string) {
   if (!source) {
+    return '来源：—'
+  }
+
+  return `来源：${pakFileNameMap.value.get(source) ?? source}`
+}
+
+async function getPakHeaderInfo(path: string) {
+  const cached = pakHeaderCache.value[path]
+  if (cached) {
+    return cached
+  }
+
+  const header = await pak_get_header(path)
+  pakHeaderCache.value = {
+    ...pakHeaderCache.value,
+    [path]: header
+  }
+  return header
+}
+
+function findPakInfo(id?: string) {
+  if (!id) {
+    return undefined
+  }
+
+  return pakData.value.find((pak) => pak.id === id)
+}
+
+function findPakEntryByHash(header: PakHeaderInfo, hashLower: number, hashUpper: number) {
+  return header.entries.find(
+    (entry) =>
+      (entry.hashNameLower === hashLower && entry.hashNameUpper === hashUpper) ||
+      (entry.hashNameLower === hashUpper && entry.hashNameUpper === hashLower)
+  )
+}
+
+function formatHex32(value: number) {
+  return `0x${(value >>> 0).toString(16).toUpperCase().padStart(8, '0')}`
+}
+
+function formatHex64(hashLower: number, hashUpper: number) {
+  return `0x${(hashUpper >>> 0).toString(16).toUpperCase().padStart(8, '0')}${(hashLower >>> 0)
+    .toString(16)
+    .toUpperCase()
+    .padStart(8, '0')}`
+}
+
+function formatPropertyValue(value: unknown) {
+  if (value === undefined || value === null || value === '') {
     return '—'
   }
 
-  const segments = source.split(/[\\/]/)
-  return segments[segments.length - 1] ?? source
+  if (Array.isArray(value)) {
+    return value.join(', ')
+  }
+
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value)
+    } catch {
+      return String(value)
+    }
+  }
+
+  return String(value)
+}
+
+function getPakFileName(path: string) {
+  const normalizedPath = normalizeDisplayPath(path)
+  const segments = normalizedPath.split('/')
+  return segments[segments.length - 1] ?? path
+}
+
+function normalizeDisplayPath(path: string) {
+  return path
+    .replace(/\\/g, '/')
+    .replace(/\s*\/\s*/g, '/')
+    .trim()
+}
+
+function buildDirectoryPropertySections(node: ExplorerEntry): PropertySection[] {
+  const counts = getExplorerDirectoryCounts(node)
+
+  return [
+    {
+      key: 'directory-basic',
+        title: '基本信息',
+        rows: [
+          { key: 'directory-name', label: '名称', value: node.name },
+          { key: 'directory-path', label: '路径', value: normalizeDisplayPath(node.path) },
+          { key: 'directory-folders', label: '文件夹数', value: String(counts.folders) },
+          { key: 'directory-files', label: '文件数', value: String(counts.files) }
+        ]
+      }
+  ]
+}
+
+function buildFilePropertySections(
+  node: ExplorerEntry,
+  pak: PakInfo | undefined,
+  entry: PakEntry | undefined
+): PropertySection[] {
+  const hashLower = node.hash?.[0]
+  const hashUpper = node.hash?.[1]
+
+  return [
+    {
+      key: 'file-basic',
+        title: '基本信息',
+        rows: [
+          { key: 'file-name', label: '名称', value: node.name },
+          { key: 'file-path', label: '路径', value: normalizeDisplayPath(node.path) },
+          { key: 'file-source', label: '来源', value: getExplorerSourceLabel(node.belongsTo) },
+        { key: 'file-compressed-size', label: 'Compressed Size', value: String(node.compressedSize) },
+        { key: 'file-uncompressed-size', label: 'Uncompressed Size', value: String(node.uncompressedSize) },
+        { key: 'file-compressed', label: '已压缩', value: node.isCompressed ? '是' : '否' }
+      ]
+    },
+    {
+      key: 'file-hash',
+      title: 'Hash',
+      rows: [
+        { key: 'hash-lower', label: 'Hash Lower', value: hashLower === undefined ? '—' : formatHex32(hashLower) },
+        { key: 'hash-upper', label: 'Hash Upper', value: hashUpper === undefined ? '—' : formatHex32(hashUpper) },
+        { key: 'hash-mixed', label: 'Hash Mixed', value: hashLower === undefined || hashUpper === undefined ? '—' : formatHex64(hashLower, hashUpper) }
+      ]
+    },
+    {
+      key: 'file-entry',
+        title: '原始 Entry',
+        rows: [
+          { key: 'entry-pak', label: 'Pak 文件', value: pak ? getPakFileName(pak.path) : '—' },
+          {
+            key: 'entry-offset',
+            label: 'Offset',
+            value: entry ? formatPropertyValue(entry.offset) : '未找到对应 Entry'
+          },
+          {
+            key: 'entry-compressed',
+            label: 'Compressed Size',
+            value: entry ? String(entry.compressedSize) : '—'
+          },
+          {
+            key: 'entry-uncompressed',
+            label: 'Uncompressed Size',
+            value: entry ? String(entry.uncompressedSize) : '—'
+          },
+          {
+            key: 'entry-compression-type',
+            label: 'Compression Type',
+            value: entry ? String(entry.compressionType) : '—'
+          },
+          {
+            key: 'entry-encryption-type',
+            label: 'Encryption Type',
+            value: entry ? entry.encryptionType : '—'
+          },
+          {
+            key: 'entry-checksum',
+            label: 'Checksum',
+            value: entry ? entry.checksum : '—'
+          },
+          {
+            key: 'entry-unk-attr',
+            label: 'Unk Attr',
+            value: entry ? entry.unkAttr : '—'
+          }
+        ]
+      }
+    ]
+}
+
+function buildPakPropertySections(pak: PakInfo, header: PakHeaderInfo): PropertySection[] {
+  return [
+    {
+      key: 'pak-basic',
+      title: '基本信息',
+      rows: [
+        { key: 'pak-file-name', label: '文件名', value: getPakFileName(pak.path) },
+        { key: 'pak-path', label: '路径', value: pak.path },
+        { key: 'pak-id', label: 'Pak ID', value: pak.id }
+      ]
+    },
+      {
+        key: 'pak-header',
+        title: 'Pak Header',
+        rows: [
+          { key: 'pak-magic', label: 'Magic', value: formatPakMagic(header.header.magic) },
+          {
+            key: 'pak-major-version',
+            label: 'Major Version',
+            value: formatPropertyValue(header.header.majorVersion)
+          },
+          {
+            key: 'pak-minor-version',
+            label: 'Minor Version',
+            value: formatPropertyValue(header.header.minorVersion)
+          },
+          { key: 'pak-feature', label: 'Feature', value: formatPropertyValue(header.header.feature) },
+          {
+            key: 'pak-total-files',
+            label: 'Total Files',
+            value: formatPropertyValue(header.header.totalFiles)
+          },
+          { key: 'pak-hash', label: 'Hash', value: formatPropertyValue(header.header.hash) },
+          {
+            key: 'pak-unk-sig',
+            label: 'Unk U32 Sig',
+            value: formatPropertyValue(header.header.unkU32Sig)
+          },
+          { key: 'pak-entry-count', label: 'Entry Count', value: String(header.entries.length) }
+        ]
+      }
+    ]
+}
+
+function formatPakMagic(value: unknown) {
+  if (typeof value === 'string') {
+    return value
+  }
+
+  if (Array.isArray(value) && value.every((item) => typeof item === 'number')) {
+    return String.fromCharCode(...value)
+  }
+
+   if (value && typeof value === 'object' && 'length' in value) {
+    const list = Array.from(value as ArrayLike<unknown>)
+    if (list.every((item) => typeof item === 'number')) {
+      return String.fromCharCode(...(list as number[]))
+    }
+  }
+
+  return formatPropertyValue(value)
+}
+
+function buildErrorPropertySections(error: unknown): PropertySection[] {
+  return [
+    {
+      key: 'property-error',
+      title: '读取失败',
+      rows: [
+        {
+          key: 'property-error-message',
+          label: '错误',
+          value: error instanceof Error ? error.message : String(error)
+        }
+      ]
+    }
+  ]
 }
 
 function getTexturePreview(item: ExplorerEntry) {
@@ -1130,6 +1685,120 @@ function closeImageViewer() {
     urls: [],
     index: 0
   }
+}
+
+function collectExtractFilesFromEntry(entry: ExplorerEntry): ExtractFileInfo[] {
+  const files = new Map<string, ExtractFileInfo>()
+
+  const walk = (node: ExplorerEntry) => {
+    if (node.isDir) {
+      node.children.forEach(walk)
+      return
+    }
+
+    if (!node.hash || !node.belongsTo) {
+      return
+    }
+
+    files.set(node.id, {
+      hash: node.hash,
+      belongsTo: node.belongsTo
+    })
+  }
+
+  walk(entry)
+  return [...files.values()]
+}
+
+function bringEntryIntoTreeView(entry: ExplorerEntry) {
+  if (entry.isDir) {
+    openDirectory(entry.id)
+    treeFocusKey.value = entry.id
+    fileTreeComponent.value?.bringNodeIntoView(entry.id)
+    return
+  }
+
+  selectedEntryKey.value = entry.id
+
+  if (entry.parentId) {
+    currentDirectoryKey.value = entry.parentId
+    treeFocusKey.value = entry.parentId
+    fileTreeComponent.value?.bringNodeIntoView(entry.parentId)
+  }
+}
+
+async function copyText(text: string) {
+  const normalizedText = normalizePathForClipboard(text)
+
+  try {
+    await navigator.clipboard.writeText(normalizedText)
+    ShowInfo(`已复制：${normalizedText}`)
+  } catch (error) {
+    ShowError(error)
+  }
+}
+
+function normalizePathForClipboard(path: string) {
+  return normalizeDisplayPath(path)
+}
+
+async function openPropertiesDialog(target: ExplorerEntry | PakInfo) {
+  propertiesDialogOpen.value = true
+  propertiesDialogLoading.value = false
+  propertiesDialogSections.value = []
+
+  if ('children' in target) {
+      if (target.isDir) {
+        propertyTarget.value = { kind: 'directory', node: target }
+        propertiesDialogTitle.value = `目录属性 · ${target.name}`
+        propertiesDialogDescription.value = normalizeDisplayPath(target.path)
+        propertiesDialogSections.value = buildDirectoryPropertySections(target)
+        return
+      }
+
+      propertyTarget.value = { kind: 'file', node: target }
+      propertiesDialogTitle.value = `文件属性 · ${target.name}`
+      propertiesDialogDescription.value = normalizeDisplayPath(target.path)
+      propertiesDialogLoading.value = true
+
+    try {
+      const pak = findPakInfo(target.belongsTo)
+      const entry =
+        pak && target.hash
+          ? findPakEntryByHash(await getPakHeaderInfo(pak.path), target.hash[0], target.hash[1])
+          : undefined
+      propertiesDialogSections.value = buildFilePropertySections(target, pak, entry)
+    } catch (error) {
+      propertiesDialogSections.value = buildErrorPropertySections(error)
+    } finally {
+      propertiesDialogLoading.value = false
+    }
+
+    return
+  }
+
+  propertyTarget.value = { kind: 'pak', pak: target }
+  propertiesDialogTitle.value = `Pak 属性 · ${getPakFileName(target.path)}`
+  propertiesDialogDescription.value = normalizeDisplayPath(target.path)
+  propertiesDialogLoading.value = true
+
+  try {
+    const header = await getPakHeaderInfo(target.path)
+    propertiesDialogSections.value = buildPakPropertySections(target, header)
+  } catch (error) {
+    propertiesDialogSections.value = buildErrorPropertySections(error)
+  } finally {
+    propertiesDialogLoading.value = false
+  }
+}
+
+function handlePakShowProperties(pak: Pick<PakInfo, 'id' | 'path'>) {
+  const target = pakData.value.find((item) => item.id === pak.id)
+  if (!target) {
+    return
+  }
+
+  void openPropertiesDialog(target)
 }
 
 onMounted(async () => {

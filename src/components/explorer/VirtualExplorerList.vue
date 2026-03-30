@@ -23,6 +23,8 @@ const props = withDefaults(
 const emit = defineEmits<{
   (e: 'item-click', item: TItem): void
   (e: 'item-open', item: TItem): void
+  (e: 'item-contextmenu', item: TItem, event: MouseEvent): void
+  (e: 'background-contextmenu', event: MouseEvent): void
   (e: 'visible-items-change', items: TItem[]): void
 }>()
 
@@ -97,6 +99,15 @@ function getRowClass(item: TItem) {
 
   return `${baseClass} explorer-list-row-active z-10 border-b border-transparent text-foreground`
 }
+
+function handleBackgroundContextMenu(event: MouseEvent) {
+  const target = event.target
+  if (target instanceof Element && target.closest('[data-explorer-item-root]')) {
+    return
+  }
+
+  emit('background-contextmenu', event)
+}
 </script>
 
 <template>
@@ -108,16 +119,22 @@ function getRowClass(item: TItem) {
       <slot name="header" />
     </div>
 
-    <div ref="scrollElementRef" class="editor-scrollbar min-h-0 flex-1 overflow-auto">
+    <div
+      ref="scrollElementRef"
+      class="editor-scrollbar min-h-0 flex-1 overflow-auto"
+      @contextmenu="handleBackgroundContextMenu"
+    >
       <div class="relative min-h-full" :style="{ height: `${totalSize}px` }">
         <button
           v-for="virtualRow in virtualRows"
           :key="String(virtualRow.key)"
           type="button"
+          data-explorer-item-root
           :class="getRowClass(getItem(virtualRow.index))"
           :style="getRowStyle(virtualRow.start)"
           @click="emit('item-click', getItem(virtualRow.index))"
           @dblclick="emit('item-open', getItem(virtualRow.index))"
+          @contextmenu="emit('item-contextmenu', getItem(virtualRow.index), $event)"
         >
           <div class="grid h-full items-center gap-3" :style="columnStyle">
             <slot name="row" :item="getItem(virtualRow.index)" />

@@ -18,6 +18,7 @@ use ree_pak_core::{
     utf16_hash::Utf16HashExt,
     write::{FileOptions, PakWriter},
 };
+use serde::Serialize;
 use walkdir::WalkDir;
 
 use crate::{
@@ -31,7 +32,78 @@ use crate::{
     },
 };
 
-pub type PakHeaderInfo = PakMetadata;
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PakHeaderInfo {
+    pub header: PakHeader,
+    pub entries: Vec<PakEntry>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PakHeader {
+    pub magic: [u8; 4],
+    pub major_version: u8,
+    pub minor_version: u8,
+    pub feature: u32,
+    pub total_files: u32,
+    pub hash: String,
+    pub unk_u32_sig: u32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PakEntry {
+    pub hash_name_lower: u32,
+    pub hash_name_upper: u32,
+    pub offset: u64,
+    pub compressed_size: u64,
+    pub uncompressed_size: u64,
+    pub compression_type: u8,
+    pub encryption_type: String,
+    pub checksum: String,
+    pub unk_attr: String,
+}
+
+impl From<PakMetadata> for PakHeaderInfo {
+    fn from(value: PakMetadata) -> Self {
+        Self {
+            header: PakHeader::from(value.header().clone()),
+            entries: value.entries().iter().cloned().map(PakEntry::from).collect(),
+        }
+    }
+}
+
+impl From<ree_pak_core::pak::PakHeader> for PakHeader {
+    fn from(value: ree_pak_core::pak::PakHeader) -> Self {
+        Self {
+            magic: value.magic(),
+            major_version: value.major_version(),
+            minor_version: value.minor_version(),
+            feature: u32::from(value.feature().bits()),
+            total_files: value.total_files(),
+            hash: format!("{:08x}", value.hash()),
+            unk_u32_sig: 0,
+        }
+    }
+}
+
+impl From<ree_pak_core::pak::PakEntry> for PakEntry {
+    fn from(value: ree_pak_core::pak::PakEntry) -> Self {
+        let hash = value.hash();
+        Self {
+            hash_name_lower: hash as u32,
+            hash_name_upper: (hash >> 32) as u32,
+            offset: value.offset_raw(),
+            compressed_size: value.compressed_size(),
+            uncompressed_size: value.uncompressed_size(),
+            compression_type: value.compression_type().bits(),
+            encryption_type: format!("{:?}", value.encryption_type()),
+            checksum: format!("{:016x}", value.checksum()),
+            unk_attr: format!("{:016x}", value.all_attr()),
+        }
+    }
+}
 
 static PAK_SERVICE: OnceLock<PakService> = OnceLock::new();
 
@@ -406,7 +478,7 @@ impl PakService {
                         }
 
                         // collect files
-                        let header = PakService::get_header(source_path)?;
+                        let header = PakService::get_header_raw(source_path)?;
                         for entry in header.entries() {
                             file_manifests.insert(
                                 entry.hash(),
@@ -545,7 +617,7 @@ impl PakService {
 }
 
 impl PakService {
-    pub fn get_header(path: impl AsRef<Path>) -> Result<PakHeaderInfo> {
+    pub fn get_header_raw(path: impl AsRef<Path>) -> Result<PakMetadata> {
         let path = path.as_ref();
         // open pak file
         let file = std::fs::File::open(path).map_err(|e| Error::FileIO {
@@ -556,6 +628,10 @@ impl PakService {
         let metadata = ree_pak_core::read::read_metadata(&mut reader)?;
 
         Ok(metadata)
+    }
+
+    pub fn get_header(path: impl AsRef<Path>) -> Result<PakHeaderInfo> {
+        Self::get_header_raw(path).map(Into::into)
     }
 }
 

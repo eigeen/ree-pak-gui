@@ -29,6 +29,18 @@
         </div>
 
         <div class="editor-scrollbar max-h-64 overflow-auto p-1">
+          <button
+            v-if="props.leadingActionLabel"
+            type="button"
+            class="mb-1 flex w-full items-center gap-2 rounded-sm px-2.5 py-2 text-left text-sm font-medium text-foreground transition-colors hover:bg-secondary/80"
+            @click="handleLeadingAction"
+          >
+            <Settings2 class="size-4 shrink-0 text-muted-foreground" />
+            <span class="truncate">{{ props.leadingActionLabel }}</span>
+          </button>
+
+          <div v-if="props.leadingActionLabel" class="mb-1 h-px bg-border/80" />
+
           <div
             v-if="filteredItems.length === 0"
             class="px-3 py-6 text-center text-sm text-muted-foreground"
@@ -62,7 +74,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { Check, ChevronsUpDown, Search } from 'lucide-vue-next'
+import { Check, ChevronsUpDown, Search, Settings2 } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { DenseInput } from '@/components/ui/input'
@@ -73,16 +85,21 @@ export interface Option {
   value: string
 }
 
+const emit = defineEmits<{
+  leadingAction: []
+}>()
 const selectedValue = defineModel<string>({ default: '' })
 const props = withDefaults(
   defineProps<{
     items: Option[]
     showLabel?: boolean
     placeholder?: string
+    leadingActionLabel?: string
   }>(),
   {
     showLabel: true,
-    placeholder: '请选择文件名表'
+    placeholder: '请选择文件名表',
+    leadingActionLabel: ''
   }
 )
 
@@ -111,5 +128,10 @@ watch(open, (nextOpen) => {
 function selectItem(value: string) {
   selectedValue.value = selectedValue.value === value ? '' : value
   open.value = false
+}
+
+function handleLeadingAction() {
+  open.value = false
+  emit('leadingAction')
 }
 </script>
