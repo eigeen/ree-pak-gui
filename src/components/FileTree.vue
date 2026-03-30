@@ -286,9 +286,9 @@ defineExpose({ bringNodeIntoView, collapseAll, getCheckedNodes })
       @node-contextmenu="handleNodeContextMenu"
     >
       <template #default="{ node }">
-        <div class="flex w-full items-center gap-2 text-sm">
+        <div class="flex w-full min-w-0 items-center gap-2 text-sm">
           <Folder class="size-3.5 shrink-0 text-amber-200" />
-          <span class="truncate">{{ node.data.label }}</span>
+          <span class="min-w-0 truncate">{{ node.data.label }}</span>
         </div>
       </template>
     </el-tree-v2>

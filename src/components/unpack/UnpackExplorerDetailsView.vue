@@ -89,7 +89,7 @@ function handleItemOpen(item: ExplorerEntry, event: MouseEvent) {
       </span>
 
       <span class="text-2xs truncate text-right text-muted-foreground">
-        {{ item.isDir ? '—' : item.sizeText }}
+        {{ item.sizeText }}
       </span>
 
       <span class="text-2xs truncate text-muted-foreground">

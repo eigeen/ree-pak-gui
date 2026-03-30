@@ -105,6 +105,10 @@ function handleItemOpen(item: ExplorerEntry, event: MouseEvent) {
             {{ item.name }}
           </p>
 
+          <div v-if="item.isDir" class="pt-1 text-2xs text-muted-foreground">
+            {{ item.sizeText }}
+          </div>
+
           <div
             class="text-xs mt-auto flex items-center justify-between gap-3 pt-2 text-muted-foreground"
           >
