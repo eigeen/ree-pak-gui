@@ -11,12 +11,18 @@ export interface SystemLogEntry {
 }
 
 const MAX_LOG_ENTRIES = 300
+const BLOCKED_MESSAGE_KEYWORDS = ['emitted without']
 
 export const useSystemLogStore = defineStore('system-log', () => {
   const entries = ref<SystemLogEntry[]>([])
   const nextId = ref(0)
 
   function append(level: SystemLogLevel, message: string) {
+    const normalizedMessage = message.toLowerCase()
+    if (BLOCKED_MESSAGE_KEYWORDS.some((keyword) => normalizedMessage.includes(keyword))) {
+      return
+    }
+
     const entry: SystemLogEntry = {
       id: nextId.value++,
       level,
