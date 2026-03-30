@@ -33,9 +33,7 @@
                 </div>
                 <div class="min-h-0 flex-1">
                   <PakFiles
-                    :enable-add="enableAddPaks"
                     :pak-list="pakData"
-                    :show-open-button="false"
                     @close="handleClose"
                     @close-all="handleCloseAll"
                     @open="handleOpen"
@@ -259,6 +257,7 @@ import type {
   ExtractOptions,
   PakEntry,
   PakHeaderInfo,
+  PakId,
   PakInfo,
   RenderTreeNode,
   UnpackProgressEvent
@@ -387,7 +386,6 @@ const imageViewerState = ref({
 })
 const taskProgress = useTaskProgressState()
 
-const enableAddPaks = computed(() => unpackState.value.fileList !== '')
 const enableExtract = computed(() => treeData.value !== null)
 const canRenderTree = computed(
   () => Boolean(unpackState.value.fileList) && pakData.value.length > 0
@@ -891,17 +889,6 @@ watch(
   { immediate: true }
 )
 
-watch(
-  () => enableAddPaks.value,
-  async (allowAdd) => {
-    if (allowAdd) {
-      await startListenToDrop()
-    } else {
-      await stopListenToDrop()
-    }
-  }
-)
-
 const updateFilter = () => {
   unpackState.value.filterText = unpackState.value.filterText.trim()
   filterTextApply.value = unpackState.value.filterText
@@ -963,8 +950,22 @@ async function doRender() {
   }
 }
 
-const handleOrder = async () => {
-  await reloadData()
+const handleOrder = async (order: PakId[]) => {
+  const pakMap = new Map(pakData.value.map((pak) => [pak.id, pak] as const))
+  const orderedPaks = order
+    .map((id) => pakMap.get(id))
+    .filter((pak): pak is PakInfo => Boolean(pak))
+
+  if (orderedPaks.length !== pakData.value.length) {
+    await reloadData()
+    return
+  }
+
+  pakData.value = orderedPaks
+  unpackState.value = {
+    ...unpackState.value,
+    paks: orderedPaks.map((pak) => pak.path)
+  }
 }
 
 async function handleCloseAll() {
