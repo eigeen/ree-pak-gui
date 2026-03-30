@@ -523,6 +523,105 @@ const explorerColumnLabels = computed<ExplorerColumnLabels>(() => ({
   size: t('unpack.columnSize'),
   details: t('unpack.columnDetails')
 }))
+
+function buildDirectoryContextMenuEntries(
+  item: ExplorerEntry,
+  options: {
+    keyPrefix: string
+    actionEntries?: ExplorerEntry[]
+    includeLocateInTree?: boolean
+  }
+): ContextMenuEntry[] {
+  const actionEntries = options.actionEntries ?? [item]
+  const extractFiles = collectExtractFilesFromEntries(actionEntries)
+  const extractDirectoryFiles = collectExtractFilesFromEntries(actionEntries, 'relativePath')
+  const textureFiles = collectTextureFilesFromEntries(actionEntries, 'relativePath')
+  const pathTargets = actionEntries.map((entry) => entry.path)
+  const entries: ContextMenuEntry[] = [
+    {
+      type: 'action',
+      key: `${options.keyPrefix}-open-directory`,
+      label: t('unpack.openDirectory'),
+      icon: FolderOpen,
+      action: () => openDirectory(item.id)
+    }
+  ]
+
+  if (options.includeLocateInTree ?? false) {
+    entries.push({
+      type: 'action',
+      key: `${options.keyPrefix}-locate-tree`,
+      label: t('unpack.locateInTree'),
+      icon: LocateFixed,
+      disabled: !item.parentId,
+      action: () => bringEntryIntoTreeView(item)
+    })
+  }
+
+  entries.push(
+    {
+      type: 'action',
+      key: `${options.keyPrefix}-properties`,
+      label: t('unpack.viewProperties'),
+      icon: Info,
+      action: () => void openPropertiesDialog(item)
+    },
+    {
+      type: 'separator',
+      key: `${options.keyPrefix}-item-separator`
+    },
+    {
+      type: 'action',
+      key: `${options.keyPrefix}-extract-full-path`,
+      label: t('unpack.exportFullPath'),
+      icon: FolderTree,
+      disabled: extractFiles.length === 0,
+      action: () => void extractFilesWithDialog(extractFiles, 'absolutePath')
+    },
+    {
+      type: 'action',
+      key: `${options.keyPrefix}-extract-current-path`,
+      label: t('unpack.exportCurrentPath'),
+      icon: Download,
+      disabled: extractFiles.length === 0,
+      action: () => void extractFilesWithDialog(extractDirectoryFiles, 'relativePath')
+    },
+    {
+      type: 'action',
+      key: `${options.keyPrefix}-copy-path`,
+      label: t('unpack.copyPath'),
+      icon: Copy,
+      shortcut: 'Ctrl+C',
+      action: () => void copyPaths(pathTargets)
+    }
+  )
+
+  if (textureFiles.length > 0) {
+    entries.push({
+      type: 'submenu',
+      key: `${options.keyPrefix}-other-export-actions`,
+      label: t('unpack.otherExportActions'),
+      icon: Download,
+      children: [
+        {
+          type: 'action',
+          key: `${options.keyPrefix}-export-texture-dds`,
+          label: t('unpack.exportTexturesAsDds'),
+          action: () => void exportTexturesWithDialog(textureFiles, 'dds')
+        },
+        {
+          type: 'action',
+          key: `${options.keyPrefix}-export-texture-png`,
+          label: t('unpack.exportTexturesAsPng'),
+          action: () => void exportTexturesWithDialog(textureFiles, 'png')
+        }
+      ]
+    })
+  }
+
+  return entries
+}
+
 const explorerContextMenuItems = computed<ContextMenuEntry[]>(() => {
   if (!treeData.value) {
     return []
@@ -582,26 +681,28 @@ const explorerContextMenuItems = computed<ContextMenuEntry[]>(() => {
     return []
   }
 
+  if (item.isDir) {
+    return buildDirectoryContextMenuEntries(item, {
+      keyPrefix: 'explorer-directory',
+      actionEntries: getExplorerBatchActionEntries(item),
+      includeLocateInTree: true
+    })
+  }
+
   const actionEntries = getExplorerBatchActionEntries(item)
   const extractFiles = collectExtractFilesFromEntries(actionEntries)
-  const extractDirectoryFiles = collectExtractFilesFromEntries(actionEntries, 'relativePath')
   const textureFiles = collectTextureFilesFromEntries(actionEntries, 'relativePath')
   const pathTargets = getExplorerCopyPathTargets(item)
   const canPreview = canPreviewExplorerItem(item)
 
-  return [
+  const entries: ContextMenuEntry[] = [
     {
       type: 'action',
       key: 'explorer-primary-open',
-      label: item.isDir ? t('unpack.openDirectory') : t('unpack.previewItem'),
-      icon: item.isDir ? FolderOpen : Eye,
-      disabled: item.isDir ? false : !canPreview,
+      label: t('unpack.previewItem'),
+      icon: Eye,
+      disabled: !canPreview,
       action: () => {
-        if (item.isDir) {
-          openDirectory(item.id)
-          return
-        }
-
         void handleExplorerItemOpen(item)
       }
     },
@@ -638,11 +739,7 @@ const explorerContextMenuItems = computed<ContextMenuEntry[]>(() => {
       label: t('unpack.exportCurrentPath'),
       icon: Download,
       disabled: extractFiles.length === 0,
-      action: () =>
-        void extractFilesWithDialog(
-          item.isDir ? extractDirectoryFiles : extractFiles,
-          'relativePath'
-        )
+      action: () => void extractFilesWithDialog(extractFiles, 'relativePath')
     },
     {
       type: 'action',
@@ -651,31 +748,33 @@ const explorerContextMenuItems = computed<ContextMenuEntry[]>(() => {
       icon: Copy,
       shortcut: 'Ctrl+C',
       action: () => void copyPaths(pathTargets)
-    },
-    {
+    }
+  ]
+
+  if (textureFiles.length > 0) {
+    entries.push({
       type: 'submenu',
       key: 'explorer-other-export-actions',
       label: t('unpack.otherExportActions'),
       icon: Download,
-      disabled: textureFiles.length === 0,
       children: [
         {
           type: 'action',
           key: 'explorer-export-texture-dds',
           label: t('unpack.exportTexturesAsDds'),
-          disabled: textureFiles.length === 0,
           action: () => void exportTexturesWithDialog(textureFiles, 'dds')
         },
         {
           type: 'action',
           key: 'explorer-export-texture-png',
           label: t('unpack.exportTexturesAsPng'),
-          disabled: textureFiles.length === 0,
           action: () => void exportTexturesWithDialog(textureFiles, 'png')
         }
       ]
-    }
-  ]
+    })
+  }
+
+  return entries
 })
 const treeContextMenuItems = computed<ContextMenuEntry[]>(() => {
   if (!treeData.value) {
@@ -708,84 +807,13 @@ const treeContextMenuItems = computed<ContextMenuEntry[]>(() => {
   }
 
   const entry = explorerNodeMap.value.get(node.id)
-  const extractFiles = entry ? collectExtractFilesFromEntry(entry) : []
-  const extractDirectoryFiles = entry?.isDir
-    ? collectExtractFilesFromEntry(entry, 'relativePath')
-    : []
-  const textureFiles = entry ? collectTextureFilesFromEntry(entry, 'relativePath') : []
+  if (!entry?.isDir) {
+    return []
+  }
 
-  return [
-    {
-      type: 'action',
-      key: 'tree-open-explorer',
-      label: t('unpack.openInExplorer'),
-      icon: FolderOpen,
-      action: () => openDirectory(node.id)
-    },
-    {
-      type: 'action',
-      key: 'tree-properties',
-      label: t('unpack.viewProperties'),
-      icon: Info,
-      disabled: !entry,
-      action: () => entry && void openPropertiesDialog(entry)
-    },
-    {
-      type: 'separator',
-      key: 'tree-node-separator'
-    },
-    {
-      type: 'action',
-      key: 'tree-extract-full-path',
-      label: t('unpack.exportFullPath'),
-      icon: FolderTree,
-      disabled: extractFiles.length === 0,
-      action: () => void extractFilesWithDialog(extractFiles, 'absolutePath')
-    },
-    {
-      type: 'action',
-      key: 'tree-extract-current-path',
-      label: t('unpack.exportCurrentPath'),
-      icon: Download,
-      disabled: extractFiles.length === 0,
-      action: () =>
-        void extractFilesWithDialog(
-          entry?.isDir ? extractDirectoryFiles : extractFiles,
-          'relativePath'
-        )
-    },
-    {
-      type: 'action',
-      key: 'tree-copy-path',
-      label: t('unpack.copyPath'),
-      icon: Copy,
-      shortcut: 'Ctrl+C',
-      action: () => void copyText(node.path)
-    },
-    {
-      type: 'submenu',
-      key: 'tree-other-export-actions',
-      label: t('unpack.otherExportActions'),
-      icon: Download,
-      disabled: textureFiles.length === 0,
-      children: [
-        {
-          type: 'action',
-          key: 'tree-export-texture-dds',
-          label: t('unpack.exportTexturesAsDds'),
-          disabled: textureFiles.length === 0,
-          action: () => void exportTexturesWithDialog(textureFiles, 'dds')
-        },
-        {
-          type: 'action',
-          key: 'tree-export-texture-png',
-          label: t('unpack.exportTexturesAsPng'),
-          disabled: textureFiles.length === 0,
-          action: () => void exportTexturesWithDialog(textureFiles, 'png')
-        }
-      ]
-    }
-  ]
+  return buildDirectoryContextMenuEntries(entry, {
+    keyPrefix: 'tree-directory'
+  })
 })
 
 const bringTargetKey = computed(() => {
