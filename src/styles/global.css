@@ -130,12 +130,12 @@
   --surface-sidebar: oklch(0.275 0.004 264);
   --surface-toolbar: oklch(0.29 0.004 264);
   --surface-console: oklch(0.21 0.004 264);
-  --log-timestamp: color-mix(in oklch, var(--muted-foreground) 78%, white);
-  --log-level-error: color-mix(in oklch, var(--destructive) 92%, white);
+  --log-timestamp: color-mix(in srgb, var(--muted-foreground) 78%, white);
+  --log-level-error: color-mix(in srgb, var(--destructive) 92%, white);
   --log-level-warn: oklch(0.8 0.12 86);
   --log-level-info: oklch(0.76 0.09 240);
   --log-level-debug: oklch(0.79 0.1 172);
-  --log-message-error: color-mix(in oklch, var(--destructive) 88%, white);
+  --log-message-error: color-mix(in srgb, var(--destructive) 88%, white);
   --log-message-warn: oklch(0.88 0.05 92);
   --log-message-info: var(--foreground);
   --log-message-debug: var(--muted-foreground);
@@ -144,45 +144,45 @@
   --el-color-primary-light-5: color-mix(in srgb, var(--el-color-primary) 58%, white);
   --el-color-primary-light-7: color-mix(in srgb, var(--el-color-primary) 34%, white);
   --el-color-primary-light-8: color-mix(in srgb, var(--el-color-primary) 24%, white);
-  --el-color-primary-light-9: color-mix(in oklch, var(--color-primary) 14%, var(--surface-panel));
+  --el-color-primary-light-9: color-mix(in srgb, var(--color-primary) 14%, var(--surface-panel));
   --el-text-color-regular: var(--color-foreground);
   --el-text-color-placeholder: var(--color-muted-foreground);
-  --el-border-color: color-mix(in oklch, var(--color-border) 90%, transparent);
-  --el-border-color-light: color-mix(in oklch, var(--color-border) 72%, transparent);
-  --el-border-color-extra-light: color-mix(in oklch, var(--color-border) 52%, transparent);
+  --el-border-color: color-mix(in srgb, var(--color-border) 90%, transparent);
+  --el-border-color-light: color-mix(in srgb, var(--color-border) 72%, transparent);
+  --el-border-color-extra-light: color-mix(in srgb, var(--color-border) 52%, transparent);
   --el-fill-color-blank: var(--surface-panel);
-  --el-fill-color-light: color-mix(in oklch, var(--surface-toolbar) 88%, var(--surface-panel));
-  --el-fill-color-lighter: color-mix(in oklch, var(--surface-toolbar) 72%, var(--surface-panel));
+  --el-fill-color-light: color-mix(in srgb, var(--surface-toolbar) 88%, var(--surface-panel));
+  --el-fill-color-lighter: color-mix(in srgb, var(--surface-toolbar) 72%, var(--surface-panel));
   --el-checkbox-text-color: var(--color-foreground);
-  --el-checkbox-bg-color: color-mix(in oklch, var(--surface-panel) 92%, transparent);
-  --el-checkbox-input-border: 1px solid color-mix(in oklch, var(--color-border) 92%, transparent);
-  --el-checkbox-disabled-border-color: color-mix(in oklch, var(--color-border) 62%, transparent);
+  --el-checkbox-bg-color: color-mix(in srgb, var(--surface-panel) 92%, transparent);
+  --el-checkbox-input-border: 1px solid color-mix(in srgb, var(--color-border) 92%, transparent);
+  --el-checkbox-disabled-border-color: color-mix(in srgb, var(--color-border) 62%, transparent);
   --el-checkbox-disabled-input-fill: color-mix(
-    in oklch,
+    in srgb,
     var(--surface-toolbar) 92%,
     var(--surface-panel)
   );
   --el-checkbox-disabled-icon-color: color-mix(
-    in oklch,
+    in srgb,
     var(--color-muted-foreground) 72%,
     transparent
   );
   --el-checkbox-disabled-checked-input-fill: color-mix(
-    in oklch,
+    in srgb,
     var(--color-primary) 12%,
     var(--surface-toolbar)
   );
   --el-checkbox-disabled-checked-input-border-color: color-mix(
-    in oklch,
+    in srgb,
     var(--color-primary) 22%,
     var(--color-border)
   );
-  --el-checkbox-disabled-checked-icon-color: color-mix(in oklch, var(--color-primary) 56%, white);
+  --el-checkbox-disabled-checked-icon-color: color-mix(in srgb, var(--color-primary) 56%, white);
   --el-checkbox-checked-text-color: var(--color-foreground);
   --el-checkbox-checked-input-border-color: var(--color-primary);
   --el-checkbox-checked-bg-color: var(--color-primary);
   --el-checkbox-checked-icon-color: var(--color-primary-foreground);
-  --el-checkbox-input-border-color-hover: color-mix(in oklch, var(--color-primary) 78%, white);
+  --el-checkbox-input-border-color-hover: color-mix(in srgb, var(--color-primary) 78%, white);
   color-scheme: dark;
 }
 
@@ -201,8 +201,8 @@
   }
 
   ::selection {
-    background-color: color-mix(in oklch, var(--color-primary) 28%, white);
-    color: color-mix(in oklch, var(--color-primary-foreground) 92%, white);
+    background-color: color-mix(in srgb, var(--color-primary) 28%, white);
+    color: color-mix(in srgb, var(--color-primary-foreground) 92%, white);
   }
 
   html,
@@ -218,17 +218,17 @@
     background-image:
       radial-gradient(
         circle at 0 0,
-        color-mix(in oklch, var(--color-primary) 22%, transparent) 0,
+        color-mix(in srgb, var(--color-primary) 22%, transparent) 0,
         transparent 28%
       ),
       radial-gradient(
         circle at 100% 0,
-        color-mix(in oklch, var(--color-foreground) 5%, transparent) 0,
+        color-mix(in srgb, var(--color-foreground) 5%, transparent) 0,
         transparent 24%
       ),
       linear-gradient(
         180deg,
-        color-mix(in oklch, #18181b 82%, var(--color-background)) 0%,
+        color-mix(in srgb, #18181b 82%, var(--color-background)) 0%,
         #09090b 100%
       );
     background-attachment: fixed;
@@ -239,12 +239,12 @@
     background-image:
       radial-gradient(
         circle at 50% -10%,
-        color-mix(in oklch, var(--color-primary) 10%, transparent) 0,
+        color-mix(in srgb, var(--color-primary) 10%, transparent) 0,
         transparent 24%
       ),
       linear-gradient(
         180deg,
-        color-mix(in oklch, var(--surface-toolbar) 28%, var(--color-background)) 0%,
+        color-mix(in srgb, var(--surface-toolbar) 28%, var(--color-background)) 0%,
         var(--surface-canvas) 100%
       );
   }
@@ -253,18 +253,18 @@
     background-image:
       radial-gradient(
         circle at 0 0,
-        color-mix(in oklch, var(--color-primary) 16%, transparent) 0,
+        color-mix(in srgb, var(--color-primary) 16%, transparent) 0,
         transparent 26%
       ),
       radial-gradient(
         circle at 100% 0,
-        color-mix(in oklch, white 72%, transparent) 0,
+        color-mix(in srgb, white 72%, transparent) 0,
         transparent 22%
       ),
       linear-gradient(
         180deg,
-        color-mix(in oklch, white 82%, var(--color-background)) 0%,
-        color-mix(in oklch, var(--color-background) 96%, #eef3fb) 100%
+        color-mix(in srgb, white 82%, var(--color-background)) 0%,
+        color-mix(in srgb, var(--color-background) 96%, #eef3fb) 100%
       );
   }
 
@@ -295,12 +295,12 @@
     background-image:
       linear-gradient(
         to right,
-        color-mix(in oklch, var(--color-border) 72%, transparent) 1px,
+        color-mix(in srgb, var(--color-border) 72%, transparent) 1px,
         transparent 1px
       ),
       linear-gradient(
         to bottom,
-        color-mix(in oklch, var(--color-border) 72%, transparent) 1px,
+        color-mix(in srgb, var(--color-border) 72%, transparent) 1px,
         transparent 1px
       );
     background-size: 28px 28px;
@@ -337,20 +337,20 @@
   }
 
   .surface-console-panel {
-    background: color-mix(in oklch, var(--surface-console) 72%, var(--surface-panel));
+    background: color-mix(in srgb, var(--surface-console) 72%, var(--surface-panel));
   }
 
   .surface-raised {
-    background: color-mix(in oklch, var(--surface-toolbar) 72%, var(--surface-panel));
+    background: color-mix(in srgb, var(--surface-toolbar) 72%, var(--surface-panel));
   }
 
   .surface-interactive:hover {
-    background: color-mix(in oklch, var(--color-secondary) 82%, var(--surface-panel));
+    background: color-mix(in srgb, var(--color-secondary) 82%, var(--surface-panel));
   }
 
   .surface-selected {
-    background: color-mix(in oklch, var(--color-primary) 16%, var(--surface-panel));
-    box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--color-primary) 36%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 16%, var(--surface-panel));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 36%, transparent);
   }
 
   .section-eyebrow {
@@ -373,7 +373,7 @@
 
   .editor-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: color-mix(in oklch, var(--color-muted-foreground) 45%, transparent) transparent;
+    scrollbar-color: color-mix(in srgb, var(--color-muted-foreground) 45%, transparent) transparent;
   }
 
   .editor-scrollbar::-webkit-scrollbar {
@@ -382,7 +382,7 @@
   }
 
   .editor-scrollbar::-webkit-scrollbar-thumb {
-    background: color-mix(in oklch, var(--color-muted-foreground) 38%, transparent);
+    background: color-mix(in srgb, var(--color-muted-foreground) 38%, transparent);
     border: 1px solid transparent;
     border-radius: 999px;
     background-clip: content-box;
@@ -394,8 +394,8 @@
 
   .glass-ring {
     box-shadow:
-      0 1px 0 color-mix(in oklch, white 76%, transparent),
-      0 20px 70px color-mix(in oklch, var(--color-primary) 10%, transparent);
+      0 1px 0 color-mix(in srgb, white 76%, transparent),
+      0 20px 70px color-mix(in srgb, var(--color-primary) 10%, transparent);
   }
 
   .desktop-shell {
@@ -409,7 +409,7 @@
 
   .desktop-menubar {
     @apply flex h-8 items-center justify-between gap-4 border-b border-border/80 px-3;
-    background: color-mix(in oklch, var(--surface-toolbar) 94%, white);
+    background: color-mix(in srgb, var(--surface-toolbar) 94%, white);
   }
 
   .desktop-topbar {
@@ -418,7 +418,7 @@
 
   .desktop-window-toolbar {
     @apply flex items-center justify-between gap-3 border-b border-border/80 px-3;
-    background: color-mix(in oklch, var(--surface-toolbar) 96%, white);
+    background: color-mix(in srgb, var(--surface-toolbar) 96%, white);
   }
 
   .desktop-topbar-right {
@@ -518,25 +518,25 @@
   }
 
   .desktop-tree .el-tree-node__content:hover {
-    background: color-mix(in oklch, var(--color-secondary) 90%, black);
+    background: color-mix(in srgb, var(--color-secondary) 90%, black);
   }
 
   .desktop-tree .el-tree-node.is-current > .el-tree-node__content {
-    background: color-mix(in oklch, var(--color-primary) 88%, black);
+    background: color-mix(in srgb, var(--color-primary) 88%, black);
     color: var(--color-primary-foreground);
   }
 
   .desktop-tree.el-tree--highlight-current .el-tree-node.is-current > .el-tree-node__content,
   .desktop-tree .el-tree--highlight-current .el-tree-node.is-current > .el-tree-node__content {
-    background: color-mix(in oklch, var(--color-primary) 16%, var(--surface-panel));
+    background: color-mix(in srgb, var(--color-primary) 16%, var(--surface-panel));
     color: var(--color-foreground);
-    box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--color-primary) 34%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 34%, transparent);
   }
 
   .desktop-tree .el-checkbox__inner {
     border-radius: 3px;
     background: var(--el-checkbox-bg-color);
-    border-color: color-mix(in oklch, var(--color-border) 92%, transparent);
+    border-color: color-mix(in srgb, var(--color-border) 92%, transparent);
   }
 
   .desktop-tree .el-checkbox__input.is-checked .el-checkbox__inner,
@@ -556,7 +556,7 @@
 
   .el-checkbox__inner {
     background-color: var(--el-checkbox-bg-color);
-    border-color: color-mix(in oklch, var(--color-border) 92%, transparent);
+    border-color: color-mix(in srgb, var(--color-border) 92%, transparent);
   }
 
   .el-checkbox__input.is-checked .el-checkbox__inner,
@@ -590,16 +590,16 @@
   }
 
   .explorer-list-row:hover {
-    background: color-mix(in oklch, var(--color-secondary) 82%, var(--surface-panel));
+    background: color-mix(in srgb, var(--color-secondary) 82%, var(--surface-panel));
   }
 
   .explorer-list-row-checked {
-    background: color-mix(in oklch, var(--color-primary) 16%, var(--surface-panel));
-    box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--color-primary) 34%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 16%, var(--surface-panel));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 34%, transparent);
   }
 
   .asset-count-chip {
-    color: color-mix(in oklch, var(--color-foreground) 72%, transparent);
+    color: color-mix(in srgb, var(--color-foreground) 72%, transparent);
   }
 
   .app-toast {
