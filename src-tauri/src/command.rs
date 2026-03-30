@@ -4,13 +4,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     channel::{
-        PackProgressChannel, PackProgressChannelInner, TextureExportProgressChannel,
-        TextureExportProgressChannelInner, UnpackProgressChannel, UnpackProgressChannelInner,
+        FileTreeProgressChannel, FileTreeProgressChannelInner, PackProgressChannel,
+        PackProgressChannelInner, TextureExportProgressChannel, TextureExportProgressChannelInner,
+        UnpackProgressChannel, UnpackProgressChannelInner,
     },
     common::JsSafeHash,
     pak::{
         ExtractFileInfo, ExtractOptions, PakId, PakInfo,
-        tree::{FileTree, RenderTreeNode, RenderTreeOptions},
+        tree::{FileTree, RenderTreeOptions},
     },
     service::{
         pak::{PakHeaderInfo, PakService},
@@ -77,12 +78,16 @@ pub fn pak_read_file_tree() -> Result<FileTree, String> {
 ///
 /// Should load file name list first.
 #[tauri::command]
-pub fn pak_read_file_tree_optimized(
+pub async fn pak_read_file_tree_optimized(
     options: Option<RenderTreeOptions>,
-) -> Result<Vec<RenderTreeNode>, String> {
+    on_event: FileTreeProgressChannelInner,
+) -> Result<(), String> {
     let pak_service = PakService::get();
+    let progress = FileTreeProgressChannel::new(on_event);
     warp_result_elapsed!(
-        pak_service.read_file_tree_optimized(&options.unwrap_or_default()),
+        pak_service
+            .read_file_tree_optimized_async(options.unwrap_or_default(), progress)
+            .await,
         "read_file_tree_optimized spent {} ms"
     )
 }

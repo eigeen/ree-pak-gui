@@ -7,7 +7,7 @@ use parking_lot::Mutex;
 use serde::Serialize;
 use tauri::ipc::Channel;
 
-use crate::common::JsSafeHash;
+use crate::{common::JsSafeHash, pak::tree::RenderTreeNode};
 
 const PROGRESS_EVENT_INTERVAL: Duration = Duration::from_millis(100);
 
@@ -116,6 +116,43 @@ impl UnpackProgressChannelImpl<UnpackProgressData> {
     pub fn error(&self, error: String) {
         if let Err(e) = self.channel.send(WorkProgressEvent::Error { error }) {
             log::error!("Failed to send work error event: {}", e);
+        }
+    }
+}
+
+// File tree load progress
+
+pub type FileTreeProgressChannel = FileTreeProgressChannelImpl<Vec<RenderTreeNode>>;
+pub type FileTreeProgressChannelInner = Channel<WorkProgressEvent<Vec<RenderTreeNode>>>;
+
+#[derive(Clone)]
+pub struct FileTreeProgressChannelImpl<T> {
+    channel: Channel<WorkProgressEvent<T>>,
+}
+
+impl FileTreeProgressChannelImpl<Vec<RenderTreeNode>> {
+    pub fn new(channel: Channel<WorkProgressEvent<Vec<RenderTreeNode>>>) -> Self {
+        Self { channel }
+    }
+
+    pub fn work_start(&self) {
+        if let Err(e) = self.channel.send(WorkProgressEvent::WorkStart { count: 1 }) {
+            log::error!("Failed to send file tree start event: {}", e);
+        }
+    }
+
+    pub fn work_finished(&self, tree: Vec<RenderTreeNode>) {
+        if let Err(e) = self
+            .channel
+            .send(WorkProgressEvent::WorkFinished(Some(tree)))
+        {
+            log::error!("Failed to send file tree finished event: {}", e);
+        }
+    }
+
+    pub fn error(&self, error: String) {
+        if let Err(e) = self.channel.send(WorkProgressEvent::Error { error }) {
+            log::error!("Failed to send file tree error event: {}", e);
         }
     }
 }

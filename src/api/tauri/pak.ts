@@ -155,7 +155,31 @@ export function pak_read_file_tree(): Promise<FileTree> {
 export function pak_read_file_tree_optimized(
   options?: RenderTreeOptions
 ): Promise<RenderTreeNode[]> {
-  return invoke('pak_read_file_tree_optimized', { options })
+  return new Promise((resolve, reject) => {
+    let settled = false
+    const onEvent = new Channel<WorkProgressEvent<RenderTreeNode[]>>()
+
+    onEvent.onmessage = (event) => {
+      if (settled) return
+
+      switch (event.event) {
+        case 'workFinished':
+          settled = true
+          resolve(event.data ?? [])
+          break
+        case 'error':
+          settled = true
+          reject(new Error(event.data.error))
+          break
+      }
+    }
+
+    invoke('pak_read_file_tree_optimized', { options, onEvent }).catch((error) => {
+      if (settled) return
+      settled = true
+      reject(error)
+    })
+  })
 }
 
 // Pack related APIs

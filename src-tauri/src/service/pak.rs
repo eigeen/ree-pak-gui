@@ -22,7 +22,10 @@ use serde::Serialize;
 use walkdir::WalkDir;
 
 use crate::{
-    channel::{PackProgressChannel, PackedFile, PackedFileTree, PackedPak, UnpackProgressChannel},
+    channel::{
+        FileTreeProgressChannel, PackProgressChannel, PackedFile, PackedFileTree, PackedPak,
+        UnpackProgressChannel,
+    },
     common::JsSafeHash,
     error::{Error, Result},
     pak::{
@@ -147,6 +150,7 @@ impl PakTreeBuilder {
 pub struct PakService {
     pak_group: Arc<Mutex<PakGroup>>,
     work_thread: Mutex<Option<JoinHandle<()>>>,
+    file_tree_running: Arc<AtomicBool>,
     unpack_running: Arc<AtomicBool>,
     unpack_should_terminate: Arc<AtomicBool>,
     should_terminate: Arc<AtomicBool>,
@@ -193,6 +197,7 @@ impl PakService {
         Self {
             pak_group: Arc::new(Mutex::new(pak_group)),
             work_thread: Mutex::new(None),
+            file_tree_running: Arc::new(AtomicBool::new(false)),
             unpack_running: Arc::new(AtomicBool::new(false)),
             unpack_should_terminate: Arc::new(AtomicBool::new(false)),
             should_terminate: Arc::new(AtomicBool::new(false)),
@@ -265,12 +270,42 @@ impl PakService {
         self.pak_group.lock().render_tree_combined()
     }
 
-    pub fn read_file_tree_optimized(
+    pub async fn read_file_tree_optimized_async(
         &self,
-        options: &RenderTreeOptions,
-    ) -> Result<Vec<RenderTreeNode>> {
-        let basic_tree = self.pak_group.lock().render_tree_combined()?;
-        RenderTreeNode::try_from_file_tree(basic_tree, options)
+        options: RenderTreeOptions,
+        progress: FileTreeProgressChannel,
+    ) -> Result<()> {
+        if self.file_tree_running.swap(true, Ordering::SeqCst) {
+            return Err(Error::FileTreeAlreadyRunning);
+        }
+
+        progress.work_start();
+
+        let pak_group = self.pak_group.clone();
+        let file_tree_running = self.file_tree_running.clone();
+        let result = tokio::task::spawn_blocking(move || {
+            let basic_tree = pak_group.lock().render_tree_combined()?;
+            RenderTreeNode::try_from_file_tree(basic_tree, &options)
+        })
+        .await;
+
+        file_tree_running.store(false, Ordering::SeqCst);
+
+        match result {
+            Ok(Ok(tree)) => {
+                progress.work_finished(tree);
+                Ok(())
+            }
+            Ok(Err(error)) => {
+                progress.error(error.to_string());
+                Err(error)
+            }
+            Err(error) => {
+                let error = Error::Internal(error.to_string());
+                progress.error(error.to_string());
+                Err(error)
+            }
+        }
     }
 
     /// Unpack all loaded paks with given options.

@@ -105,7 +105,7 @@
                       size="icon-sm"
                       variant="ghost"
                       class="desktop-icon-button"
-                      :disabled="!showOverlay"
+                      :disabled="!showOverlay || loadingTree"
                       @click="doRender"
                     >
                       <RefreshCw class="size-4" :class="loadingTree ? 'animate-spin' : ''" />
@@ -425,7 +425,7 @@ const imageViewerState = ref({
 const taskProgress = useTaskProgressState()
 
 const canRenderTree = computed(
-  () => Boolean(unpackState.value.fileList) && pakData.value.length > 0
+  () => Boolean(unpackState.value.fileList) && pakData.value.length > 0 && !loadingTree.value
 )
 const fileTreeComponent = ref<InstanceType<typeof FileTree>>()
 const fileNameTable = ref<{ openManager: () => void } | null>(null)
@@ -1009,6 +1009,10 @@ async function handleClose(index: number) {
 }
 
 async function doRender() {
+  if (loadingTree.value) {
+    return
+  }
+
   loadingTree.value = true
   try {
     const file = fileListService.getFileByIdent(unpackState.value.fileList)
@@ -1266,7 +1270,7 @@ async function reloadData() {
 let unlisten: UnlistenFn | undefined
 
 function handleToolbarRenderTree() {
-  if (!unpackState.value.fileList || pakData.value.length === 0) return
+  if (!unpackState.value.fileList || pakData.value.length === 0 || loadingTree.value) return
   void doRender()
 }
 
@@ -1978,10 +1982,7 @@ function collectFilesFromEntries(
   }
 
   for (const entry of entries) {
-    walk(
-      entry,
-      mode === 'relativePath' ? getSelectedItemRelativeRoot(entry.path) : undefined
-    )
+    walk(entry, mode === 'relativePath' ? getSelectedItemRelativeRoot(entry.path) : undefined)
   }
 
   return [...files.values()]

@@ -32,6 +32,8 @@ pub enum Error {
     InvalidOrder(String),
     #[error("Unpack progress already running.")]
     UnpackAlreadyRunning,
+    #[error("File tree load already running.")]
+    FileTreeAlreadyRunning,
     #[error("Pack progress already running.")]
     PackAlreadyRunning,
     #[error("Texture export already running.")]
