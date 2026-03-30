@@ -121,6 +121,7 @@ function handleBackgroundContextMenu(event: MouseEvent) {
     return
   }
 
+  event.preventDefault()
   emit('background-contextmenu', event)
 }
 </script>
@@ -150,7 +151,7 @@ function handleBackgroundContextMenu(event: MouseEvent) {
           :style="getRowStyle(virtualRow.start)"
           @click="emit('item-click', getItem(virtualRow.index), $event)"
           @dblclick="emit('item-open', getItem(virtualRow.index), $event)"
-          @contextmenu="emit('item-contextmenu', getItem(virtualRow.index), $event)"
+          @contextmenu.prevent="emit('item-contextmenu', getItem(virtualRow.index), $event)"
         >
           <div class="grid h-full items-center gap-3" :style="columnStyle">
             <slot name="row" :item="getItem(virtualRow.index)" />

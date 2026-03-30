@@ -148,6 +148,7 @@ function handleBackgroundContextMenu(event: MouseEvent) {
     return
   }
 
+  event.preventDefault()
   emit('background-contextmenu', event)
 }
 </script>
@@ -176,7 +177,7 @@ function handleBackgroundContextMenu(event: MouseEvent) {
             :style="{ height: `${props.cardHeight}px`, marginBottom: `${props.gap}px` }"
             @click="emit('item-click', item, $event)"
             @dblclick="emit('item-open', item, $event)"
-            @contextmenu="emit('item-contextmenu', item, $event)"
+            @contextmenu.prevent="emit('item-contextmenu', item, $event)"
           >
             <slot name="item" :item="item" />
           </button>

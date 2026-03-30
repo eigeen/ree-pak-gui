@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { ArrowUp, FileArchive, FolderTree, LayoutGrid, List, Search } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import AppContextMenu from '@/components/context-menu/AppContextMenu.vue'
 import UnpackExplorerDetailsView from '@/components/unpack/UnpackExplorerDetailsView.vue'
 import UnpackExplorerTileView from '@/components/unpack/UnpackExplorerTileView.vue'
 import { Button } from '@/components/ui/button'
 import { DenseInput } from '@/components/ui/input'
-import type { ContextMenuEntry } from '@/lib/contextMenu'
 import type {
   ExplorerBreadcrumbSegment,
   ExplorerColumnLabels,
@@ -30,7 +28,6 @@ const props = defineProps<{
   texturePreviewEnabled: boolean
   renderers: ExplorerRenderers
   columnLabels: ExplorerColumnLabels
-  contextMenuItems: ContextMenuEntry[]
 }>()
 
 const emit = defineEmits<{
@@ -148,40 +145,38 @@ function handleItemOpen(item: ExplorerEntry, event: MouseEvent) {
           <p class="text-sm text-muted-foreground">{{ t('explorer.emptyNoTreeDescription') }}</p>
         </div>
 
-        <AppContextMenu v-else-if="props.layoutMode === 'tile'" :items="props.contextMenuItems">
-          <UnpackExplorerTileView
-            :items="props.items"
-            :focused-key="props.focusedKey"
-            :checked-keys="props.checkedKeys"
-            :reset-key="props.resetKey"
-            :texture-preview-enabled="props.texturePreviewEnabled"
-            :renderers="props.renderers"
-            @item-click="handleItemClick"
-            @item-open="handleItemOpen"
-            @item-contextmenu="handleItemContextMenu"
-            @background-click="emit('background-click', $event)"
-            @background-contextmenu="emit('background-contextmenu', $event)"
-            @visible-items-change="emit('visible-items-change', $event)"
-          />
-        </AppContextMenu>
+        <UnpackExplorerTileView
+          v-else-if="props.layoutMode === 'tile'"
+          :items="props.items"
+          :focused-key="props.focusedKey"
+          :checked-keys="props.checkedKeys"
+          :reset-key="props.resetKey"
+          :texture-preview-enabled="props.texturePreviewEnabled"
+          :renderers="props.renderers"
+          @item-click="handleItemClick"
+          @item-open="handleItemOpen"
+          @item-contextmenu="handleItemContextMenu"
+          @background-click="emit('background-click', $event)"
+          @background-contextmenu="emit('background-contextmenu', $event)"
+          @visible-items-change="emit('visible-items-change', $event)"
+        />
 
-        <AppContextMenu v-else :items="props.contextMenuItems">
-          <UnpackExplorerDetailsView
-            :items="props.items"
-            :focused-key="props.focusedKey"
-            :checked-keys="props.checkedKeys"
-            :reset-key="props.resetKey"
-            :renderers="props.renderers"
-            :column-labels="props.columnLabels"
-            @item-click="handleItemClick"
-            @item-check="handleItemCheck"
-            @item-open="handleItemOpen"
-            @item-contextmenu="handleItemContextMenu"
-            @background-click="emit('background-click', $event)"
-            @background-contextmenu="emit('background-contextmenu', $event)"
-            @visible-items-change="emit('visible-items-change', $event)"
-          />
-        </AppContextMenu>
+        <UnpackExplorerDetailsView
+          v-else
+          :items="props.items"
+          :focused-key="props.focusedKey"
+          :checked-keys="props.checkedKeys"
+          :reset-key="props.resetKey"
+          :renderers="props.renderers"
+          :column-labels="props.columnLabels"
+          @item-click="handleItemClick"
+          @item-check="handleItemCheck"
+          @item-open="handleItemOpen"
+          @item-contextmenu="handleItemContextMenu"
+          @background-click="emit('background-click', $event)"
+          @background-contextmenu="emit('background-contextmenu', $event)"
+          @visible-items-change="emit('visible-items-change', $event)"
+        />
       </div>
     </div>
   </div>

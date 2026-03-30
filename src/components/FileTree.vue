@@ -258,10 +258,12 @@ function handleBackgroundContextMenu(event: MouseEvent) {
     return
   }
 
+  event.preventDefault()
   emit('background-contextmenu', event)
 }
 
 function handleNodeContextMenu(event: Event, data: TreeData, node: TreeNode) {
+  event.preventDefault()
   emit('node-contextmenu', data, node, event as MouseEvent)
 }
 

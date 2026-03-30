@@ -132,19 +132,18 @@
                     </p>
                   </div>
 
-                  <AppContextMenu v-else :items="treeContextMenuItems">
-                    <FileTree
-                      ref="fileTreeComponent"
-                      :current-node-key="treeFocusKey"
-                      :data="treeData"
-                      :filter-text="filterTextApply"
-                      :regex-mode="unpackState.filterUseRegex"
-                      class="h-full"
-                      @node-click="handleNodeClick"
-                      @node-contextmenu="handleTreeNodeContextMenu"
-                      @background-contextmenu="handleTreeBackgroundContextMenu"
-                    />
-                  </AppContextMenu>
+                  <FileTree
+                    v-else
+                    ref="fileTreeComponent"
+                    :current-node-key="treeFocusKey"
+                    :data="treeData"
+                    :filter-text="filterTextApply"
+                    :regex-mode="unpackState.filterUseRegex"
+                    class="h-full"
+                    @node-click="handleNodeClick"
+                    @node-contextmenu="handleTreeNodeContextMenu"
+                    @background-contextmenu="handleTreeBackgroundContextMenu"
+                  />
                 </div>
               </section>
             </div>
@@ -171,7 +170,6 @@
                 :texture-preview-enabled="texturePreviewEnabled"
                 :renderers="explorerRenderers"
                 :column-labels="explorerColumnLabels"
-                :context-menu-items="explorerContextMenuItems"
                 @open-directory="openDirectory"
                 @open-parent-directory="openParentDirectory"
                 @toggle-layout="toggleExplorerLayout"
@@ -229,6 +227,22 @@
       :show-manage-button="false"
       :show-selector="false"
       class="hidden"
+    />
+
+    <AppCursorContextMenu
+      :items="treeContextMenuItems"
+      :open="treeContextMenuOpen"
+      :x="treeContextMenuPosition.x"
+      :y="treeContextMenuPosition.y"
+      @update:open="treeContextMenuOpen = $event"
+    />
+
+    <AppCursorContextMenu
+      :items="explorerContextMenuItems"
+      :open="explorerContextMenuOpen"
+      :x="explorerContextMenuPosition.x"
+      :y="explorerContextMenuPosition.y"
+      @update:open="explorerContextMenuOpen = $event"
     />
   </section>
 </template>
@@ -294,7 +308,7 @@ import {
   type TextureExportFormat,
   type TextureExportProgressEvent
 } from '@/api/tauri/utils'
-import AppContextMenu from '@/components/context-menu/AppContextMenu.vue'
+import AppCursorContextMenu from '@/components/context-menu/AppCursorContextMenu.vue'
 import FileTree, { type TreeData } from '@/components/FileTree.vue'
 import type { MenuGroup } from '@/components/DesktopMenuBar.vue'
 import FileNameTable from '@/components/FileNameTable/FileNameTable.vue'
@@ -408,8 +422,12 @@ const texturePreviewPending = new Set<string>()
 const explorerLayoutMode = ref<ExplorerLayoutMode>('details')
 const explorerContextMenuKind = ref<ExplorerContextMenuKind>('background')
 const explorerContextMenuTarget = ref<ExplorerEntry | null>(null)
+const explorerContextMenuOpen = ref(false)
+const explorerContextMenuPosition = ref({ x: 0, y: 0 })
 const treeContextMenuKind = ref<TreeContextMenuKind>('background')
 const treeContextMenuTarget = ref<TreeData | null>(null)
+const treeContextMenuOpen = ref(false)
+const treeContextMenuPosition = ref({ x: 0, y: 0 })
 const pakHeaderCache = ref<Record<string, PakHeaderInfo>>({})
 const propertiesDialogOpen = ref(false)
 const propertiesDialogLoading = ref(false)
@@ -906,6 +924,7 @@ function clearExplorerSelection(options: { clearContextMenuTarget?: boolean } = 
   focusedEntryKey.value = ''
   checkedEntryKeys.value = []
   selectionAnchorKey.value = ''
+  explorerContextMenuOpen.value = false
 
   if (options.clearContextMenuTarget ?? true) {
     explorerContextMenuTarget.value = null
@@ -934,7 +953,9 @@ watch(pakData, async () => {
   currentDirectoryKey.value = ''
   clearExplorerSelection()
   explorerContextMenuTarget.value = null
+  explorerContextMenuOpen.value = false
   treeContextMenuTarget.value = null
+  treeContextMenuOpen.value = false
   pakHeaderCache.value = {}
   visibleExplorerEntries.value = []
   texturePreviewCache.value = {}
@@ -1319,6 +1340,8 @@ async function stopListenToDrop() {
 }
 
 function handleNodeClick(data: TreeData) {
+  explorerContextMenuOpen.value = false
+  treeContextMenuOpen.value = false
   treeFocusKey.value = data.id
   treeContextMenuKind.value = 'node'
   treeContextMenuTarget.value = data
@@ -1342,16 +1365,30 @@ function bringSelectedEntryIntoTreeView() {
   fileTreeComponent.value?.bringNodeIntoView(key)
 }
 
-function handleTreeNodeContextMenu(data: TreeData) {
+function handleTreeNodeContextMenu(data: TreeData, _node: unknown, event: MouseEvent) {
+  event.preventDefault()
+  explorerContextMenuOpen.value = false
   treeContextMenuKind.value = 'node'
   treeContextMenuTarget.value = data
   treeFocusKey.value = data.id
   openDirectory(data.id)
+  treeContextMenuPosition.value = {
+    x: event.clientX,
+    y: event.clientY
+  }
+  treeContextMenuOpen.value = true
 }
 
-function handleTreeBackgroundContextMenu() {
+function handleTreeBackgroundContextMenu(event: MouseEvent) {
+  event.preventDefault()
+  explorerContextMenuOpen.value = false
   treeContextMenuKind.value = 'background'
   treeContextMenuTarget.value = null
+  treeContextMenuPosition.value = {
+    x: event.clientX,
+    y: event.clientY
+  }
+  treeContextMenuOpen.value = true
 }
 
 async function loadWorkRecords() {
@@ -1442,6 +1479,8 @@ function openDirectory(id: string) {
   const entry = explorerNodeMap.value.get(id)
   if (!entry || !entry.isDir) return
   currentDirectoryKey.value = entry.id
+  treeContextMenuOpen.value = false
+  explorerContextMenuOpen.value = false
   clearExplorerSelection({ clearContextMenuTarget: true })
 }
 
@@ -1495,23 +1534,39 @@ function handleExplorerItemCheck(item: ExplorerEntry, checked: boolean) {
   selectionAnchorKey.value = item.id
 }
 
-function handleExplorerItemContextMenu(item: ExplorerEntry) {
+function handleExplorerItemContextMenu(item: ExplorerEntry, event: MouseEvent) {
+  event.preventDefault()
+  treeContextMenuOpen.value = false
   if (!checkedEntryKeySet.value.has(item.id)) {
     checkedEntryKeys.value = replaceCheckedKeysWithSingle(item.id)
   }
 
   explorerContextMenuKind.value = 'item'
   explorerContextMenuTarget.value = item
+  explorerContextMenuPosition.value = {
+    x: event.clientX,
+    y: event.clientY
+  }
+  explorerContextMenuOpen.value = true
   setExplorerFocus(item.id)
 }
 
 function handleExplorerBackgroundClick() {
+  treeContextMenuOpen.value = false
+  explorerContextMenuOpen.value = false
   clearExplorerSelection()
 }
 
-function handleExplorerBackgroundContextMenu() {
+function handleExplorerBackgroundContextMenu(event: MouseEvent) {
+  event.preventDefault()
+  treeContextMenuOpen.value = false
   explorerContextMenuKind.value = 'background'
   explorerContextMenuTarget.value = null
+  explorerContextMenuPosition.value = {
+    x: event.clientX,
+    y: event.clientY
+  }
+  explorerContextMenuOpen.value = true
 }
 
 function handleVisibleExplorerItemsChange(items: ExplorerEntry[]) {
