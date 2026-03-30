@@ -68,6 +68,7 @@ export default {
       noExportableTextures: '当前没有可导出的 Texture。',
       textureExported: '已导出 {count} 个 Texture（{format}）',
       copiedPath: '已复制：{path}',
+      copiedPaths: '已复制 {count} 条路径',
       rootLabel: '根目录',
       sourceLabel: '来源：{source}',
       sourceEmpty: '来源：—',

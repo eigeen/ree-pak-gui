@@ -5,16 +5,18 @@ import type { ExplorerEntry, ExplorerRenderers } from '@/lib/unpackExplorer'
 
 const props = defineProps<{
   items: ExplorerEntry[]
-  selectedKey: string
+  focusedKey: string
+  checkedKeys: string[]
   resetKey: string | number
   texturePreviewEnabled: boolean
   renderers: ExplorerRenderers
 }>()
 
 const emit = defineEmits<{
-  (e: 'item-click', item: ExplorerEntry): void
-  (e: 'item-open', item: ExplorerEntry): void
+  (e: 'item-click', item: ExplorerEntry, event: MouseEvent): void
+  (e: 'item-open', item: ExplorerEntry, event: MouseEvent): void
   (e: 'item-contextmenu', item: ExplorerEntry, event: MouseEvent): void
+  (e: 'background-click', event: MouseEvent): void
   (e: 'background-contextmenu', event: MouseEvent): void
   (e: 'visible-items-change', items: ExplorerEntry[]): void
 }>()
@@ -22,17 +24,27 @@ const emit = defineEmits<{
 function handleItemContextMenu(item: ExplorerEntry, event: MouseEvent) {
   emit('item-contextmenu', item, event)
 }
+
+function handleItemClick(item: ExplorerEntry, event: MouseEvent) {
+  emit('item-click', item, event)
+}
+
+function handleItemOpen(item: ExplorerEntry, event: MouseEvent) {
+  emit('item-open', item, event)
+}
 </script>
 
 <template>
   <VirtualExplorerGrid
     :items="props.items"
-    :selected-key="props.selectedKey"
+    :focused-key="props.focusedKey"
+    :checked-keys="props.checkedKeys"
     :reset-key="props.resetKey"
     class="h-full"
-    @item-click="emit('item-click', $event)"
-    @item-open="emit('item-open', $event)"
+    @item-click="handleItemClick"
+    @item-open="handleItemOpen"
     @item-contextmenu="handleItemContextMenu"
+    @background-click="emit('background-click', $event)"
     @background-contextmenu="emit('background-contextmenu', $event)"
     @visible-items-change="emit('visible-items-change', $event)"
   >

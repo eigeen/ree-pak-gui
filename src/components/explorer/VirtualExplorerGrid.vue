@@ -4,14 +4,16 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 const props = withDefaults(defineProps<{
   items: TItem[]
-  selectedKey?: string
+  focusedKey?: string
+  checkedKeys?: string[]
   resetKey?: string | number
   minColumnWidth?: number
   gap?: number
   overscan?: number
   cardHeight?: number
 }>(), {
-  selectedKey: '',
+  focusedKey: '',
+  checkedKeys: () => [],
   resetKey: '',
   minColumnWidth: 144,
   gap: 12,
@@ -20,9 +22,10 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{
-  (e: 'item-click', item: TItem): void
-  (e: 'item-open', item: TItem): void
+  (e: 'item-click', item: TItem, event: MouseEvent): void
+  (e: 'item-open', item: TItem, event: MouseEvent): void
   (e: 'item-contextmenu', item: TItem, event: MouseEvent): void
+  (e: 'background-click', event: MouseEvent): void
   (e: 'background-contextmenu', event: MouseEvent): void
   (e: 'visible-items-change', items: TItem[]): void
 }>()
@@ -68,6 +71,7 @@ const totalSize = computed(() => virtualizer.value.getTotalSize())
 const visibleItems = computed(() =>
   virtualRows.value.flatMap((virtualRow) => rows.value[virtualRow.index] ?? [])
 )
+const checkedKeySet = computed(() => new Set(props.checkedKeys))
 
 watch(visibleItems, (items) => {
   emit('visible-items-change', items)
@@ -118,13 +122,24 @@ function getRowStyle(start: number) {
 }
 
 function getCardClass(item: TItem) {
-  const baseClass =
+  const classNames = [
     'explorer-grid-card relative isolate group flex min-h-0 flex-col overflow-hidden rounded-[0.4rem] border-2 text-left transition-[background-color,border-color,box-shadow] duration-150'
-  if (props.selectedKey !== item.id) {
-    return baseClass
+  ]
+
+  if (checkedKeySet.value.has(item.id)) {
+    classNames.push('explorer-grid-card-checked')
   }
 
-  return `${baseClass} explorer-grid-card-active`
+  return classNames.join(' ')
+}
+
+function handleBackgroundClick(event: MouseEvent) {
+  const target = event.target
+  if (target instanceof Element && target.closest('[data-explorer-item-root]')) {
+    return
+  }
+
+  emit('background-click', event)
 }
 
 function handleBackgroundContextMenu(event: MouseEvent) {
@@ -141,6 +156,7 @@ function handleBackgroundContextMenu(event: MouseEvent) {
   <div
     ref="scrollElementRef"
     class="editor-scrollbar h-full overflow-auto px-1.5 py-1.5"
+    @click="handleBackgroundClick"
     @contextmenu="handleBackgroundContextMenu"
   >
     <div class="relative min-h-full" :style="{ height: `${totalSize}px` }">
@@ -158,8 +174,8 @@ function handleBackgroundContextMenu(event: MouseEvent) {
             data-explorer-item-root
             :class="getCardClass(item)"
             :style="{ height: `${props.cardHeight}px`, marginBottom: `${props.gap}px` }"
-            @click="emit('item-click', item)"
-            @dblclick="emit('item-open', item)"
+            @click="emit('item-click', item, $event)"
+            @dblclick="emit('item-open', item, $event)"
             @contextmenu="emit('item-contextmenu', item, $event)"
           >
             <slot name="item" :item="item" />
@@ -195,8 +211,8 @@ function handleBackgroundContextMenu(event: MouseEvent) {
   box-shadow: 0 12px 20px -16px rgb(0 0 0 / 0.58);
 }
 
-.explorer-grid-card-active,
-.explorer-grid-card-active:hover {
+.explorer-grid-card-checked,
+.explorer-grid-card-checked:hover {
   background: color-mix(in oklch, var(--color-primary) 16%, var(--surface-panel));
   border-color: color-mix(in oklch, var(--color-primary) 48%, transparent);
   box-shadow:
@@ -204,8 +220,8 @@ function handleBackgroundContextMenu(event: MouseEvent) {
     0 8px 18px -10px rgb(15 23 42 / 0.16);
 }
 
-.dark .explorer-grid-card-active,
-.dark .explorer-grid-card-active:hover {
+.dark .explorer-grid-card-checked,
+.dark .explorer-grid-card-checked:hover {
   background: color-mix(in oklch, var(--color-primary) 12%, var(--surface-toolbar));
   border-color: color-mix(in oklch, var(--color-primary) 42%, transparent);
   box-shadow:

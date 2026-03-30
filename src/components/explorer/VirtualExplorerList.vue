@@ -5,14 +5,16 @@ import { computed, ref, watch } from 'vue'
 const props = withDefaults(
   defineProps<{
     items: TItem[]
-    selectedKey?: string
+    focusedKey?: string
+    checkedKeys?: string[]
     resetKey?: string | number
     overscan?: number
     rowHeight?: number
     columnTemplate?: string
   }>(),
   {
-    selectedKey: '',
+    focusedKey: '',
+    checkedKeys: () => [],
     resetKey: '',
     overscan: 8,
     rowHeight: 42,
@@ -21,9 +23,10 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{
-  (e: 'item-click', item: TItem): void
-  (e: 'item-open', item: TItem): void
+  (e: 'item-click', item: TItem, event: MouseEvent): void
+  (e: 'item-open', item: TItem, event: MouseEvent): void
   (e: 'item-contextmenu', item: TItem, event: MouseEvent): void
+  (e: 'background-click', event: MouseEvent): void
   (e: 'background-contextmenu', event: MouseEvent): void
   (e: 'visible-items-change', items: TItem[]): void
 }>()
@@ -50,6 +53,7 @@ const visibleItems = computed(() =>
 const columnStyle = computed(() => ({
   gridTemplateColumns: props.columnTemplate
 }))
+const checkedKeySet = computed(() => new Set(props.checkedKeys))
 
 watch(
   visibleItems,
@@ -91,13 +95,24 @@ function getRowStyle(start: number) {
 }
 
 function getRowClass(item: TItem) {
-  const baseClass =
-    'explorer-list-row absolute left-0 top-0 w-full px-3 text-left'
-  if (props.selectedKey !== item.id) {
-    return `${baseClass} border-b border-border/45 text-foreground`
+  const classNames = ['explorer-list-row absolute left-0 top-0 w-full px-3 text-left']
+
+  if (checkedKeySet.value.has(item.id)) {
+    classNames.push('explorer-list-row-checked border-b border-transparent text-foreground')
+  } else {
+    classNames.push('border-b border-border/45 text-foreground')
   }
 
-  return `${baseClass} explorer-list-row-active z-10 border-b border-transparent text-foreground`
+  return classNames.join(' ')
+}
+
+function handleBackgroundClick(event: MouseEvent) {
+  const target = event.target
+  if (target instanceof Element && target.closest('[data-explorer-item-root]')) {
+    return
+  }
+
+  emit('background-click', event)
 }
 
 function handleBackgroundContextMenu(event: MouseEvent) {
@@ -122,6 +137,7 @@ function handleBackgroundContextMenu(event: MouseEvent) {
     <div
       ref="scrollElementRef"
       class="editor-scrollbar min-h-0 flex-1 overflow-auto"
+      @click="handleBackgroundClick"
       @contextmenu="handleBackgroundContextMenu"
     >
       <div class="relative min-h-full" :style="{ height: `${totalSize}px` }">
@@ -132,8 +148,8 @@ function handleBackgroundContextMenu(event: MouseEvent) {
           data-explorer-item-root
           :class="getRowClass(getItem(virtualRow.index))"
           :style="getRowStyle(virtualRow.start)"
-          @click="emit('item-click', getItem(virtualRow.index))"
-          @dblclick="emit('item-open', getItem(virtualRow.index))"
+          @click="emit('item-click', getItem(virtualRow.index), $event)"
+          @dblclick="emit('item-open', getItem(virtualRow.index), $event)"
           @contextmenu="emit('item-contextmenu', getItem(virtualRow.index), $event)"
         >
           <div class="grid h-full items-center gap-3" :style="columnStyle">

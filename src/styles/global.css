@@ -593,7 +593,7 @@
     background: color-mix(in oklch, var(--color-secondary) 82%, var(--surface-panel));
   }
 
-  .explorer-list-row-active {
+  .explorer-list-row-checked {
     background: color-mix(in oklch, var(--color-primary) 16%, var(--surface-panel));
     box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--color-primary) 34%, transparent);
   }

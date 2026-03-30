@@ -162,7 +162,8 @@
                 :has-pak-data="pakData.length > 0"
                 :layout-mode="explorerLayoutMode"
                 :items="explorerEntries"
-                :selected-key="selectedEntryKey"
+                :focused-key="focusedEntryKey"
+                :checked-keys="checkedEntryKeys"
                 :reset-key="explorerViewResetKey"
                 :breadcrumb-segments="breadcrumbDisplaySegments"
                 :current-directory-key="currentDirectoryKey"
@@ -175,8 +176,10 @@
                 @open-parent-directory="openParentDirectory"
                 @toggle-layout="toggleExplorerLayout"
                 @item-click="handleExplorerItemClick"
+                @item-check="handleExplorerItemCheck"
                 @item-open="handleExplorerItemOpen"
                 @item-contextmenu="handleExplorerItemContextMenu"
+                @background-click="handleExplorerBackgroundClick"
                 @background-contextmenu="handleExplorerBackgroundContextMenu"
                 @visible-items-change="handleVisibleExplorerItemsChange"
               />
@@ -319,6 +322,12 @@ import type {
   ExplorerRenderers
 } from '@/lib/unpackExplorer'
 import {
+  appendRangeToCheckedKeys,
+  getOrderedCheckedItems,
+  replaceCheckedKeysWithSingle,
+  toggleCheckedKey
+} from '@/lib/unpackExplorerSelection'
+import {
   ensureTaskProgressIdle,
   finishTaskProgress,
   tryStartTaskProgress,
@@ -390,7 +399,9 @@ const showOverlay = ref(false)
 const loadingTree = ref(false)
 const currentDirectoryKey = ref('')
 const treeFocusKey = ref('')
-const selectedEntryKey = ref('')
+const focusedEntryKey = ref('')
+const checkedEntryKeys = ref<string[]>([])
+const selectionAnchorKey = ref('')
 const visibleExplorerEntries = ref<ExplorerEntry[]>([])
 const texturePreviewCache = ref<Record<string, string | null>>({})
 const texturePreviewPending = new Set<string>()
@@ -447,8 +458,9 @@ const currentDirectory = computed(() => {
   return node?.isDir ? node : (explorerRoot.value ?? null)
 })
 
-const selectedEntry = computed(() =>
-  selectedEntryKey.value ? explorerNodeMap.value.get(selectedEntryKey.value) : undefined
+const checkedEntryKeySet = computed(() => new Set(checkedEntryKeys.value))
+const focusedEntry = computed(() =>
+  focusedEntryKey.value ? explorerNodeMap.value.get(focusedEntryKey.value) : undefined
 )
 const selectedTreeEntry = computed(() =>
   treeFocusKey.value ? explorerNodeMap.value.get(treeFocusKey.value) : undefined
@@ -457,6 +469,9 @@ const selectedTreeExtractFiles = computed(() => {
   const entry = selectedTreeEntry.value
   return entry?.isDir ? collectExtractFilesFromEntry(entry, 'relativePath') : []
 })
+const orderedCheckedExplorerEntries = computed(() =>
+  getOrderedCheckedItems(explorerEntries.value, checkedEntryKeys.value)
+)
 
 const explorerEntries = computed(() => {
   const dir = currentDirectory.value
@@ -567,9 +582,11 @@ const explorerContextMenuItems = computed<ContextMenuEntry[]>(() => {
     return []
   }
 
-  const extractFiles = collectExtractFilesFromEntry(item)
-  const extractDirectoryFiles = item.isDir ? collectExtractFilesFromEntry(item, 'relativePath') : []
-  const textureFiles = collectTextureFilesFromEntry(item, 'relativePath')
+  const actionEntries = getExplorerBatchActionEntries(item)
+  const extractFiles = collectExtractFilesFromEntries(actionEntries)
+  const extractDirectoryFiles = collectExtractFilesFromEntries(actionEntries, 'relativePath')
+  const textureFiles = collectTextureFilesFromEntries(actionEntries, 'relativePath')
+  const pathTargets = getExplorerCopyPathTargets(item)
   const canPreview = canPreviewExplorerItem(item)
 
   return [
@@ -633,7 +650,7 @@ const explorerContextMenuItems = computed<ContextMenuEntry[]>(() => {
       label: t('unpack.copyPath'),
       icon: Copy,
       shortcut: 'Ctrl+C',
-      action: () => void copyText(item.path)
+      action: () => void copyPaths(pathTargets)
     },
     {
       type: 'submenu',
@@ -772,7 +789,7 @@ const treeContextMenuItems = computed<ContextMenuEntry[]>(() => {
 })
 
 const bringTargetKey = computed(() => {
-  const entry = selectedEntry.value
+  const entry = focusedEntry.value
   if (entry) {
     return entry.isDir ? entry.id : (entry.parentId ?? currentDirectoryKey.value)
   }
@@ -853,6 +870,29 @@ function openPathListManager() {
   fileNameTable.value?.openManager()
 }
 
+function setExplorerFocus(key: string) {
+  focusedEntryKey.value = key
+}
+
+function clearExplorerSelection(options: { clearContextMenuTarget?: boolean } = {}) {
+  focusedEntryKey.value = ''
+  checkedEntryKeys.value = []
+  selectionAnchorKey.value = ''
+
+  if (options.clearContextMenuTarget ?? true) {
+    explorerContextMenuTarget.value = null
+  }
+}
+
+function getExplorerBatchActionEntries(fallbackItem: ExplorerEntry) {
+  const batchEntries = orderedCheckedExplorerEntries.value
+  return batchEntries.length > 0 ? batchEntries : [fallbackItem]
+}
+
+function getExplorerCopyPathTargets(fallbackItem: ExplorerEntry) {
+  return getExplorerBatchActionEntries(fallbackItem).map((entry) => entry.path)
+}
+
 function setExplorerLayout(mode: ExplorerLayoutMode) {
   explorerLayoutMode.value = mode
   unpackState.value = {
@@ -864,7 +904,7 @@ function setExplorerLayout(mode: ExplorerLayoutMode) {
 watch(pakData, async () => {
   treeData.value = null
   currentDirectoryKey.value = ''
-  selectedEntryKey.value = ''
+  clearExplorerSelection()
   explorerContextMenuTarget.value = null
   treeContextMenuTarget.value = null
   pakHeaderCache.value = {}
@@ -890,6 +930,7 @@ watch(explorerRoot, (root) => {
   if (!root) {
     currentDirectoryKey.value = ''
     treeFocusKey.value = ''
+    clearExplorerSelection()
     visibleExplorerEntries.value = []
     return
   }
@@ -900,6 +941,10 @@ watch(explorerRoot, (root) => {
 
   if (!explorerNodeMap.value.has(treeFocusKey.value)) {
     treeFocusKey.value = root.children[0]?.id ?? ''
+  }
+
+  if (!explorerNodeMap.value.has(focusedEntryKey.value)) {
+    clearExplorerSelection({ clearContextMenuTarget: true })
   }
 })
 
@@ -1247,11 +1292,12 @@ function handleNodeClick(data: TreeData) {
 
   if (data.isDir) {
     openDirectory(data.id)
-    selectedEntryKey.value = ''
     return
   }
 
-  selectedEntryKey.value = data.id
+  setExplorerFocus(data.id)
+  checkedEntryKeys.value = []
+  selectionAnchorKey.value = ''
   currentDirectoryKey.value = data.parentId ?? currentDirectoryKey.value
 }
 
@@ -1268,7 +1314,6 @@ function handleTreeNodeContextMenu(data: TreeData) {
   treeContextMenuTarget.value = data
   treeFocusKey.value = data.id
   openDirectory(data.id)
-  selectedEntryKey.value = ''
 }
 
 function handleTreeBackgroundContextMenu() {
@@ -1364,7 +1409,7 @@ function openDirectory(id: string) {
   const entry = explorerNodeMap.value.get(id)
   if (!entry || !entry.isDir) return
   currentDirectoryKey.value = entry.id
-  selectedEntryKey.value = ''
+  clearExplorerSelection({ clearContextMenuTarget: true })
 }
 
 function openParentDirectory() {
@@ -1381,14 +1426,54 @@ function collapseTree() {
   fileTreeComponent.value?.collapseAll()
 }
 
-function handleExplorerItemClick(item: ExplorerEntry) {
-  selectedEntryKey.value = item.id
+function handleExplorerItemClick(item: ExplorerEntry, event: MouseEvent) {
+  if (event.shiftKey && selectionAnchorKey.value) {
+    setExplorerFocus(item.id)
+    checkedEntryKeys.value = appendRangeToCheckedKeys(
+      checkedEntryKeys.value,
+      explorerEntries.value,
+      selectionAnchorKey.value,
+      item.id
+    )
+    selectionAnchorKey.value = item.id
+    return
+  }
+
+  setExplorerFocus(item.id)
+
+  if (event.detail > 1) {
+    if (!checkedEntryKeySet.value.has(item.id)) {
+      checkedEntryKeys.value = [...checkedEntryKeys.value, item.id]
+    }
+    return
+  }
+
+  checkedEntryKeys.value = toggleCheckedKey(checkedEntryKeys.value, item.id)
+  selectionAnchorKey.value = item.id
+}
+
+function handleExplorerItemCheck(item: ExplorerEntry, checked: boolean) {
+  setExplorerFocus(item.id)
+  checkedEntryKeys.value = checked
+    ? checkedEntryKeySet.value.has(item.id)
+      ? checkedEntryKeys.value
+      : [...checkedEntryKeys.value, item.id]
+    : checkedEntryKeys.value.filter((checkedKey) => checkedKey !== item.id)
+  selectionAnchorKey.value = item.id
 }
 
 function handleExplorerItemContextMenu(item: ExplorerEntry) {
+  if (!checkedEntryKeySet.value.has(item.id)) {
+    checkedEntryKeys.value = replaceCheckedKeysWithSingle(item.id)
+  }
+
   explorerContextMenuKind.value = 'item'
   explorerContextMenuTarget.value = item
-  selectedEntryKey.value = item.id
+  setExplorerFocus(item.id)
+}
+
+function handleExplorerBackgroundClick() {
+  clearExplorerSelection()
 }
 
 function handleExplorerBackgroundContextMenu() {
@@ -1401,12 +1486,16 @@ function handleVisibleExplorerItemsChange(items: ExplorerEntry[]) {
 }
 
 async function handleExplorerItemOpen(item: ExplorerEntry) {
+  setExplorerFocus(item.id)
+  if (!checkedEntryKeySet.value.has(item.id)) {
+    checkedEntryKeys.value = [...checkedEntryKeys.value, item.id]
+  }
+  selectionAnchorKey.value = item.id
+
   if (item.isDir) {
     openDirectory(item.id)
     return
   }
-
-  selectedEntryKey.value = item.id
 
   const previewUrl = await ensureTexturePreview(item)
   if (!previewUrl) return
@@ -1860,60 +1949,70 @@ function closeImageViewer() {
   }
 }
 
-function collectExtractFilesFromEntry(
-  entry: ExplorerEntry,
-  mode: ExtractMode = 'relativePath'
+function collectFilesFromEntries(
+  entries: ExplorerEntry[],
+  mode: ExtractMode = 'relativePath',
+  predicate?: (node: ExplorerEntry) => boolean
 ): ExtractFileInfo[] {
   const files = new Map<string, ExtractFileInfo>()
-  const relativeRoot = mode === 'relativePath' ? getSelectedItemRelativeRoot(entry.path) : undefined
 
-  const walk = (node: ExplorerEntry) => {
-    if (node.isDir) {
-      node.children.forEach(walk)
+  const walk = (entry: ExplorerEntry, relativeRoot?: string) => {
+    if (entry.isDir) {
+      entry.children.forEach((child) => walk(child, relativeRoot))
       return
     }
 
-    if (!node.hash || !node.belongsTo) {
+    if (!entry.hash || !entry.belongsTo) {
       return
     }
 
-    files.set(node.id, {
-      hash: node.hash,
-      belongsTo: node.belongsTo,
+    if (predicate && !predicate(entry)) {
+      return
+    }
+
+    files.set(entry.id, {
+      hash: entry.hash,
+      belongsTo: entry.belongsTo,
       relativeRoot
     })
   }
 
-  walk(entry)
+  for (const entry of entries) {
+    walk(
+      entry,
+      mode === 'relativePath' ? getSelectedItemRelativeRoot(entry.path) : undefined
+    )
+  }
+
   return [...files.values()]
+}
+
+function collectExtractFilesFromEntries(
+  entries: ExplorerEntry[],
+  mode: ExtractMode = 'absolutePath'
+) {
+  return collectFilesFromEntries(entries, mode)
+}
+
+function collectTextureFilesFromEntries(
+  entries: ExplorerEntry[],
+  mode: ExtractMode = 'relativePath'
+) {
+  return collectFilesFromEntries(entries, mode, (entry) => isTextureEntry(entry))
+}
+
+function collectExtractFilesFromEntry(
+  entry: ExplorerEntry,
+  mode: ExtractMode = 'relativePath'
+): ExtractFileInfo[] {
+  return collectFilesFromEntries([entry], mode)
 }
 
 function collectTextureFilesFromEntry(
   entry: ExplorerEntry,
   mode: ExtractMode = 'relativePath'
 ): ExtractFileInfo[] {
-  const files = new Map<string, ExtractFileInfo>()
-  const relativeRoot = mode === 'relativePath' ? getSelectedItemRelativeRoot(entry.path) : undefined
-
-  const walk = (node: ExplorerEntry) => {
-    if (node.isDir) {
-      node.children.forEach(walk)
-      return
-    }
-
-    if (!node.hash || !node.belongsTo || !isTextureEntry(node)) {
-      return
-    }
-
-    files.set(node.id, {
-      hash: node.hash,
-      belongsTo: node.belongsTo,
-      relativeRoot
-    })
-  }
-
-  walk(entry)
-  return [...files.values()]
+  return collectFilesFromEntries([entry], mode, (node) => isTextureEntry(node))
 }
 
 function bringEntryIntoTreeView(entry: ExplorerEntry) {
@@ -1924,7 +2023,7 @@ function bringEntryIntoTreeView(entry: ExplorerEntry) {
     return
   }
 
-  selectedEntryKey.value = entry.id
+  setExplorerFocus(entry.id)
 
   if (entry.parentId) {
     currentDirectoryKey.value = entry.parentId
@@ -1934,11 +2033,20 @@ function bringEntryIntoTreeView(entry: ExplorerEntry) {
 }
 
 async function copyText(text: string) {
-  const normalizedText = normalizePathForClipboard(text)
+  await copyPaths([text])
+}
+
+async function copyPaths(paths: string[]) {
+  const normalizedPaths = paths.map(normalizePathForClipboard)
+  const text = normalizedPaths.join('\n')
 
   try {
-    await navigator.clipboard.writeText(normalizedText)
-    ShowInfo(t('unpack.copiedPath', { path: normalizedText }))
+    await navigator.clipboard.writeText(text)
+    ShowInfo(
+      normalizedPaths.length === 1
+        ? t('unpack.copiedPath', { path: normalizedPaths[0] })
+        : t('unpack.copiedPaths', { count: normalizedPaths.length })
+    )
   } catch (error) {
     ShowError(error)
   }

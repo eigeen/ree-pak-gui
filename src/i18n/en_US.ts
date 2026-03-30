@@ -68,6 +68,7 @@ export default {
       noExportableTextures: 'There are no textures available to export.',
       textureExported: 'Exported {count} textures ({format})',
       copiedPath: 'Copied: {path}',
+      copiedPaths: 'Copied {count} paths',
       rootLabel: 'Root',
       sourceLabel: 'Source: {source}',
       sourceEmpty: 'Source: —',

@@ -28,7 +28,8 @@ const props = defineProps<{
   hasPakData: boolean
   layoutMode: ExplorerLayoutMode
   items: ExplorerEntry[]
-  selectedKey: string
+  focusedKey: string
+  checkedKeys: string[]
   resetKey: string | number
   breadcrumbSegments: ExplorerBreadcrumbSegment[]
   currentDirectoryKey: string
@@ -44,9 +45,11 @@ const emit = defineEmits<{
   (e: 'open-directory', id: string): void
   (e: 'open-parent-directory'): void
   (e: 'toggle-layout'): void
-  (e: 'item-click', item: ExplorerEntry): void
-  (e: 'item-open', item: ExplorerEntry): void
+  (e: 'item-click', item: ExplorerEntry, event: MouseEvent): void
+  (e: 'item-check', item: ExplorerEntry, checked: boolean): void
+  (e: 'item-open', item: ExplorerEntry, event: MouseEvent): void
   (e: 'item-contextmenu', item: ExplorerEntry, event: MouseEvent): void
+  (e: 'background-click', event: MouseEvent): void
   (e: 'background-contextmenu', event: MouseEvent): void
   (e: 'visible-items-change', items: ExplorerEntry[]): void
 }>()
@@ -59,6 +62,18 @@ function handleSearchTextUpdate(value: string | number) {
 
 function handleItemContextMenu(item: ExplorerEntry, event: MouseEvent) {
   emit('item-contextmenu', item, event)
+}
+
+function handleItemClick(item: ExplorerEntry, event: MouseEvent) {
+  emit('item-click', item, event)
+}
+
+function handleItemCheck(item: ExplorerEntry, checked: boolean) {
+  emit('item-check', item, checked)
+}
+
+function handleItemOpen(item: ExplorerEntry, event: MouseEvent) {
+  emit('item-open', item, event)
 }
 </script>
 
@@ -143,13 +158,15 @@ function handleItemContextMenu(item: ExplorerEntry, event: MouseEvent) {
         <AppContextMenu v-else-if="props.layoutMode === 'tile'" :items="props.contextMenuItems">
           <UnpackExplorerTileView
             :items="props.items"
-            :selected-key="props.selectedKey"
+            :focused-key="props.focusedKey"
+            :checked-keys="props.checkedKeys"
             :reset-key="props.resetKey"
             :texture-preview-enabled="props.texturePreviewEnabled"
             :renderers="props.renderers"
-            @item-click="emit('item-click', $event)"
-            @item-open="emit('item-open', $event)"
+            @item-click="handleItemClick"
+            @item-open="handleItemOpen"
             @item-contextmenu="handleItemContextMenu"
+            @background-click="emit('background-click', $event)"
             @background-contextmenu="emit('background-contextmenu', $event)"
             @visible-items-change="emit('visible-items-change', $event)"
           />
@@ -158,13 +175,16 @@ function handleItemContextMenu(item: ExplorerEntry, event: MouseEvent) {
         <AppContextMenu v-else :items="props.contextMenuItems">
           <UnpackExplorerDetailsView
             :items="props.items"
-            :selected-key="props.selectedKey"
+            :focused-key="props.focusedKey"
+            :checked-keys="props.checkedKeys"
             :reset-key="props.resetKey"
             :renderers="props.renderers"
             :column-labels="props.columnLabels"
-            @item-click="emit('item-click', $event)"
-            @item-open="emit('item-open', $event)"
+            @item-click="handleItemClick"
+            @item-check="handleItemCheck"
+            @item-open="handleItemOpen"
             @item-contextmenu="handleItemContextMenu"
+            @background-click="emit('background-click', $event)"
             @background-contextmenu="emit('background-contextmenu', $event)"
             @visible-items-change="emit('visible-items-change', $event)"
           />
