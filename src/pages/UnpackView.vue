@@ -1022,6 +1022,7 @@ async function doRender() {
 
     await fileListService.loadFilePathList(file.source.filePath)
     treeData.value = await pak_read_file_tree_optimized()
+    sidebarTab.value = 'tree'
     showOverlay.value = false
   } catch (error) {
     ShowError(error)
