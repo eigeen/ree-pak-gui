@@ -54,7 +54,7 @@
               </div>
             </div>
 
-            <div class="space-y-10">
+            <div v-if="filteredSections.length > 0" class="space-y-10">
               <section
                 v-for="section in filteredSections"
                 :id="`settings-section-${section.id}`"
@@ -67,14 +67,15 @@
 
                 <template v-if="section.id === 'common'">
                   <div class="max-w-3xl space-y-8">
-                    <div>
+                    <div v-if="hasVisibleGroup(section, 'language')">
                       <div class="mb-3">
                         <h4 class="text-base font-semibold text-foreground">
-                          {{ t('settings.languageSection') }}
+                          {{ getSectionGroup(section, 'language')?.title }}
                         </h4>
                       </div>
 
                       <SettingsInlineItem
+                        v-if="hasVisibleItem(section, 'language', 'language')"
                         :title="t('settings.languageTitle')"
                         :description="t('settings.languageDescription')"
                       >
@@ -82,14 +83,15 @@
                       </SettingsInlineItem>
                     </div>
 
-                    <div>
+                    <div v-if="hasVisibleGroup(section, 'theme')">
                       <div class="mb-3">
                         <h4 class="text-base font-semibold text-foreground">
-                          {{ t('settings.themeSection') }}
+                          {{ getSectionGroup(section, 'theme')?.title }}
                         </h4>
                       </div>
 
                       <SettingsInlineItem
+                        v-if="hasVisibleItem(section, 'theme', 'theme')"
                         :title="t('settings.themeTitle')"
                         :description="t('settings.themeDescription')"
                       >
@@ -123,14 +125,17 @@
 
                 <template v-else-if="section.id === 'file-explorer'">
                   <div class="max-w-3xl space-y-8">
-                    <div>
+                    <div v-if="hasVisibleGroup(section, 'preview')">
                       <div class="mb-3">
                         <h4 class="text-base font-semibold text-foreground">
-                          {{ t('settings.previewTitle') }}
+                          {{ getSectionGroup(section, 'preview')?.title }}
                         </h4>
                       </div>
 
-                      <SettingsInlineItem :description="t('settings.texturePreviewDescription')">
+                      <SettingsInlineItem
+                        v-if="hasVisibleItem(section, 'preview', 'texture-preview')"
+                        :description="t('settings.texturePreviewDescription')"
+                      >
                         <template #title>
                           <p class="text-sm font-semibold text-foreground">
                             {{ t('settings.texturePreviewTitle') }}
@@ -171,6 +176,13 @@
                 </template>
               </section>
             </div>
+
+            <div
+              v-else
+              class="rounded-md border border-dashed border-border/70 px-4 py-10 text-sm text-muted-foreground"
+            >
+              {{ t('settings.searchEmpty') }}
+            </div>
           </div>
         </main>
       </div>
@@ -194,12 +206,27 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { APP_LOCALE_OPTIONS } from '@/lib/language'
 import { useSettingsStore, type AppSettings, type ThemeMode } from '@/store/settings'
 import { useAppTheme } from '@/composables/theme'
+
+type SettingsItem = {
+  id: string
+  title: string
+  description?: string
+  keywords?: string[]
+}
+
+type SettingsGroup = {
+  id: string
+  title: string
+  items: SettingsItem[]
+}
 
 type SettingsSection = {
   id: string
   label: string
+  groups: SettingsGroup[]
 }
 
 type ThemeOption = {
@@ -215,9 +242,61 @@ const { isDark, themeMode } = useAppTheme()
 const searchText = ref('')
 const activeSection = ref('common')
 
+const themeModes = computed<ThemeOption[]>(() => [
+  { value: 'system', label: t('settings.themeModeSystem') },
+  { value: 'light', label: t('settings.themeModeLight') },
+  { value: 'dark', label: t('settings.themeModeDark') }
+])
+
 const sections = computed<SettingsSection[]>(() => [
-  { id: 'common', label: t('settings.sectionCommon') },
-  { id: 'file-explorer', label: t('settings.sectionFileExplorer') }
+  {
+    id: 'common',
+    label: t('settings.sectionCommon'),
+    groups: [
+      {
+        id: 'language',
+        title: t('settings.languageSection'),
+        items: [
+          {
+            id: 'language',
+            title: t('settings.languageTitle'),
+            description: t('settings.languageDescription'),
+            keywords: APP_LOCALE_OPTIONS.map((option) => option.label)
+          }
+        ]
+      },
+      {
+        id: 'theme',
+        title: t('settings.themeSection'),
+        items: [
+          {
+            id: 'theme',
+            title: t('settings.themeTitle'),
+            description: t('settings.themeDescription'),
+            keywords: themeModes.value.map((mode) => mode.label)
+          }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'file-explorer',
+    label: t('settings.sectionFileExplorer'),
+    groups: [
+      {
+        id: 'preview',
+        title: t('settings.previewTitle'),
+        items: [
+          {
+            id: 'texture-preview',
+            title: t('settings.texturePreviewTitle'),
+            description: t('settings.texturePreviewDescription'),
+            keywords: [t('settings.texturePreviewHint'), t('settings.enabled'), t('settings.disabled')]
+          }
+        ]
+      }
+    ]
+  }
 ])
 
 const filteredSections = computed(() => {
@@ -226,14 +305,41 @@ const filteredSections = computed(() => {
     return sections.value
   }
 
-  return sections.value.filter((section) => section.label.toLowerCase().includes(keyword))
-})
+  return sections.value
+    .map((section) => {
+      const isSectionMatched = includesKeyword([section.label], keyword)
+      const groups = section.groups
+        .map((group) => {
+          const isGroupMatched = includesKeyword([group.title], keyword)
+          const items =
+            isSectionMatched || isGroupMatched
+              ? group.items
+              : group.items.filter((item) =>
+                  includesKeyword([item.title, item.description, ...(item.keywords ?? [])], keyword)
+                )
 
-const themeModes = computed<ThemeOption[]>(() => [
-  { value: 'system', label: t('settings.themeModeSystem') },
-  { value: 'light', label: t('settings.themeModeLight') },
-  { value: 'dark', label: t('settings.themeModeDark') }
-])
+          if (items.length === 0) {
+            return null
+          }
+
+          return {
+            ...group,
+            items
+          }
+        })
+        .filter((group): group is SettingsGroup => group !== null)
+
+      if (groups.length === 0) {
+        return null
+      }
+
+      return {
+        ...section,
+        groups
+      }
+    })
+    .filter((section): section is SettingsSection => section !== null)
+})
 
 const showTexturePreview = computed({
   get: () => settings.value?.preview?.showTexturePreview ?? true,
@@ -265,5 +371,21 @@ function scrollToSection(sectionId: string) {
   document
     .getElementById(`settings-section-${sectionId}`)
     ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+function includesKeyword(values: Array<string | undefined>, keyword: string) {
+  return values.some((value) => value?.toLowerCase().includes(keyword))
+}
+
+function getSectionGroup(section: SettingsSection, groupId: string) {
+  return section.groups.find((group) => group.id === groupId)
+}
+
+function hasVisibleGroup(section: SettingsSection, groupId: string) {
+  return !!getSectionGroup(section, groupId)
+}
+
+function hasVisibleItem(section: SettingsSection, groupId: string, itemId: string) {
+  return !!getSectionGroup(section, groupId)?.items.some((item) => item.id === itemId)
 }
 </script>

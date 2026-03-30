@@ -1,12 +1,5 @@
 <script setup lang="ts">
-import {
-  ArrowUp,
-  FileArchive,
-  FolderTree,
-  LayoutGrid,
-  List,
-  Search
-} from 'lucide-vue-next'
+import { ArrowUp, FileArchive, FolderTree, LayoutGrid, List, Search } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import AppContextMenu from '@/components/context-menu/AppContextMenu.vue'
 import UnpackExplorerDetailsView from '@/components/unpack/UnpackExplorerDetailsView.vue'
@@ -80,7 +73,7 @@ function handleItemOpen(item: ExplorerEntry, event: MouseEvent) {
 <template>
   <div class="flex h-full min-w-0 flex-col">
     <div class="desktop-toolbar">
-      <div class="flex min-w-0 flex-1 items-center gap-2 px-2">
+      <div class="flex min-w-0 flex-1 items-center gap-2 px-2 py-0.5">
         <Search class="size-4 text-muted-foreground" />
         <DenseInput
           :model-value="props.searchText"
