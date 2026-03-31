@@ -1,5 +1,6 @@
-use rustc_hash::FxHashMap;
+use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
+use smol_str::SmolStr;
 
 use crate::common::JsSafeHash;
 use crate::error::Result;
@@ -19,14 +20,14 @@ pub struct FileTree {
 #[serde(rename_all = "camelCase")]
 pub struct FileTreeNode {
     pub info: NodeInfo,
-    pub children: FxHashMap<String, FileTreeNode>,
+    pub children: HashMap<SmolStr, FileTreeNode>,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NodeInfo {
     pub is_dir: bool,
-    pub relative_path: String,
+    pub relative_path: SmolStr,
     pub hash: Option<JsSafeHash>,
     pub uncompressed_size: u64,
     pub compressed_size: u64,
@@ -41,20 +42,17 @@ impl FileTree {
     ///
     /// The same file will override by the new one.
     pub fn combine(self, other: FileTree) -> FileTree {
-        let mut combined_roots = FxHashMap::default();
+        let mut combined_roots = HashMap::new();
 
         for root in self.roots {
             combined_roots.insert(root.info.relative_path.clone(), root);
         }
         for root in other.roots {
             let key = root.info.relative_path.clone();
-            match combined_roots.remove(&key) {
-                Some(existing) => {
-                    combined_roots.insert(key, Self::combine_nodes(existing, root));
-                }
-                None => {
-                    combined_roots.insert(key, root);
-                }
+            if let Some(existing) = combined_roots.get_mut(&key) {
+                Self::combine_nodes(existing, root);
+            } else {
+                combined_roots.insert(key, root);
             }
         }
 
@@ -73,41 +71,20 @@ impl FileTree {
         }
     }
 
-    fn combine_nodes(node1: FileTreeNode, node2: FileTreeNode) -> FileTreeNode {
-        let mut combined_node = node1;
-
+    fn combine_nodes(node1: &mut FileTreeNode, node2: FileTreeNode) {
         // 目录，直接合并子节点
         if node2.info.is_dir {
             for (ref key, child_node2) in node2.children {
-                // 如果key已经存在，则合并，否则直接插入
-                let child_node1 = combined_node
-                    .children
-                    .entry(key.clone())
-                    .or_insert_with(|| {
-                        // 如果不存在，直接克隆一个新的节点
-                        FileTreeNode {
-                            info: NodeInfo {
-                                is_dir: true, // 新节点是目录
-                                relative_path: key.clone(),
-                                hash: None,
-                                uncompressed_size: 0,
-                                compressed_size: 0,
-                                is_compressed: false,
-                                belongs_to: None,
-                            },
-                            children: FxHashMap::default(),
-                        }
-                    });
-
-                // 合并子节点
-                *child_node1 = Self::combine_nodes(child_node1.clone(), child_node2);
+                if let Some(child_node1) = node1.children.get_mut(key) {
+                    Self::combine_nodes(child_node1, child_node2);
+                } else {
+                    node1.children.insert(key.clone(), child_node2);
+                }
             }
         } else {
             // 非目录覆盖
-            combined_node.info = node2.info;
+            *node1 = node2;
         }
-
-        combined_node
     }
 
     /// 计算并更新所有父节点的大小
@@ -154,7 +131,7 @@ pub struct RenderTreeNode {
     /// 是否是目录
     pub is_dir: bool,
     /// 节点名称，文件名或组合目录名
-    pub name: String,
+    pub name: SmolStr,
     /// 节点哈希值，如果是目录，则为None
     pub hash: Option<JsSafeHash>,
     /// 节点大小或目录所有子节点压缩后大小
@@ -240,7 +217,7 @@ fn merge_nested_dirs(nodes: &mut [RenderTreeNode]) {
         if node.is_dir && node.children.len() == 1 {
             let child = node.children.iter_mut().next().unwrap();
             if child.is_dir {
-                let new_name = format!("{} / {}", node.name, child.name);
+                let new_name = SmolStr::from(format!("{} / {}", node.name, child.name));
                 // 合并后的节点
                 node.name = new_name.clone();
                 node.children = child.children.clone();

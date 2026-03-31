@@ -1,6 +1,7 @@
+use hashbrown::{HashMap, HashSet};
 use ree_pak_core::filename::FileNameTable;
 
-use super::{Pak, PakId, PakInfo, tree::FileTree};
+use super::{FileTreeStats, Pak, PakId, PakInfo, insert_tree_entry, tree::FileTree};
 
 use crate::error::{Error, Result};
 
@@ -78,25 +79,39 @@ impl PakGroup {
 
     /// 联合解析所有已加载的 Pak 文件树
     pub fn render_tree_combined(&self) -> Result<FileTree> {
-        if self.file_name_table.is_none() {
+        let Some(file_name_table) = self.file_name_table.as_ref() else {
             return Err(Error::MissingFileList);
-        }
+        };
 
         if self.paks.is_empty() {
-            Ok(FileTree::default())
-        // } else if self.paks.len() == 1 {
-        //     Ok(self.paks[0].create_tree(self.file_name_table.as_ref().unwrap()))
-        } else {
-            // render combined tree
-            let file_name_table = self.file_name_table.as_ref().unwrap();
-            let mut tree = self.paks[0].create_tree(file_name_table);
-            for pak in self.paks.iter().skip(1) {
-                let sub_tree = pak.create_tree(file_name_table);
-                tree = tree.combine(sub_tree);
-            }
-
-            Ok(tree)
+            return Ok(FileTree::default());
         }
+
+        let mut root_children = HashMap::new();
+        let mut stats = FileTreeStats::default();
+        let mut seen_hashes = HashSet::new();
+
+        for pak in self.paks.iter().rev() {
+            for entry in pak.pakfile.metadata().entries() {
+                if !seen_hashes.insert(entry.hash()) {
+                    continue;
+                }
+                insert_tree_entry(
+                    &mut root_children,
+                    &mut stats,
+                    pak.id,
+                    file_name_table,
+                    entry,
+                );
+            }
+        }
+
+        Ok(FileTree {
+            roots: root_children.into_values().collect(),
+            uncompressed_size: stats.uncompressed_size,
+            compressed_size: stats.compressed_size,
+            file_count: stats.file_count,
+        })
     }
 }
 

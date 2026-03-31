@@ -472,7 +472,7 @@ const explorerRoot = computed<ExplorerEntry | null>(() => {
     return null
   }
 
-  return buildExplorerRoot(filteredFullTreeData.value)
+  return createExplorerRoot(filteredFullTreeData.value)
 })
 
 const explorerNodeMap = computed(() => {
@@ -1438,34 +1438,7 @@ async function loadWorkRecords() {
   unpackState.value.paks = pakData.value.map((pak) => pak.path)
 }
 
-function buildExplorerTree(node: TreeData, parentPath = '', parentId?: string): ExplorerEntry {
-  const id = node.hash ? node.hash.toString() : `${parentPath}/${node.name}`
-  const path = parentPath ? `${parentPath}/${node.name}` : node.name
-
-  return {
-    id,
-    name: node.name,
-    label: node.name,
-    path,
-    parentId,
-    hash: node.hash,
-    isDir: node.isDir,
-    compressedSize: node.compressedSize,
-    uncompressedSize: node.uncompressedSize,
-    isCompressed: node.isCompressed,
-    sizeText: formatSize(
-      node.uncompressedSize !== undefined
-        ? node.isCompressed
-          ? node.uncompressedSize
-          : node.compressedSize
-        : 0
-    ),
-    children: node.children.map((child) => buildExplorerTree(child, path, id)),
-    belongsTo: node.belongsTo
-  }
-}
-
-function buildExplorerRoot(nodes: TreeData[]): ExplorerEntry {
+function createExplorerRoot(nodes: TreeData[]): ExplorerEntry {
   return {
     id: EXPLORER_ROOT_ID,
     name: '',
@@ -1476,24 +1449,15 @@ function buildExplorerRoot(nodes: TreeData[]): ExplorerEntry {
     uncompressedSize: 0,
     isCompressed: false,
     sizeText: '',
-    children: nodes.map((node) => buildExplorerTree(node, '', EXPLORER_ROOT_ID)),
+    children: nodes.map(
+      (node) =>
+        ({
+          ...node,
+          parentId: EXPLORER_ROOT_ID
+        }) as ExplorerEntry
+    ),
     belongsTo: undefined
   }
-}
-
-function formatSize(size: number): string {
-  if (size < 0) return 'Invalid'
-
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  let index = 0
-  let current = size
-
-  while (current >= 1024 && index < units.length - 1) {
-    current /= 1024
-    index++
-  }
-
-  return `${current.toFixed(2)} ${units[index]}`
 }
 
 function openDirectory(id: string) {

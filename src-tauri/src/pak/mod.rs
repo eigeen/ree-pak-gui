@@ -1,8 +1,13 @@
-use std::{path::PathBuf, sync::Arc};
+use std::sync::Arc;
 
-use ree_pak_core::{filename::FileNameTable, pak::CompressionType, pakfile::PakFile};
-use rustc_hash::FxHashMap;
+use hashbrown::HashMap;
+use ree_pak_core::{
+    filename::FileNameTable,
+    pak::{CompressionType, PakEntry},
+    pakfile::PakFile,
+};
 use serde::{Deserialize, Serialize};
+use smol_str::SmolStr;
 use tree::{FileTree, FileTreeNode, NodeInfo};
 
 use crate::common::{JsSafeHash, UniqueId};
@@ -67,61 +72,73 @@ impl Pak {
     }
 
     pub fn create_tree(&self, name_table: &FileNameTable) -> FileTree {
-        let mut root_children = FxHashMap::default();
-
-        let mut total_uncompressed_size = 0_u64;
-        let mut total_compressed_size = 0_u64;
-        let mut total_file_count = 0_u64;
+        let mut root_children = HashMap::new();
+        let mut stats = FileTreeStats::default();
 
         self.pakfile.metadata().entries().iter().for_each(|entry| {
-            let file_relative_path: PathBuf = name_table
-                .get_file_name(entry.hash())
-                .map(|fname| fname.to_string().unwrap())
-                .unwrap_or_else(|| format!("_Unknown/{:08X}", entry.hash()))
-                .into();
-            let components: Vec<&str> = file_relative_path
-                .components()
-                .map(|c| c.as_os_str().to_str().unwrap())
-                .collect::<Vec<_>>();
-            let mut current_node = &mut root_children;
-
-            for (i, component) in components.iter().enumerate() {
-                let is_dir = i < components.len() - 1;
-                // create or get the child node
-                let child_node = current_node
-                    .entry(component.to_string())
-                    .or_insert_with(|| FileTreeNode {
-                        info: NodeInfo {
-                            is_dir,
-                            relative_path: component.to_string(),
-                            hash: None,
-                            uncompressed_size: 0,
-                            compressed_size: 0,
-                            is_compressed: false,
-                            belongs_to: if is_dir { None } else { Some(self.id) },
-                        },
-                        children: FxHashMap::default(),
-                    });
-                if !is_dir {
-                    child_node.info.uncompressed_size = entry.uncompressed_size();
-                    child_node.info.compressed_size = entry.compressed_size();
-                    child_node.info.is_compressed =
-                        entry.compression_type() != CompressionType::None;
-                    child_node.info.hash = Some(JsSafeHash::from_u64(entry.hash()));
-                    total_uncompressed_size += entry.uncompressed_size();
-                    total_compressed_size += entry.compressed_size();
-                    total_file_count += 1;
-                }
-                // move to the child node
-                current_node = &mut child_node.children;
-            }
+            insert_tree_entry(&mut root_children, &mut stats, self.id, name_table, entry);
         });
 
         FileTree {
             roots: root_children.into_values().collect(),
-            uncompressed_size: total_uncompressed_size,
-            compressed_size: total_compressed_size,
-            file_count: total_file_count,
+            uncompressed_size: stats.uncompressed_size,
+            compressed_size: stats.compressed_size,
+            file_count: stats.file_count,
         }
+    }
+}
+
+#[derive(Default)]
+pub(super) struct FileTreeStats {
+    pub uncompressed_size: u64,
+    pub compressed_size: u64,
+    pub file_count: u64,
+}
+
+pub(super) fn insert_tree_entry(
+    root_children: &mut HashMap<SmolStr, FileTreeNode>,
+    stats: &mut FileTreeStats,
+    pak_id: PakId,
+    name_table: &FileNameTable,
+    entry: &PakEntry,
+) {
+    let file_relative_path = name_table
+        .get_file_name(entry.hash())
+        .map(|fname| fname.to_string().unwrap())
+        .unwrap_or_else(|| format!("_Unknown/{:08X}", entry.hash()))
+        .replace('\\', "/");
+    let mut current_node = root_children;
+    let mut components = file_relative_path
+        .split('/')
+        .filter(|component| !component.is_empty())
+        .peekable();
+
+    while let Some(component) = components.next() {
+        let is_dir = components.peek().is_some();
+        let component_name = SmolStr::new(component);
+        let child_node = current_node
+            .entry(component_name.clone())
+            .or_insert_with(|| FileTreeNode {
+                info: NodeInfo {
+                    is_dir,
+                    relative_path: component_name,
+                    hash: None,
+                    uncompressed_size: 0,
+                    compressed_size: 0,
+                    is_compressed: false,
+                    belongs_to: if is_dir { None } else { Some(pak_id) },
+                },
+                children: HashMap::new(),
+            });
+        if !is_dir {
+            child_node.info.uncompressed_size = entry.uncompressed_size();
+            child_node.info.compressed_size = entry.compressed_size();
+            child_node.info.is_compressed = entry.compression_type() != CompressionType::None;
+            child_node.info.hash = Some(JsSafeHash::from_u64(entry.hash()));
+            stats.uncompressed_size += entry.uncompressed_size();
+            stats.compressed_size += entry.compressed_size();
+            stats.file_count += 1;
+        }
+        current_node = &mut child_node.children;
     }
 }
