@@ -18,7 +18,7 @@ tauri-build = { version = "2", features = [] }
 # local dev
 # ree-pak-core = { path = "../../ree-pak-rs/ree-pak-core" }
 
-ree-pak-core = { git = "https://github.com/eigeen/ree-pak-rs", rev = "56b3003", package = "ree-pak-core" }
+ree-pak-core = { git = "https://github.com/eigeen/ree-pak-rs", rev = "5988312", package = "ree-pak-core" }
 re-tex = { git = "https://github.com/eigeen/re-tex", features = ["image"] }
 
 tauri = { version = "2", features = ["protocol-asset"] }
@@ -48,7 +48,7 @@ self-replace = "1.5"
 tempfile = "3.26"
 semver = "1.0"
 chrono = "0.4"
-sha2 = "0.10"
+sha2 = "0.11"
 zip = { version = "8.1", default-features = false, features = ["deflate"] }
 indexmap = "2.13"
 walkdir = "2"
@@ -57,7 +57,7 @@ image = { version = "0.25", default-features = false, features = [
     "png",
     "rayon",
 ] }
-smol_str = { version = "0.3.2", features = ["serde"] }
+smol_str = { version = "0.3.6", features = ["serde"] }
 hashbrown = { version = "0.16.1", features = ["serde"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
