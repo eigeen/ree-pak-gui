@@ -32,6 +32,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import SettingsItemSwitch from '@/components/Settings/SettingsItemSwitch.vue'
 import { useSettingsStore } from '@/store/settings'
 import { Separator } from '@/components/ui/separator'
 import {

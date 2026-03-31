@@ -27,6 +27,7 @@ import { useSettingsStore, type AppSettings } from '@/store/settings'
 import { useWorkStore } from '@/store/work'
 import Settings from '@/components/Settings/Settings.vue'
 import TaskProgressPanel from '@/components/TaskProgressPanel.vue'
+import Menu from '@/components/Menu.vue'
 import { ShowError, ShowWarn } from '@/utils/message'
 
 const settingsStore = useSettingsStore()

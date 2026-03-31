@@ -1,14 +1,10 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueJsx from '@vitejs/plugin-vue-jsx'
-
-import AutoImport from 'unplugin-auto-import/vite'
-import Components from 'unplugin-vue-components/vite'
+import ElementPlus from 'unplugin-element-plus/vite'
 import Unfonts from 'unplugin-fonts/vite'
 import tailwindcss from '@tailwindcss/vite'
 import vueDevTools from 'vite-plugin-vue-devtools'
-// element-plus
-import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 
 import { fileURLToPath, URL } from 'node:url'
 
@@ -18,12 +14,7 @@ export default defineConfig({
     vue(),
     vueJsx(),
     vueDevTools(),
-    AutoImport({
-      resolvers: [ElementPlusResolver()]
-    }),
-    Components({
-      resolvers: [ElementPlusResolver()]
-    }),
+    ElementPlus({}),
     Unfonts({
       custom: {
         families: [

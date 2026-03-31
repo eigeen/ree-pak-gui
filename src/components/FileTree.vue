@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import type { TreeNode } from 'element-plus'
+import type { TreeNode, TreeNodeData } from 'element-plus'
 import type { TreeV2Instance } from 'element-plus/es/components/tree-v2/src/instance'
 import type { ExtractFileInfo, JsSafeHash, RenderTreeNode } from '@/api/tauri/pak'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Folder } from 'lucide-vue-next'
 import { getSelectedItemRelativeRoot } from '@/utils/path'
+import { ElTreeV2 } from 'element-plus'
 
 export interface TreeData {
   id: string
@@ -262,9 +263,17 @@ function handleBackgroundContextMenu(event: MouseEvent) {
   emit('background-contextmenu', event)
 }
 
-function handleNodeContextMenu(event: Event, data: TreeData, node: TreeNode) {
+function toTreeData(data: TreeNodeData): TreeData {
+  return data as TreeData
+}
+
+function handleNodeClick(data: TreeNodeData, node: TreeNode, event: MouseEvent) {
+  emit('node-click', toTreeData(data), node, event)
+}
+
+function handleNodeContextMenu(event: Event, data: TreeNodeData, node: TreeNode) {
   event.preventDefault()
-  emit('node-contextmenu', data, node, event as MouseEvent)
+  emit('node-contextmenu', toTreeData(data), node, event as MouseEvent)
 }
 
 defineExpose({ bringNodeIntoView, collapseAll, getCheckedNodes })
@@ -282,9 +291,7 @@ defineExpose({ bringNodeIntoView, collapseAll, getCheckedNodes })
       highlight-current
       node-key="id"
       show-checkbox
-      @node-click="
-        (data: TreeData, node: TreeNode, e: MouseEvent) => emit('node-click', data, node, e)
-      "
+      @node-click="handleNodeClick"
       @node-contextmenu="handleNodeContextMenu"
     >
       <template #default="{ node }">

@@ -152,7 +152,7 @@
 
         <ResizableHandle class="bg-border/80 hover:bg-primary data-[dragging]:bg-primary" />
 
-        <ResizablePanel :default-size="72" :min-size="48">
+        <ResizablePanel :default-size="76" :min-size="48">
           <ResizablePanelGroup direction="vertical">
             <ResizablePanel :default-size="75" :min-size="52">
               <UnpackExplorerPane
@@ -358,8 +358,10 @@ import {
   splitNormalizedPath
 } from '@/utils/path'
 import { Button } from '@/components/ui/button'
+import { DenseInput } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
+import { ElImageViewer } from 'element-plus'
 
 type UnpackState = {
   fileList: string

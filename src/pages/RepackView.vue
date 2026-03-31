@@ -39,6 +39,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { ElTreeV2 } from 'element-plus'
 
 const { t } = useI18n()
 const workStore = useWorkStore()
@@ -215,11 +216,11 @@ const addFiles = async (paths: string[]) => {
 }
 
 const handleAddViaDialog = async (pak: boolean) => {
-    const results = await openDialog({
-      multiple: true,
-      directory: !pak,
-      filters: pak ? [{ name: t('pack.pakFilesFilter'), extensions: ['pak'] }] : undefined
-    })
+  const results = await openDialog({
+    multiple: true,
+    directory: !pak,
+    filters: pak ? [{ name: t('pack.pakFilesFilter'), extensions: ['pak'] }] : undefined
+  })
 
   if (!results) return
   await addFiles(Array.isArray(results) ? results : [results])
@@ -681,7 +682,9 @@ function formatFileSize(bytes: number) {
           <span>{{ exportModeLabel }}</span>
         </div>
         <div class="min-w-0 truncate text-right">
-          <span>{{ packState.exportConfig.exportDirectory || t('pack.exportDirectoryUnset') }}</span>
+          <span>{{
+            packState.exportConfig.exportDirectory || t('pack.exportDirectoryUnset')
+          }}</span>
         </div>
       </div>
     </div>
@@ -706,7 +709,9 @@ function formatFileSize(bytes: number) {
       <DialogContent class="max-w-4xl rounded-[1rem] border-border/80 bg-background/96">
         <DialogHeader>
           <DialogTitle>{{ t('pack.exportSuccess') }}</DialogTitle>
-          <DialogDescription>{{ t('pack.exportResultDescription', { count: exportFileCount }) }}</DialogDescription>
+          <DialogDescription>{{
+            t('pack.exportResultDescription', { count: exportFileCount })
+          }}</DialogDescription>
         </DialogHeader>
 
         <div
