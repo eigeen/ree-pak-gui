@@ -251,6 +251,7 @@ import {
   onMounted,
   onUnmounted,
   ref,
+  shallowRef,
   unref,
   watch,
   type CSSProperties,
@@ -415,7 +416,7 @@ const sidebarTabs = computed<UnpackSidebarTabItem[]>(() => [
 ])
 const pakData = ref<PakInfo[]>([])
 const initialLoaded = ref(false)
-const treeData = ref<RenderTreeNode[] | null>(null)
+const treeData = shallowRef<RenderTreeNode[] | null>(null)
 const showOverlay = ref(false)
 const loadingTree = ref(false)
 const currentDirectoryKey = ref('')

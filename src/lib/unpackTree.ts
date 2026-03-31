@@ -21,13 +21,15 @@ export function buildTreeData(nodes: RenderTreeNode[]): TreeData[] {
 }
 
 export function buildDirectoryTreeData(nodes: TreeData[]): TreeData[] {
-  return nodes
-    .map((node) => pruneTreeFiles(node))
-    .filter((node): node is TreeData => node !== null)
+  return mapTreeNodes(nodes, pruneTreeFiles)
 }
 
 export function createTreeFilter(filterText = '', regexMode = false): string | RegExp {
   const filter = filterText.trim()
+  if (filter === '') {
+    return ''
+  }
+
   if (!regexMode) {
     return filter.toLowerCase()
   }
@@ -40,24 +42,28 @@ export function createTreeFilter(filterText = '', regexMode = false): string | R
 }
 
 export function filterTreeData(data: TreeData[], filter: string | RegExp): TreeData[] {
-  return data
-    .map((node) => {
-      const filteredChildren = filterTreeData(node.children, filter)
-      const isMatch =
-        typeof filter === 'string'
-          ? filter === '' || node.path.toLowerCase().includes(filter)
-          : filter.test(node.path)
+  if (typeof filter === 'string' && filter === '') {
+    return data
+  }
 
-      if (!isMatch && filteredChildren.length === 0) {
-        return null
-      }
+  return mapTreeNodes(data, (node) => {
+    const filteredChildren = filterTreeData(node.children, filter)
+    const isMatch =
+      typeof filter === 'string' ? node.path.toLowerCase().includes(filter) : filter.test(node.path)
 
-      return {
-        ...node,
-        children: filteredChildren
-      }
-    })
-    .filter((node): node is TreeData => node !== null)
+    if (!isMatch && filteredChildren.length === 0) {
+      return null
+    }
+
+    if (filteredChildren === node.children) {
+      return node
+    }
+
+    return {
+      ...node,
+      children: filteredChildren
+    }
+  })
 }
 
 function createTreeData(node: RenderTreeNode, parentPath = '', parentId?: string): TreeData {
@@ -102,15 +108,41 @@ function formatTreeSize(size: number): string {
   return `${current.toFixed(2)} ${units[index]}`
 }
 
+function mapTreeNodes(
+  nodes: TreeData[],
+  mapNode: (node: TreeData) => TreeData | null
+): TreeData[] {
+  const nextNodes: TreeData[] = []
+  let changed = false
+
+  for (const node of nodes) {
+    const nextNode = mapNode(node)
+    if (!nextNode) {
+      changed = true
+      continue
+    }
+
+    nextNodes.push(nextNode)
+    if (nextNode !== node) {
+      changed = true
+    }
+  }
+
+  return changed ? nextNodes : nodes
+}
+
 function pruneTreeFiles(node: TreeData): TreeData | null {
   if (!node.isDir) {
     return null
   }
 
+  const directoryChildren = mapTreeNodes(node.children, pruneTreeFiles)
+  if (directoryChildren === node.children) {
+    return node
+  }
+
   return {
     ...node,
-    children: node.children
-      .map((child) => pruneTreeFiles(child))
-      .filter((child): child is TreeData => child !== null)
+    children: directoryChildren
   }
 }
