@@ -189,44 +189,44 @@ function handleBackgroundContextMenu(event: MouseEvent) {
 
 <style scoped>
 .explorer-grid-card {
-  background: color-mix(in oklch, var(--surface-console) 26%, var(--surface-panel));
-  border-color: color-mix(in oklch, var(--surface-console) 26%, var(--surface-panel));
+  background: color-mix(in srgb, var(--surface-console) 26%, var(--surface-panel));
+  border-color: color-mix(in srgb, var(--surface-console) 26%, var(--surface-panel));
   box-shadow: 0 6px 16px -8px rgb(15 23 42 / 0.14);
 }
 
 .explorer-grid-card:hover {
-  background: color-mix(in oklch, var(--surface-console) 38%, var(--surface-panel));
-  border-color: color-mix(in oklch, var(--color-border) 54%, transparent);
+  background: color-mix(in srgb, var(--surface-console) 38%, var(--surface-panel));
+  border-color: color-mix(in srgb, var(--color-border) 54%, transparent);
   box-shadow: 0 8px 18px -8px rgb(15 23 42 / 0.18);
 }
 
 .dark .explorer-grid-card {
-  background: color-mix(in oklch, var(--surface-toolbar) 74%, var(--surface-panel));
-  border-color: color-mix(in oklch, var(--surface-toolbar) 74%, var(--surface-panel));
+  background: color-mix(in srgb, var(--surface-toolbar) 74%, var(--surface-panel));
+  border-color: color-mix(in srgb, var(--surface-toolbar) 74%, var(--surface-panel));
   box-shadow: 0 10px 18px -16px rgb(0 0 0 / 0.56);
 }
 
 .dark .explorer-grid-card:hover {
-  background: color-mix(in oklch, var(--surface-toolbar) 92%, var(--surface-panel));
-  border-color: color-mix(in oklch, var(--color-border) 88%, transparent);
+  background: color-mix(in srgb, var(--surface-toolbar) 92%, var(--surface-panel));
+  border-color: color-mix(in srgb, var(--color-border) 88%, transparent);
   box-shadow: 0 12px 20px -16px rgb(0 0 0 / 0.58);
 }
 
 .explorer-grid-card-checked,
 .explorer-grid-card-checked:hover {
-  background: color-mix(in oklch, var(--color-primary) 16%, var(--surface-panel));
-  border-color: color-mix(in oklch, var(--color-primary) 48%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 16%, var(--surface-panel));
+  border-color: color-mix(in srgb, var(--color-primary) 48%, transparent);
   box-shadow:
-    inset 0 0 0 1px color-mix(in oklch, var(--color-primary) 28%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 28%, transparent),
     0 8px 18px -10px rgb(15 23 42 / 0.16);
 }
 
 .dark .explorer-grid-card-checked,
 .dark .explorer-grid-card-checked:hover {
-  background: color-mix(in oklch, var(--color-primary) 12%, var(--surface-toolbar));
-  border-color: color-mix(in oklch, var(--color-primary) 42%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--surface-toolbar));
+  border-color: color-mix(in srgb, var(--color-primary) 42%, transparent);
   box-shadow:
-    inset 0 0 0 1px color-mix(in oklch, var(--color-primary) 28%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 28%, transparent),
     0 12px 24px -18px rgb(12 18 34 / 0.52);
 }
 </style>

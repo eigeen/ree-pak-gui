@@ -1641,13 +1641,13 @@ function getExplorerHeroIconStyle(item: ExplorerEntry): CSSProperties {
 function getExplorerPreviewSurfaceStyle(item: ExplorerEntry): CSSProperties {
   if (texturePreviewEnabled.value && getTexturePreview(item)) {
     return {
-      background: 'color-mix(in oklch, var(--surface-toolbar) 92%, var(--surface-console))'
+      background: 'color-mix(in srgb, var(--surface-toolbar) 92%, var(--surface-console))'
     }
   }
 
   const base = item.isDir
-    ? 'color-mix(in oklch, var(--surface-toolbar) 82%, var(--surface-panel))'
-    : 'color-mix(in oklch, var(--surface-toolbar) 90%, var(--surface-panel))'
+    ? 'color-mix(in srgb, var(--surface-toolbar) 82%, var(--surface-panel))'
+    : 'color-mix(in srgb, var(--surface-toolbar) 90%, var(--surface-panel))'
 
   return {
     background: base
