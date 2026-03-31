@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { File, Folder } from 'lucide-vue-next'
+import { ElImage } from 'element-plus'
 import VirtualExplorerGrid from '@/components/explorer/VirtualExplorerGrid.vue'
 import type { ExplorerEntry, ExplorerRenderers } from '@/lib/unpackExplorer'
 

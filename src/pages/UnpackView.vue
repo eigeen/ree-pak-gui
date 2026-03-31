@@ -458,7 +458,9 @@ const texturePreviewEnabled = computed(() => settings.value?.preview?.showTextur
 const extractMode = computed<ExtractMode>(() =>
   settings.value?.unpack?.extractAbsolutePath ? 'absolutePath' : 'relativePath'
 )
-const fullTreeData = computed<TreeData[]>(() => (treeData.value ? buildTreeData(treeData.value) : []))
+const fullTreeData = computed<TreeData[]>(() =>
+  treeData.value ? buildTreeData(treeData.value) : []
+)
 const treeFilter = computed(() =>
   createTreeFilter(filterTextApply.value, unpackState.value.filterUseRegex)
 )
@@ -1436,11 +1438,7 @@ async function loadWorkRecords() {
   unpackState.value.paks = pakData.value.map((pak) => pak.path)
 }
 
-function buildExplorerTree(
-  node: TreeData,
-  parentPath = '',
-  parentId?: string
-): ExplorerEntry {
+function buildExplorerTree(node: TreeData, parentPath = '', parentId?: string): ExplorerEntry {
   const id = node.hash ? node.hash.toString() : `${parentPath}/${node.name}`
   const path = parentPath ? `${parentPath}/${node.name}` : node.name
 
