@@ -1,14 +1,12 @@
 import { Channel } from '@tauri-apps/api/core'
 import { exists, stat, readDir, mkdir } from '@tauri-apps/plugin-fs'
 import { join } from '@tauri-apps/api/path'
-import { ShowError, ShowWarn } from '@/utils/message'
+import { ShowError } from '@/utils/message'
 import {
   pak_pack,
   pak_get_header,
   pak_terminate_pack,
   type PackProgressEvent,
-  type PakHeaderInfo,
-  type PakEntry,
   type PackedPak
 } from '@/api/tauri/pak'
 import type { FileItem } from '@/store/work'

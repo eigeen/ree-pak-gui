@@ -3,7 +3,7 @@ import type { UpdateMetadata, UpdateVersion, UpdateFile } from '@/api/http/updat
 import { getCompileInfo, performUpdate, zipExtractFile, type CompileInfo } from '@/api/tauri/utils'
 import { fetchWithSpeedCheck } from '@/lib/http/download'
 import { getTempDir } from '@/lib/localDir'
-import { logFrontendDebug, logFrontendInfo, runLoggedTask } from '@/utils/frontendLog'
+import { logFrontendDebug, runLoggedTask } from '@/utils/frontendLog'
 import { sha256Hex } from '@/utils/hash'
 
 import { join } from '@tauri-apps/api/path'

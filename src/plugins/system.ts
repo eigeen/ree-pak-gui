@@ -14,7 +14,7 @@ type SystemEvent = {
 }
 
 export default {
-  install: (app: App) => {
+  install: (_app: App) => {
     const systemLogStore = useSystemLogStore()
 
     listen<SystemEvent>('system', (event) => {

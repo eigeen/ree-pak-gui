@@ -1,8 +1,6 @@
 import {
-  Archive,
   Box,
   File,
-  FileCode2,
   FileImage,
   FileMusic,
   Folder,
