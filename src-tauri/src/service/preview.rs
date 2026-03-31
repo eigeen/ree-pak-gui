@@ -1,7 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
-    io::{BufReader, BufWriter},
+    io::{BufReader, BufWriter, Read},
     path::{Path, PathBuf},
     sync::{
         Arc, OnceLock,
@@ -12,9 +12,8 @@ use std::{
 use parking_lot::Mutex;
 use re_tex::tex::Tex;
 use ree_pak_core::utf16_hash::Utf16HashExt;
-use tempfile::NamedTempFile;
 
-use crate::pak::ExtractFileInfo;
+use crate::pak::{ExtractFileInfo, PakId};
 
 use crate::{
     TEMP_DIR_NAME,
@@ -185,7 +184,6 @@ impl PreviewService {
 
         let output_dir = output_dir.as_ref().to_path_buf();
         let files = files.to_vec();
-        let temp_dir = self.temp_dir.clone();
         let pak_service = self.pak_service;
         let should_terminate = self.should_terminate.clone();
         let export_running = self.export_running.clone();
@@ -193,7 +191,6 @@ impl PreviewService {
         let result = tokio::task::spawn_blocking(move || {
             export_texture_files_blocking(
                 pak_service,
-                &temp_dir,
                 format,
                 &output_dir,
                 &files,
@@ -215,7 +212,6 @@ impl PreviewService {
 
 fn export_texture_files_blocking(
     pak_service: &PakService,
-    temp_dir: &Path,
     format: TextureExportFormat,
     output_dir: &Path,
     files: &[ExtractFileInfo],
@@ -228,69 +224,166 @@ fn export_texture_files_blocking(
 
     progress.work_start(files.len() as u32);
 
+    let export_plan = build_texture_export_plan(pak_service, output_dir, files, format)?;
     let mut exported = 0usize;
-    let mut used_paths = HashSet::new();
 
-    for file in files {
+    for source in &export_plan.sources {
         if should_terminate.load(Ordering::Relaxed) {
             progress.error(Error::Terminated.to_string());
             return Err(Error::Terminated);
         }
 
-        let entry_path = resolve_entry_path(pak_service, file.hash.hash_u64())?;
+        let Some(task_map) = export_plan.tasks_by_pak.get(&source.id) else {
+            continue;
+        };
+
+        let target_hashes = Arc::new(task_map.keys().copied().collect::<HashSet<_>>());
+        let task_map = Arc::new(task_map.clone());
+        let progress1 = progress.clone();
+        let report = source
+            .pakfile
+            .extractor_callback()
+            .file_name_table_arc(export_plan.file_name_table.clone())
+            .skip_unknown(false)
+            .continue_on_error(true)
+            .cancel_flag(should_terminate.clone())
+            .filter({
+                let target_hashes = Arc::clone(&target_hashes);
+                move |entry, _path| target_hashes.contains(&entry.hash())
+            })
+            .on_event(move |event| {
+                if let ree_pak_core::extract::ExtractEvent::FileDone { path, .. } = event {
+                    progress1.file_done(path.to_string_lossy().as_ref());
+                }
+            })
+            .run_with_reader({
+                let task_map = Arc::clone(&task_map);
+                move |entry, _rel_path, reader| {
+                    let Some(task) = task_map.get(&entry.hash()) else {
+                        return Err(std::io::Error::other(format!(
+                            "missing export task for {:016X}",
+                            entry.hash()
+                        ))
+                        .into());
+                    };
+
+                    if let Some(parent) = task.output_path.parent()
+                        && !parent.exists()
+                    {
+                        std::fs::create_dir_all(parent)?;
+                    }
+
+                    match task.file_type {
+                        PreviewFileType::Tex => {
+                            export_tex_reader(reader, &task.output_path, format)?;
+                            Ok(())
+                        }
+                    }
+                }
+            })?;
+
+        exported += report.extracted;
+
+        for (hash, path, error) in report.errors {
+            log::error!(
+                "texture export skipped: hash={:016X}, entry_path={}, error={}",
+                hash,
+                path.display(),
+                error
+            );
+        }
+
+        if should_terminate.load(Ordering::Relaxed) {
+            progress.error(Error::Terminated.to_string());
+            return Err(Error::Terminated);
+        }
+    }
+
+    log::info!(
+        "texture export finished: requested={}, exported={}, skipped={}",
+        export_plan.task_count,
+        exported,
+        export_plan.task_count.saturating_sub(exported)
+    );
+
+    progress.work_finished();
+
+    Ok(exported)
+}
+
+#[derive(Debug, Clone)]
+struct TextureExportTask {
+    output_path: PathBuf,
+    file_type: PreviewFileType,
+}
+
+struct TextureExportSource {
+    id: PakId,
+    pakfile: Arc<ree_pak_core::pakfile::PakFile>,
+}
+
+struct TextureExportPlan {
+    file_name_table: Arc<ree_pak_core::filename::FileNameTable>,
+    sources: Vec<TextureExportSource>,
+    tasks_by_pak: HashMap<PakId, HashMap<u64, TextureExportTask>>,
+    task_count: usize,
+}
+
+fn build_texture_export_plan(
+    pak_service: &PakService,
+    output_dir: &Path,
+    files: &[ExtractFileInfo],
+    format: TextureExportFormat,
+) -> Result<TextureExportPlan> {
+    let (file_name_table, sources) = {
+        let pak_group = pak_service.pak_group();
+        let pak_group = pak_group.lock();
+        let Some(file_name_table) = pak_group.file_name_table() else {
+            return Err(Error::MissingFileList);
+        };
+
+        let sources = pak_group
+            .paks()
+            .iter()
+            .map(|pak| TextureExportSource {
+                id: pak.id,
+                pakfile: Arc::clone(&pak.pakfile),
+            })
+            .collect::<Vec<_>>();
+
+        (Arc::new(file_name_table.clone()), sources)
+    };
+
+    let mut used_paths = HashSet::new();
+    let mut tasks_by_pak = HashMap::<PakId, HashMap<u64, TextureExportTask>>::new();
+
+    for file in files {
+        let entry_path = file_name_table
+            .get_file_name(file.hash.hash_u64())
+            .map(|path| path.to_string().unwrap())
+            .ok_or_else(|| Error::PakEntryNotFound(file.hash.hash_u64().to_string()))?;
         let extension = entry_path.split('.').rev().nth(1).unwrap_or_default();
         let file_type = PreviewFileType::from_extension(extension)
             .ok_or_else(|| Error::PreviewFileNotSupported(extension.to_string()))?;
 
         let output_path = output_dir.join(build_texture_output_path(&entry_path, file, format));
         let output_path = ensure_unique_path(output_path, file.hash.hash_u64(), &mut used_paths);
-        if let Some(parent) = output_path.parent()
-            && !parent.exists()
-        {
-            std::fs::create_dir_all(parent)?;
-        }
 
-        let temp_file = NamedTempFile::new_in(temp_dir)?;
-        if let Err(error) = pak_service.unpack_file(&entry_path, temp_file.path()) {
-            log::error!(
-                "texture export skipped: unpack failed: hash={:016X}, entry_path={}, output_path={}, error={}",
-                file.hash.hash_u64(),
-                entry_path,
-                output_path.display(),
-                error
-            );
-            continue;
-        }
-
-        let export_result = match file_type {
-            PreviewFileType::Tex => export_tex_file(temp_file.path(), &output_path, format),
-        };
-        if let Err(error) = export_result {
-            log::error!(
-                "texture export skipped: convert failed: hash={:016X}, entry_path={}, output_path={}, error={}",
-                file.hash.hash_u64(),
-                entry_path,
-                output_path.display(),
-                error
-            );
-            progress.file_done(&entry_path);
-            continue;
-        }
-
-        exported += 1;
-        progress.file_done(&entry_path);
+        tasks_by_pak.entry(file.belongs_to).or_default().insert(
+            file.hash.hash_u64(),
+            TextureExportTask {
+                output_path,
+                file_type,
+            },
+        );
     }
 
-    log::info!(
-        "texture export finished: requested={}, exported={}, skipped={}",
-        files.len(),
-        exported,
-        files.len().saturating_sub(exported)
-    );
-
-    progress.work_finished();
-
-    Ok(exported)
+    Ok(TextureExportPlan {
+        file_name_table,
+        sources,
+        tasks_by_pak,
+        task_count: files.len(),
+    })
 }
 
 fn build_texture_output_path(
@@ -322,30 +415,31 @@ fn tex_to_png(tex_path: impl AsRef<Path>, png_path: impl AsRef<Path>) -> Result<
     Ok(())
 }
 
-fn tex_to_dds(tex_path: impl AsRef<Path>, dds_path: impl AsRef<Path>) -> Result<()> {
-    let tex_path = tex_path.as_ref();
-    let dds_path = dds_path.as_ref();
-
-    let mut reader = BufReader::new(File::open(tex_path)?);
-    let tex = Tex::from_reader(&mut reader)?;
-    let dds = tex.to_dds(tex.header.mipmap_count as usize)?;
-
-    let mut writer = BufWriter::new(File::create(dds_path)?);
-    dds.write(&mut writer)
-        .map_err(|error| Error::Internal(error.to_string()))?;
-
-    Ok(())
-}
-
-fn export_tex_file(
-    tex_path: impl AsRef<Path>,
+fn export_tex_reader(
+    reader: &mut dyn Read,
     output_path: impl AsRef<Path>,
     format: TextureExportFormat,
-) -> Result<()> {
+) -> std::result::Result<(), std::io::Error> {
+    let mut buffered = BufReader::new(reader);
+    let tex = Tex::from_reader(&mut buffered).map_err(std::io::Error::other)?;
+    let output_path = output_path.as_ref();
+
     match format {
-        TextureExportFormat::Dds => tex_to_dds(tex_path, output_path),
-        TextureExportFormat::Png => tex_to_png(tex_path, output_path),
+        TextureExportFormat::Dds => {
+            let dds = tex
+                .to_dds(tex.header.mipmap_count as usize)
+                .map_err(std::io::Error::other)?;
+            let mut writer = BufWriter::new(File::create(output_path)?);
+            dds.write(&mut writer).map_err(std::io::Error::other)?;
+        }
+        TextureExportFormat::Png => {
+            let img = tex.to_rgba_image(0).map_err(std::io::Error::other)?;
+            img.save_with_format(output_path, image::ImageFormat::Png)
+                .map_err(std::io::Error::other)?;
+        }
     }
+
+    Ok(())
 }
 
 fn ensure_unique_path(path: PathBuf, hash: u64, used_paths: &mut HashSet<PathBuf>) -> PathBuf {
@@ -389,19 +483,6 @@ fn build_relative_output_path(entry_path: &str, relative_root: Option<&str>) -> 
             path.push(component);
             path
         })
-}
-
-fn resolve_entry_path(pak_service: &PakService, hash: u64) -> Result<String> {
-    let pak_group = pak_service.pak_group();
-    let pak_group = pak_group.lock();
-    let Some(file_name_table) = pak_group.file_name_table() else {
-        return Err(Error::MissingFileList);
-    };
-
-    file_name_table
-        .get_file_name(hash)
-        .map(|p| p.to_string().unwrap())
-        .ok_or_else(|| Error::PakEntryNotFound(hash.to_string()))
 }
 
 fn path_string_components(path: &str) -> Vec<&str> {

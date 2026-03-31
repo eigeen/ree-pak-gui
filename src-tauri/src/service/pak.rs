@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{BufReader, BufWriter, Read},
+    io::{BufReader, BufWriter, Read, Write},
     path::{Path, PathBuf},
     sync::{
         Arc, OnceLock,
@@ -13,6 +13,7 @@ use indexmap::IndexMap;
 use parking_lot::Mutex;
 use ree_pak_core::{
     filename::FileNameTable,
+    pak::PakEntry as CorePakEntry,
     pak::PakMetadata,
     pakfile::PakFile,
     utf16_hash::Utf16HashExt,
@@ -353,38 +354,59 @@ impl PakService {
 
     /// Unpack a specific file from Paks.
     pub fn unpack_file(&self, entry_path: &str, output_path: impl AsRef<Path>) -> Result<()> {
-        let mut _pak_group = self.pak_group.lock();
-        if _pak_group.paks().is_empty() {
-            return Err(Error::NoPaksLoaded);
+        {
+            let pak_group = self.pak_group.lock();
+            if pak_group.paks().is_empty() {
+                return Err(Error::NoPaksLoaded);
+            }
+            if pak_group.file_name_table().is_none() {
+                return Err(Error::MissingFileList);
+            }
         }
-        if _pak_group.file_name_table().is_none() {
-            return Err(Error::MissingFileList);
+
+        let bytes = self.read_file_bytes(entry_path)?;
+
+        let output_path = output_path.as_ref();
+        let file_dir = output_path.parent().unwrap();
+        if !file_dir.exists() {
+            std::fs::create_dir_all(file_dir)?;
+        }
+        let mut file = File::create(output_path)?;
+        file.write_all(&bytes)?;
+        Ok(())
+    }
+
+    pub fn read_file_bytes(&self, entry_path: &str) -> Result<Vec<u8>> {
+        let (pakfile, entry) = self.find_entry(entry_path)?;
+
+        let mut entry_reader = pakfile.open_entry(&entry)?;
+        let mut bytes = Vec::with_capacity(entry.uncompressed_size() as usize);
+        entry_reader.read_to_end(&mut bytes)?;
+        Ok(bytes)
+    }
+
+    fn find_entry(&self, entry_path: &str) -> Result<(Arc<PakFile>, CorePakEntry)> {
+        let pak_group = self.pak_group.lock();
+        if pak_group.paks().is_empty() {
+            return Err(Error::NoPaksLoaded);
         }
 
         // get newest file from paks
         let file_hash = entry_path.hash_mixed();
-        for pak in _pak_group.paks().iter().rev() {
-            if let Some(entry) = pak
-                .pakfile
-                .metadata()
-                .entries()
-                .iter()
-                .find(|e| e.hash() == file_hash)
-            {
-                let mut entry_reader = pak.pakfile.open_entry(entry)?;
-
-                let output_path = output_path.as_ref();
-                let file_dir = output_path.parent().unwrap();
-                if !file_dir.exists() {
-                    std::fs::create_dir_all(file_dir)?;
-                }
-                let mut file = File::create(output_path)?;
-                std::io::copy(&mut entry_reader, &mut file)?;
-                return Ok(());
-            }
-        }
-
-        Err(Error::PakEntryNotFound(entry_path.to_string()))
+        pak_group
+            .paks()
+            .iter()
+            .rev()
+            .find_map(|pak| {
+                pak.pakfile
+                    .metadata()
+                    .entries()
+                    .iter()
+                    .find(|entry| entry.hash() == file_hash)
+                    .cloned()
+                    .map(|entry| (Arc::clone(&pak.pakfile), entry))
+            })
+            .ok_or_else(|| Error::PakEntryNotFound(entry_path.to_string()))
     }
 
     pub fn set_file_name_table(&self, table: FileNameTable) {

@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 use ree_pak_core::{filename::FileNameTable, pak::CompressionType, pakfile::PakFile};
 use rustc_hash::FxHashMap;
@@ -54,7 +54,7 @@ pub struct ExtractFileInfo {
 pub struct Pak {
     pub(crate) id: PakId,
     pub(crate) path: String,
-    pub(crate) pakfile: PakFile,
+    pub(crate) pakfile: Arc<PakFile>,
 }
 
 impl Pak {
@@ -62,7 +62,7 @@ impl Pak {
         Pak {
             id: UniqueId::create().into(),
             path: path.to_string(),
-            pakfile,
+            pakfile: Arc::new(pakfile),
         }
     }
 
