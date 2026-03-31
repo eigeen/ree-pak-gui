@@ -1,32 +1,13 @@
 <script setup lang="ts">
 import type { TreeNode, TreeNodeData } from 'element-plus'
 import type { TreeV2Instance } from 'element-plus/es/components/tree-v2/src/instance'
-import type { ExtractFileInfo, JsSafeHash, RenderTreeNode } from '@/api/tauri/pak'
+import type { TreeData } from '@/lib/unpackTree'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Folder } from 'lucide-vue-next'
-import { getSelectedItemRelativeRoot } from '@/utils/path'
 import { ElTreeV2 } from 'element-plus'
 
-export interface TreeData {
-  id: string
-  name: string
-  label: string
-  path: string
-  parentId?: string
-  hash?: JsSafeHash
-  isDir: boolean
-  compressedSize: number
-  uncompressedSize: number
-  isCompressed: boolean
-  sizeText: string
-  children: TreeData[]
-  belongsTo: string | undefined
-}
-
 interface Props {
-  data: RenderTreeNode[] | null
-  filterText?: string
-  regexMode?: boolean
+  data: TreeData[] | null
   currentNodeKey?: string
 }
 
@@ -41,9 +22,7 @@ const emit = defineEmits<{
 const treeComponent = ref<TreeV2Instance>()
 const containerRef = ref<HTMLElement>()
 const treeHeight = ref(200)
-const cachedTreeData = ref<TreeData[]>([])
-const cachedFullTreeData = ref<TreeData[]>([])
-const filteredData = ref<TreeData[]>([])
+const treeData = computed(() => props.data ?? [])
 
 let resizeObserver: ResizeObserver | null = null
 
@@ -64,163 +43,12 @@ onUnmounted(() => {
 })
 
 watch(
-  () => [props.filterText, props.regexMode],
-  () => {
-    filteredData.value = filterTreeData(deepCopy(cachedTreeData.value), getFilterObject())
-  }
-)
-
-watch(
   () => props.currentNodeKey,
   (key) => {
     if (!key) return
     treeComponent.value?.setCurrentKey?.(key)
   }
 )
-
-watch(
-  () => props.data,
-  (data) => {
-    if (!data) {
-      cachedTreeData.value = []
-      filteredData.value = []
-      return
-    }
-
-    const nextTree = data.map((node) => createTreeData(node))
-    cachedFullTreeData.value = nextTree
-    cachedTreeData.value = nextTree
-      .map((node) => pruneFiles(node))
-      .filter((node): node is TreeData => Boolean(node))
-    filteredData.value = props.filterText
-      ? filterTreeData(deepCopy(cachedTreeData.value), getFilterObject())
-      : deepCopy(cachedTreeData.value)
-  },
-  { immediate: true }
-)
-
-function getFilterObject() {
-  const filter = props.filterText ?? ''
-  return props.regexMode ? new RegExp(filter, 'i') : filter.toLowerCase()
-}
-
-function createTreeData(node: RenderTreeNode, parentPath = '', parentId?: string): TreeData {
-  const id = node.hash ? node.hash.toString() : `${parentPath}/${node.name}`
-  const path = parentPath ? `${parentPath}/${node.name}` : node.name
-
-  return {
-    id,
-    name: node.name,
-    label: node.name,
-    path,
-    parentId,
-    hash: node.hash,
-    isDir: node.isDir,
-    compressedSize: node.compressedSize,
-    uncompressedSize: node.uncompressedSize,
-    isCompressed: node.isCompressed,
-    sizeText: formatSize(
-      node.uncompressedSize !== undefined
-        ? node.isCompressed
-          ? node.uncompressedSize
-          : node.compressedSize
-        : 0
-    ),
-    children: node.children?.map((child) => createTreeData(child, path, id)) ?? [],
-    belongsTo: node.belongsTo
-  }
-}
-
-function formatSize(size: number): string {
-  if (size < 0) return 'Invalid'
-
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  let index = 0
-  let current = size
-
-  while (current >= 1024 && index < units.length - 1) {
-    current /= 1024
-    index++
-  }
-
-  return `${current.toFixed(2)} ${units[index]}`
-}
-
-function deepCopy(data: TreeData[]): TreeData[] {
-  return JSON.parse(JSON.stringify(data))
-}
-
-function pruneFiles(node: TreeData): TreeData | null {
-  if (!node.isDir) {
-    return null
-  }
-
-  return {
-    ...node,
-    children: node.children
-      .map((child) => pruneFiles(child))
-      .filter((child): child is TreeData => child !== null)
-  }
-}
-
-function filterTreeData(data: TreeData[], filter: string | RegExp): TreeData[] {
-  return data
-    .map((node) => {
-      const filteredChildren = filterTreeData(node.children, filter)
-      const isMatch =
-        typeof filter === 'string'
-          ? filter === '' || node.path.toLowerCase().includes(filter)
-          : filter.test(node.path)
-
-      if (!isMatch && filteredChildren.length === 0) {
-        return null
-      }
-
-      return {
-        ...node,
-        children: filteredChildren
-      }
-    })
-    .filter((node): node is TreeData => node !== null)
-}
-
-function getCheckedNodes(): ExtractFileInfo[] {
-  const checkedDirectories = treeComponent.value?.getCheckedNodes().filter((node) => node.isDir)
-  if (!checkedDirectories?.length) return []
-
-  const files = new Map<string, ExtractFileInfo>()
-
-  const collectFilesWithRoot = (node: TreeData, relativeRoot: string) => {
-    if (!node.isDir) {
-      if (node.hash && node.belongsTo) {
-        files.set(node.id, {
-          hash: node.hash,
-          belongsTo: node.belongsTo,
-          relativeRoot
-        })
-      }
-      return
-    }
-
-    node.children.forEach((child) => collectFilesWithRoot(child, relativeRoot))
-  }
-
-  const fullTreeMap = new Map<string, TreeData>()
-  const walk = (node: TreeData) => {
-    fullTreeMap.set(node.id, node)
-    node.children.forEach(walk)
-  }
-  cachedFullTreeData.value.forEach(walk)
-
-  checkedDirectories.forEach((node) => {
-    const source = fullTreeMap.get(node.id)
-    if (source) {
-      const relativeRoot = getSelectedItemRelativeRoot(source.path)
-      collectFilesWithRoot(source, relativeRoot)
-    }
-  })
-  return [...files.values()]
-}
 
 const treeProps = {
   value: 'id',
@@ -276,7 +104,7 @@ function handleNodeContextMenu(event: Event, data: TreeNodeData, node: TreeNode)
   emit('node-contextmenu', toTreeData(data), node, event as MouseEvent)
 }
 
-defineExpose({ bringNodeIntoView, collapseAll, getCheckedNodes })
+defineExpose({ bringNodeIntoView, collapseAll })
 </script>
 
 <template>
@@ -284,7 +112,7 @@ defineExpose({ bringNodeIntoView, collapseAll, getCheckedNodes })
     <el-tree-v2
       ref="treeComponent"
       :current-node-key="currentNodeKey"
-      :data="filteredData"
+      :data="treeData"
       :height="treeHeight"
       :props="treeProps"
       :class="treeClass"

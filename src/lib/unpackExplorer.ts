@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'vue'
-import type { TreeData } from '@/components/FileTree.vue'
+import type { TreeData } from '@/lib/unpackTree'
 
 export type ExplorerEntry = TreeData & {
   children: ExplorerEntry[]

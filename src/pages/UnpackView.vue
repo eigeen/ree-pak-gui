@@ -136,9 +136,7 @@
                     v-else
                     ref="fileTreeComponent"
                     :current-node-key="treeFocusKey"
-                    :data="treeData"
-                    :filter-text="filterTextApply"
-                    :regex-mode="unpackState.filterUseRegex"
+                    :data="treePanelData"
                     class="h-full"
                     @node-click="handleNodeClick"
                     @node-contextmenu="handleTreeNodeContextMenu"
@@ -309,7 +307,7 @@ import {
   type TextureExportProgressEvent
 } from '@/api/tauri/utils'
 import AppCursorContextMenu from '@/components/context-menu/AppCursorContextMenu.vue'
-import FileTree, { type TreeData } from '@/components/FileTree.vue'
+import FileTree from '@/components/FileTree.vue'
 import type { MenuGroup } from '@/components/DesktopMenuBar.vue'
 import FileNameTable from '@/components/FileNameTable/FileNameTable.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
@@ -341,6 +339,13 @@ import {
   replaceCheckedKeysWithSingle,
   toggleCheckedKey
 } from '@/lib/unpackExplorerSelection'
+import {
+  buildDirectoryTreeData,
+  buildTreeData,
+  createTreeFilter,
+  filterTreeData,
+  type TreeData
+} from '@/lib/unpackTree'
 import {
   ensureTaskProgressIdle,
   finishTaskProgress,
@@ -453,10 +458,20 @@ const texturePreviewEnabled = computed(() => settings.value?.preview?.showTextur
 const extractMode = computed<ExtractMode>(() =>
   settings.value?.unpack?.extractAbsolutePath ? 'absolutePath' : 'relativePath'
 )
-
-const explorerRoot = computed<ExplorerEntry | null>(() =>
-  treeData.value ? buildExplorerRoot(treeData.value) : null
+const fullTreeData = computed<TreeData[]>(() => (treeData.value ? buildTreeData(treeData.value) : []))
+const treeFilter = computed(() =>
+  createTreeFilter(filterTextApply.value, unpackState.value.filterUseRegex)
 )
+const filteredFullTreeData = computed(() => filterTreeData(fullTreeData.value, treeFilter.value))
+const treePanelData = computed(() => buildDirectoryTreeData(filteredFullTreeData.value))
+
+const explorerRoot = computed<ExplorerEntry | null>(() => {
+  if (!treeData.value) {
+    return null
+  }
+
+  return buildExplorerRoot(filteredFullTreeData.value)
+})
 
 const explorerNodeMap = computed(() => {
   const map = new Map<string, ExplorerEntry>()
@@ -525,7 +540,7 @@ const pakFileNameMap = computed(() => {
 
 const explorerViewResetKey = computed(
   () =>
-    `${treeData.value?.length ?? 0}:${currentDirectoryKey.value}:${explorerSearchText.value}:${explorerLayoutMode.value}`
+    `${treePanelData.value.length}:${filterTextApply.value}:${unpackState.value.filterUseRegex}:${currentDirectoryKey.value}:${explorerSearchText.value}:${explorerLayoutMode.value}`
 )
 const explorerRenderers = computed<ExplorerRenderers>(() => ({
   getTexturePreview,
@@ -1009,7 +1024,13 @@ watch(
 )
 
 watch(
-  () => [currentDirectory.value?.id ?? '', treeData.value?.length ?? 0] as const,
+  () =>
+    [
+      currentDirectory.value?.id ?? '',
+      filteredFullTreeData.value.length,
+      filterTextApply.value,
+      unpackState.value.filterUseRegex
+    ] as const,
   () => {
     explorerLayoutMode.value = getDefaultExplorerLayout(currentDirectory.value)
   },
@@ -1416,7 +1437,7 @@ async function loadWorkRecords() {
 }
 
 function buildExplorerTree(
-  node: RenderTreeNode,
+  node: TreeData,
   parentPath = '',
   parentId?: string
 ): ExplorerEntry {
@@ -1441,12 +1462,12 @@ function buildExplorerTree(
           : node.compressedSize
         : 0
     ),
-    children: node.children?.map((child) => buildExplorerTree(child, path, id)) ?? [],
+    children: node.children.map((child) => buildExplorerTree(child, path, id)),
     belongsTo: node.belongsTo
   }
 }
 
-function buildExplorerRoot(nodes: RenderTreeNode[]): ExplorerEntry {
+function buildExplorerRoot(nodes: TreeData[]): ExplorerEntry {
   return {
     id: EXPLORER_ROOT_ID,
     name: '',
