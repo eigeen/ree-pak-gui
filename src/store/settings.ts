@@ -3,6 +3,7 @@ import { ref, watch } from 'vue'
 import { exists, mkdir, readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import { join } from '@tauri-apps/api/path'
 import { sanitizeStoredLocale } from '@/lib/language'
+import { logFrontendDebug, logFrontendError, runLoggedTask } from '@/utils/frontendLog'
 import { getParentPath } from '@/utils/path'
 import { getLocalDir } from '@/lib/localDir'
 
@@ -66,22 +67,41 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   const loadSettings = async () => {
-    const settingsPath = await getSettingsPath()
-    console.log(`Loading settings from ${settingsPath}`)
-    // if not exists, create default settings
-    if (!(await exists(settingsPath))) {
-      settings.value = defaultSettings
-      await saveSettings()
-      return
-    }
+    await runLoggedTask(
+      'settings.load',
+      async () => {
+        const settingsPath = await getSettingsPath()
+        // if not exists, create default settings
+        if (!(await exists(settingsPath))) {
+          settings.value = defaultSettings
+          await saveSettings()
+          return {
+            settingsPath,
+            language: settings.value.language ?? 'system',
+            created: true
+          }
+        }
 
-    const settingsContent = await readTextFile(settingsPath)
-    const settingsJson = JSON.parse(settingsContent)
-    // validation
-    if (settingsJson.version !== '1') {
-      throw new Error(`Invalid settings file version ${settingsJson.version}`)
-    }
-    settings.value = normalizeSettings(settingsJson)
+        const settingsContent = await readTextFile(settingsPath)
+        const settingsJson = JSON.parse(settingsContent)
+        // validation
+        if (settingsJson.version !== '1') {
+          throw new Error(`Invalid settings file version ${settingsJson.version}`)
+        }
+        settings.value = normalizeSettings(settingsJson)
+
+        return {
+          settingsPath,
+          language: settings.value.language ?? 'system',
+          created: false
+        }
+      },
+      {
+        start: `load file=${SETTINGS_FILE_NAME}`,
+        success: ({ settingsPath, language, created }) =>
+          `${created ? 'created default' : 'loaded'} file=${settingsPath} locale=${language}`
+      }
+    )
   }
 
   const saveSettings = async (byAutoSave = false) => {
@@ -102,7 +122,16 @@ export const useSettingsStore = defineStore('settings', () => {
       await mkdir(settingsDir, { recursive: true })
     }
     const settingsContent = JSON.stringify(settings.value)
-    await writeTextFile(settingsPath, settingsContent)
+    try {
+      await writeTextFile(settingsPath, settingsContent)
+      logFrontendDebug(
+        'settings.save',
+        `saved file=${settingsPath} mode=${byAutoSave ? 'auto' : 'manual'}`
+      )
+    } catch (error) {
+      logFrontendError('settings.save', `save failed file=${settingsPath}`, error)
+      throw error
+    }
   }
 
   // auto save settings

@@ -1,6 +1,7 @@
 use anyhow::Context as _;
 use ree_pak_core::filename::FileNameTable;
 use serde::{Deserialize, Serialize};
+use std::time::Instant;
 
 use crate::{
     channel::{
@@ -19,6 +20,31 @@ use crate::{
     },
     utility, warp_result_elapsed,
 };
+
+fn log_sync_command<T>(
+    name: &str,
+    detail: Option<String>,
+    command: impl FnOnce() -> Result<T, String>,
+) -> Result<T, String> {
+    if let Some(detail) = detail.as_deref() {
+        log::info!("[command:{name}] start {detail}");
+    } else {
+        log::info!("[command:{name}] start");
+    }
+
+    let start = Instant::now();
+    let result = command();
+    let elapsed_ms = start.elapsed().as_millis();
+
+    match &result {
+        Ok(_) => log::info!("[command:{name}] done elapsed={elapsed_ms} ms"),
+        Err(error) => {
+            log::error!("[command:{name}] failed elapsed={elapsed_ms} ms error={error}")
+        }
+    }
+
+    result
+}
 
 /// Clear all loaded Pak files.
 #[tauri::command]
@@ -69,7 +95,12 @@ pub fn pak_get_info(id: PakId) -> Result<PakInfo, String> {
 #[tauri::command]
 pub fn pak_read_file_tree() -> Result<FileTree, String> {
     let pak_service = PakService::get();
-    pak_service.read_file_tree().map_err(|e| e.to_string())
+    let loaded_pak_count = pak_service.list_all_paks().len();
+    log_sync_command(
+        "pak_read_file_tree",
+        Some(format!("loaded_paks={loaded_pak_count}")),
+        || pak_service.read_file_tree().map_err(|e| e.to_string()),
+    )
 }
 
 /// Read the file tree of current Pak group.
@@ -124,7 +155,9 @@ pub fn pak_terminate_extraction() -> Result<(), String> {
 
 #[tauri::command]
 pub fn pak_get_header(pak_path: &str) -> Result<PakHeaderInfo, String> {
-    PakService::get_header(pak_path).map_err(|e| e.to_string())
+    log_sync_command("pak_get_header", Some(format!("path={pak_path}")), || {
+        PakService::get_header(pak_path).map_err(|e| e.to_string())
+    })
 }
 
 #[tauri::command]
@@ -135,9 +168,14 @@ pub fn pak_pack(
 ) -> Result<(), String> {
     let pak_service = PakService::get();
     let channel = PackProgressChannel::new(on_event);
-    pak_service
-        .pack(&sources, &output, channel)
-        .map_err(|e| e.to_string())
+    let source_count = sources.len();
+    log_sync_command(
+        "pak_pack",
+        Some(format!(
+            "sources={source_count} output={output} phase=dispatch"
+        )),
+        || pak_service.pack(&sources, &output, channel).map_err(|e| e.to_string()),
+    )
 }
 
 #[tauri::command]
@@ -151,14 +189,13 @@ pub fn pak_terminate_pack() -> Result<(), String> {
 #[tauri::command]
 pub fn file_table_load(path: &str) -> Result<(), String> {
     let pak_service = PakService::get();
-    warp_result_elapsed!(
+    log_sync_command("file_table_load", Some(format!("path={path}")), || {
         {
             let table = FileNameTable::from_list_file(path).map_err(|e| e.to_string())?;
             pak_service.set_file_name_table(table);
             Ok::<(), String>(())
-        },
-        "file_table_load spent {} ms"
-    )
+        }
+    })
 }
 
 #[tauri::command]
@@ -249,20 +286,28 @@ pub fn get_compile_info() -> CompileInfo {
 /// Will apply after restart.
 #[tauri::command]
 pub fn perform_update(file_path: String) -> Result<(), String> {
-    self_replace::self_replace(&file_path)
-        .context("Failed to replace current binary")
-        .map_err(|e| e.to_string())?;
-    let _ = std::fs::remove_file(&file_path);
+    log_sync_command("perform_update", Some(format!("file_path={file_path}")), || {
+        self_replace::self_replace(&file_path)
+            .context("Failed to replace current binary")
+            .map_err(|e| e.to_string())?;
+        let _ = std::fs::remove_file(&file_path);
 
-    Ok(())
+        Ok(())
+    })
 }
 
 #[tauri::command]
 pub fn zip_extract_file(file_path: String, output_path: Option<String>) -> Result<(), String> {
     let output_path = output_path.unwrap_or_else(|| ".".to_string());
-    utility::zip_extract_all(file_path, output_path).map_err(|e| e.to_string())?;
-
-    Ok(())
+    log_sync_command(
+        "zip_extract_file",
+        Some(format!("file_path={file_path} output_path={output_path}")),
+        || {
+            utility::zip_extract_all(file_path.clone(), output_path.clone())
+                .map(|_| ())
+                .map_err(|e| e.to_string())
+        },
+    )
 }
 
 #[tauri::command]

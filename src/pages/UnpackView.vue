@@ -357,6 +357,7 @@ import {
 import { fileListService } from '@/service/filelist'
 import { useSettingsStore, type AppSettings } from '@/store/settings'
 import { useWorkStore } from '@/store/work'
+import { logFrontendInfo } from '@/utils/frontendLog'
 import { ShowError, ShowInfo, ShowWarn } from '@/utils/message'
 import {
   getSelectedItemRelativeRoot,
@@ -1422,6 +1423,7 @@ async function loadWorkRecords() {
   if (initialLoaded.value) return
 
   if (pakData.value.length === 0 && unpackState.value.paks.length > 0) {
+    logFrontendInfo('unpack.restore', `restore saved paks=${unpackState.value.paks.length}`)
     const existsList = await Promise.all(
       unpackState.value.paks.map(async (path: string) => exists(path))
     )

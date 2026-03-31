@@ -4,6 +4,7 @@
  */
 
 import { getLocalDir } from '@/lib/localDir'
+import { logFrontendDebug, logFrontendError, runLoggedTask } from '@/utils/frontendLog'
 import { join } from '@tauri-apps/api/path'
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import { defineStore } from 'pinia'
@@ -65,34 +66,53 @@ export const useWorkStore = defineStore('work', () => {
   })
 
   async function loadWorkRecords() {
-    const dataDir = await getLocalDir()
-    const workFile = await join(dataDir, FILE_NAME)
-    console.log(`Loading work records from ${workFile}`)
-    const content = await readTextFile(workFile)
-    const work = JSON.parse(content)
-    console.debug('work record', work)
+    await runLoggedTask(
+      'workspace.load',
+      async () => {
+        const dataDir = await getLocalDir()
+        const workFile = await join(dataDir, FILE_NAME)
+        const content = await readTextFile(workFile)
+        const work = JSON.parse(content)
 
-    if (work.unpack) {
-      unpack.value = {
-        fileList: '',
-        paks: [],
-        filterText: '',
-        filterUseRegex: false,
-        explorerLayoutMode: 'details',
-        ...work.unpack
+        if (work.unpack) {
+          unpack.value = {
+            fileList: '',
+            paks: [],
+            filterText: '',
+            filterUseRegex: false,
+            explorerLayoutMode: 'details',
+            ...work.unpack
+          }
+        }
+        if (work.pack) {
+          pack.value = work.pack
+        }
+
+        return {
+          workFile,
+          unpackPakCount: Array.isArray(work.unpack?.paks) ? work.unpack.paks.length : 0,
+          packInputCount: Array.isArray(work.pack?.inputFiles) ? work.pack.inputFiles.length : 0
+        }
+      },
+      {
+        start: `load file=${FILE_NAME}`,
+        success: ({ workFile, unpackPakCount, packInputCount }) =>
+          `loaded file=${workFile} unpack_paks=${unpackPakCount} pack_inputs=${packInputCount}`
       }
-    }
-    if (work.pack) {
-      pack.value = work.pack
-    }
+    )
   }
 
   async function saveFile(data: WorkRecord, fileName: string) {
-    const dataDir = await getLocalDir()
-    const filePath = await join(dataDir, fileName)
-    const content = JSON.stringify(data)
-    await writeTextFile(filePath, content)
-    console.log('Saved work records to file')
+    try {
+      const dataDir = await getLocalDir()
+      const filePath = await join(dataDir, fileName)
+      const content = JSON.stringify(data)
+      await writeTextFile(filePath, content)
+      logFrontendDebug('workspace.save', `saved file=${filePath}`)
+    } catch (error) {
+      logFrontendError('workspace.save', `save failed file=${fileName}`, error)
+      throw error
+    }
   }
 
   watch(

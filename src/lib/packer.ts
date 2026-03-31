@@ -12,6 +12,11 @@ import {
   type PackedPak
 } from '@/api/tauri/pak'
 import type { FileItem } from '@/store/work'
+import {
+  logFrontendDebug,
+  logFrontendError,
+  logFrontendInfo
+} from '@/utils/frontendLog'
 import { getParentPath } from '@/utils/path'
 import i18n from '@/plugins/i18n'
 
@@ -224,12 +229,10 @@ export class Packer {
   }
 
   async handleExport(inputFiles: FileItem[], exportConfig: ExportConfig): Promise<void> {
-    console.debug('handleExport', {
-      files: inputFiles,
-      mode: exportConfig.mode,
-      autoDetectRoot: exportConfig.autoDetectRoot,
-      exportDirectory: exportConfig.exportDirectory
-    })
+    logFrontendInfo(
+      'repack.export',
+      `start inputs=${inputFiles.length} mode=${exportConfig.mode} auto_detect_root=${exportConfig.autoDetectRoot} fast_mode=${exportConfig.fastMode}`
+    )
 
     this.resetExport()
 
@@ -240,6 +243,7 @@ export class Packer {
         await this.handleMergeExport(inputFiles, exportConfig)
       }
     } catch (e) {
+      logFrontendError('repack.export', 'export failed', e)
       ShowError(e)
     }
   }
@@ -287,7 +291,10 @@ export class Packer {
         }
 
         const processedSources = await this.processSources([file], exportConfig, {})
-        console.debug('processedSources', processedSources)
+        logFrontendDebug(
+          'repack.process-sources',
+          `individual output=${outputPath} sources=${processedSources.length}`
+        )
 
         await pak_pack(processedSources, outputPath, channel)
         outputFiles.push(outputPath)
@@ -303,6 +310,7 @@ export class Packer {
 
       // `pak_pack` 只负责启动后台打包线程，真实结果以后续 `workFinished` 事件为准。
     } catch (error) {
+      logFrontendError('repack.export', 'individual export failed', error)
       this.updateProgress({ working: false })
       this.updateResult({
         success: false,
@@ -328,14 +336,17 @@ export class Packer {
       const conflicts = await this.analyzeConflicts(inputFiles)
 
       if (conflicts.length > 0) {
+        logFrontendInfo('repack.conflicts', `detected conflicts=${conflicts.length}`)
         // 有冲突时，暂停进度状态，等待用户解决冲突
         this.updateProgress({ working: false })
         return conflicts
       } else {
+        logFrontendInfo('repack.conflicts', 'no conflicts detected')
         await this.proceedWithMergeExport(inputFiles, exportConfig)
         return []
       }
     } catch (e) {
+      logFrontendError('repack.conflicts', 'conflict analysis failed', e)
       this.updateProgress({ working: false })
       this.updateResult({
         success: false,
@@ -371,6 +382,10 @@ export class Packer {
         exportConfig,
         this.conflictResolutions
       )
+      logFrontendDebug(
+        'repack.process-sources',
+        `merge output=${outputPath} sources=${processedSources.length}`
+      )
 
       const channel = new Channel<PackProgressEvent>()
       channel.onmessage = (event) => {
@@ -381,6 +396,7 @@ export class Packer {
 
       // `pak_pack` 只负责启动后台打包线程，真实结果以后续 `workFinished` 事件为准。
     } catch (error) {
+      logFrontendError('repack.export', 'merge export failed', error)
       this.updateProgress({ working: false })
       this.updateResult({
         success: false,
@@ -432,6 +448,7 @@ export class Packer {
 
   async analyzeConflicts(files: FileItem[]): Promise<ConflictFile[]> {
     try {
+      logFrontendInfo('repack.conflicts', `scan inputs=${files.length}`)
       const fileMap = new Map<
         string,
         Array<{ sourcePath: string; size: number; modifiedDate: Date }>
@@ -483,7 +500,7 @@ export class Packer {
 
       return conflicts
     } catch (error) {
-      console.error('Failed to analyze conflicts:', error)
+      logFrontendError('repack.conflicts', 'analyze conflicts failed', error)
       return []
     }
   }
@@ -513,7 +530,7 @@ export class Packer {
           }
         }
       } catch (error) {
-        console.error('Failed to scan folder:', error)
+        logFrontendError('repack.scan-folder', `scan failed path=${currentPath}`, error)
       }
     }
 
@@ -553,9 +570,18 @@ export class Packer {
         }
       }
 
-      return [...new Set(processedPaths)]
+      const dedupedPaths = [...new Set(processedPaths)]
+      logFrontendDebug(
+        'repack.process-sources',
+        `auto-detected sources=${dedupedPaths.length} inputs=${sourcePaths.length}`
+      )
+      return dedupedPaths
     }
 
+    logFrontendDebug(
+      'repack.process-sources',
+      `reuse original sources=${sourcePaths.length} auto_detect_root=false`
+    )
     return sourcePaths
   }
 

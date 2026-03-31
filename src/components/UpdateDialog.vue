@@ -64,6 +64,7 @@ import { getCurrentWindow, ProgressBarStatus } from '@tauri-apps/api/window'
 import { Download } from 'lucide-vue-next'
 import { UpdateService } from '@/service/update'
 import { useUpdateStore } from '@/store/update'
+import { logFrontendInfo } from '@/utils/frontendLog'
 import { ShowError, ShowInfo } from '@/utils/message'
 import { Button } from '@/components/ui/button'
 import {
@@ -86,6 +87,7 @@ const progress = ref(0)
 
 const startDownload = async () => {
   downloading.value = true
+  logFrontendInfo('update.dialog', 'user confirmed download')
   try {
     const updateService = UpdateService.getInstance()
     const window = getCurrentWindow()
@@ -126,8 +128,11 @@ onMounted(async () => {
       updateState.hasChecked = true
       if (updateState.updateVersion) {
         ShowInfo(t('global.updateAvailable'))
+        logFrontendInfo(
+          'update.dialog',
+          `update ready version=${updateState.updateVersion.version}`
+        )
       }
-      console.debug('Update check complete.')
     } catch (err) {
       ShowError(t('global.failedCheckUpdate', { error: String(err) }))
     }

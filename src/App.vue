@@ -82,7 +82,7 @@ onMounted(async () => {
   try {
     await workStore.loadWorkRecords()
   } catch (error) {
-    console.error('Failed to load work records:', error)
+    ShowError(error)
   }
 })
 </script>

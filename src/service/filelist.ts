@@ -12,6 +12,7 @@ import { fetchWithSpeedCheck } from '@/lib/http/download'
 import { getFileListDir, getTempDir } from '@/lib/localDir'
 import { NameListFile } from '@/lib/NameListFile'
 import { useFileListStore } from '@/store/filelist'
+import { logFrontendDebug, logFrontendWarn, runLoggedTask } from '@/utils/frontendLog'
 import { getFileStem } from '@/utils/path'
 import { join } from '@tauri-apps/api/path'
 import { exists, mkdir, readDir, remove, writeFile, writeTextFile } from '@tauri-apps/plugin-fs'
@@ -51,7 +52,6 @@ export class FileListService {
       const filePath = await join(fileListDir, file.name)
       const identifier = getFileStem(file.name)
       if (!identifier) {
-        console.warn(`Invalid file name as identifier: ${file.name}, skipping.`)
         continue
       }
 
@@ -72,7 +72,6 @@ export class FileListService {
       const filePath = await join(downloadedDir, file.name)
       const identifier = getFileStem(file.name)
       if (!identifier) {
-        console.warn(`Invalid file name as identifier: ${file.name}, skipping.`)
         continue
       }
 
@@ -82,107 +81,149 @@ export class FileListService {
     }
     this.store.downloadedFile = dlSources
 
-    console.debug('refreshed local source', this.store.localFile, this.store.downloadedFile)
     await FileListService.touchNotifyFile()
   }
 
   async fetchRemoteSource(): Promise<void> {
-    const filelistApi = FileListAPI.getInstance()
-    const manifest = await filelistApi.fetchFileListManifest()
+    await runLoggedTask(
+      'filelist.remote',
+      async () => {
+        const filelistApi = FileListAPI.getInstance()
+        const manifest = await filelistApi.fetchFileListManifest()
 
-    const sources: { [fileName: string]: FileListInfo } = {}
-    for (const source of manifest.files) {
-      sources[source.file_name] = source
-    }
+        const sources: { [fileName: string]: FileListInfo } = {}
+        for (const source of manifest.files) {
+          sources[source.file_name] = source
+        }
 
-    this.store.remoteManifest = sources
-    this.remoteServers = manifest.base_urls
+        this.store.remoteManifest = sources
+        this.remoteServers = manifest.base_urls
+        return {
+          fileCount: manifest.files.length,
+          serverCount: manifest.base_urls.length
+        }
+      },
+      {
+        start: 'fetch remote manifest',
+        success: ({ fileCount, serverCount }) =>
+          `remote manifest ready files=${fileCount} servers=${serverCount}`
+      }
+    )
   }
 
   async downloadRemoteFile(fileName: string): Promise<void> {
-    if (!this.store.remoteManifest[fileName]) {
-      throw new Error(`File not found in remote source: ${fileName}`)
-    }
+    await runLoggedTask(
+      'filelist.download',
+      async () => {
+        if (!this.store.remoteManifest[fileName]) {
+          throw new Error(`File not found in remote source: ${fileName}`)
+        }
 
-    const info = this.store.remoteManifest[fileName]
+        const info = this.store.remoteManifest[fileName]
 
-    let lastError: any = null
-    let blob: Blob | null = null
-    for (const baseUrl of this.remoteServers) {
-      try {
-        const url = `${baseUrl}/${info.file_name}`
-        console.debug(`Trying to download file list from ${url}`)
-        blob = await fetchWithSpeedCheck(url, { connectTimeout: 5000 })
-        lastError = null
-        break
-      } catch (err) {
-        lastError = err
-        blob = null
-        console.error('Download failed for', baseUrl, err)
-        continue
+        let lastError: unknown = null
+        let blob: Blob | null = null
+        for (const baseUrl of this.remoteServers) {
+          try {
+            const url = `${baseUrl}/${info.file_name}`
+            logFrontendDebug('filelist.download', `try mirror=${url}`)
+            blob = await fetchWithSpeedCheck(url, { connectTimeout: 5000 })
+            lastError = null
+            break
+          } catch (error) {
+            lastError = error
+            blob = null
+            logFrontendWarn('filelist.download', `mirror failed base_url=${baseUrl}`)
+            continue
+          }
+        }
+        if (lastError) {
+          throw new Error(`Failed to download file list from all sources: ${lastError}`)
+        }
+        if (!blob) {
+          throw new Error('Failed to download file list from all sources: no response')
+        }
+
+        // check if need to unzip
+        const ext = info.file_name.split('.').pop()
+        if (ext === 'zip') {
+          // save to temp dir
+          const tempDir = await getTempDir(true)
+          const tempPath = await join(tempDir, info.file_name)
+          await writeFile(tempPath, new Uint8Array(await blob.arrayBuffer()))
+          // unzip file
+          const targetDir = await FileListService.getDownloadedDir()
+          await zipExtractFile(tempPath, targetDir)
+          // check extracted file exists
+          const extractedFile = await join(targetDir, info.file_name.replace('.zip', ''))
+          if (!(await exists(extractedFile))) {
+            throw new Error('Failed to extract file list from downloaded zip file')
+          }
+          return { extracted: true }
+        }
+
+        // directly save
+        const targetDir = await FileListService.getDownloadedDir()
+        const targetPath = await join(targetDir, info.file_name)
+        await writeFile(targetPath, new Uint8Array(await blob.arrayBuffer()))
+        return { extracted: false }
+      },
+      {
+        start: `download file=${fileName}`,
+        success: ({ extracted }) =>
+          `${extracted ? 'downloaded and extracted' : 'downloaded'} file=${fileName}`
       }
-    }
-    if (lastError) {
-      throw new Error(`Failed to download file list from all sources: ${lastError}`)
-    }
-    if (!blob) {
-      throw new Error('Failed to download file list from all sources: no response')
-    }
-
-    // check if need to unzip
-    const ext = info.file_name.split('.').pop()
-    if (ext === 'zip') {
-      // save to temp dir
-      const tempDir = await getTempDir(true)
-      const tempPath = await join(tempDir, info.file_name)
-      await writeFile(tempPath, new Uint8Array(await blob.arrayBuffer()))
-      // unzip file
-      const targetDir = await FileListService.getDownloadedDir()
-      await zipExtractFile(tempPath, targetDir)
-      // check extracted file exists
-      const extractedFile = await join(targetDir, info.file_name.replace('.zip', ''))
-      if (!exists(extractedFile)) {
-        throw new Error('Failed to extract file list from downloaded zip file')
-      }
-      return
-    }
-
-    // directly save
-    const targetDir = await FileListService.getDownloadedDir()
-    const targetPath = await join(targetDir, info.file_name)
-    await writeFile(targetPath, new Uint8Array(await blob.arrayBuffer()))
+    )
   }
 
   async removeDownloaded(identifier: string): Promise<void> {
-    const file = this.store.downloadedFile[identifier]
-    if (!file) {
-      throw new Error(`File not found in downloaded source: ${identifier}`)
-    }
+    await runLoggedTask(
+      'filelist.remove',
+      async () => {
+        const file = this.store.downloadedFile[identifier]
+        if (!file) {
+          throw new Error(`File not found in downloaded source: ${identifier}`)
+        }
 
-    const filePath = file.source.filePath
-    if (!(await exists(filePath))) {
-      throw new Error(`File not found in downloaded directory: ${filePath}`)
-    }
+        const filePath = file.source.filePath
+        if (!(await exists(filePath))) {
+          throw new Error(`File not found in downloaded directory: ${filePath}`)
+        }
 
-    console.log('Removing file:', filePath)
-    await remove(filePath)
-    delete this.store.downloadedFile[identifier]
+        await remove(filePath)
+        delete this.store.downloadedFile[identifier]
+        return filePath
+      },
+      {
+        start: `remove downloaded identifier=${identifier}`,
+        success: (filePath) => `removed downloaded path=${filePath}`
+      }
+    )
   }
 
   async removeLocal(identifier: string): Promise<void> {
-    const file = this.store.localFile[identifier]
-    if (!file) {
-      throw new Error(`File not found in local source: ${identifier}`)
-    }
+    await runLoggedTask(
+      'filelist.remove',
+      async () => {
+        const file = this.store.localFile[identifier]
+        if (!file) {
+          throw new Error(`File not found in local source: ${identifier}`)
+        }
 
-    const filePath = file.source.filePath
-    if (!(await exists(filePath))) {
-      throw new Error(`File not found in local directory: ${filePath}`)
-    }
+        const filePath = file.source.filePath
+        if (!(await exists(filePath))) {
+          throw new Error(`File not found in local directory: ${filePath}`)
+        }
 
-    console.log('Removing file:', filePath)
-    await remove(filePath)
-    delete this.store.localFile[identifier]
+        await remove(filePath)
+        delete this.store.localFile[identifier]
+        return filePath
+      },
+      {
+        start: `remove local identifier=${identifier}`,
+        success: (filePath) => `removed local path=${filePath}`
+      }
+    )
   }
 
   getFileByIdent(identifier: string): Reactive<NameListFile> | null {

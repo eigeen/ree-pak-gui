@@ -3,6 +3,7 @@ import type { UpdateMetadata, UpdateVersion, UpdateFile } from '@/api/http/updat
 import { getCompileInfo, performUpdate, zipExtractFile, type CompileInfo } from '@/api/tauri/utils'
 import { fetchWithSpeedCheck } from '@/lib/http/download'
 import { getTempDir } from '@/lib/localDir'
+import { logFrontendDebug, logFrontendInfo, runLoggedTask } from '@/utils/frontendLog'
 import { sha256Hex } from '@/utils/hash'
 
 import { join } from '@tauri-apps/api/path'
@@ -44,175 +45,214 @@ export class UpdateService {
   }
 
   public async checkForUpdates(): Promise<UpdateVersion | null> {
-    if (this.compileInfo.version === '') {
-      await this.initialize()
-    }
+    return runLoggedTask(
+      'update.check',
+      async () => {
+        if (this.compileInfo.version === '') {
+          await this.initialize()
+        }
 
-    // 获取最新的更新元数据
-    this.updateMetadata = await this.updateApi.fetchUpdateMetadata()
-    console.info('Fetched update metadata:', this.updateMetadata)
-    // 先检查version，如果为最新版本，再检查pub_time
-    const validVersions = this.updateMetadata.versions.filter((v) => v.channel === CHANNEL)
-    if (!validVersions) {
-      return null
-    }
-
-    // 获取当前最新版本信息
-    const latestVerInfo = validVersions.reduce((acc: UpdateVersion | null, cur: UpdateVersion) => {
-      if (!acc) {
-        return cur
-      }
-      if (semver.gt(cur.version, acc.version)) {
-        return cur
-      }
-      return acc
-    }, null)
-    if (!latestVerInfo) {
-      console.info('No available updates')
-      return null
-    }
-    console.info('Latest version:', latestVerInfo)
-
-    const latestSemver = semver.valid(latestVerInfo.version)
-    if (!latestSemver) {
-      throw new Error(`Invalid version from remote: ${latestVerInfo.version}`)
-    }
-
-    // 版本对比
-    const toSemVer = (version: string) => {
-      const parsed = semver.parse(version)
-      if (!parsed) {
-        throw new Error(`Invalid version: ${version}`)
-      }
-      return parsed
-    }
-
-    const currVersion = toSemVer(this.compileInfo.version)
-    const latestVersion = toSemVer(latestSemver)
-
-    if (semver.gt(currVersion, latestVersion)) {
-      console.info('Current version is same or newer than latest version')
-      return null
-    }
-    // 如果版本一致，进行发布时间对比
-    if (semver.eq(currVersion, latestVersion)) {
-      // 发布时间检查
-      const currCommitTime = new Date(this.compileInfo.commitTime)
-      const latestPubTime = new Date(latestVerInfo.pub_time)
-      if (currCommitTime < latestPubTime) {
-        console.info(
-          `New version available: ${latestVerInfo.version} (publish time newer: ${latestPubTime})`
+        // 获取最新的更新元数据
+        this.updateMetadata = await this.updateApi.fetchUpdateMetadata()
+        logFrontendDebug(
+          'update.check',
+          `metadata fetched versions=${this.updateMetadata.versions.length}`
         )
-        this.targetVersion = latestVerInfo
-        return latestVerInfo
-      }
-      return null
-    }
-    if (semver.lt(currVersion, latestVersion)) {
-      console.info(`New version available: ${latestVerInfo.version}`)
-      this.targetVersion = latestVerInfo
-      return latestVerInfo
-    }
 
-    console.warn('Unreachable', currVersion)
-    return null
+        // 先检查version，如果为最新版本，再检查pub_time
+        const validVersions = this.updateMetadata.versions.filter((v) => v.channel === CHANNEL)
+        if (!validVersions) {
+          return null
+        }
+
+        // 获取当前最新版本信息
+        const latestVerInfo = validVersions.reduce(
+          (acc: UpdateVersion | null, cur: UpdateVersion) => {
+            if (!acc) {
+              return cur
+            }
+            if (semver.gt(cur.version, acc.version)) {
+              return cur
+            }
+            return acc
+          },
+          null
+        )
+        if (!latestVerInfo) {
+          return null
+        }
+
+        const latestSemver = semver.valid(latestVerInfo.version)
+        if (!latestSemver) {
+          throw new Error(`Invalid version from remote: ${latestVerInfo.version}`)
+        }
+
+        // 版本对比
+        const toSemVer = (version: string) => {
+          const parsed = semver.parse(version)
+          if (!parsed) {
+            throw new Error(`Invalid version: ${version}`)
+          }
+          return parsed
+        }
+
+        const currVersion = toSemVer(this.compileInfo.version)
+        const latestVersion = toSemVer(latestSemver)
+
+        if (semver.gt(currVersion, latestVersion)) {
+          return null
+        }
+        // 如果版本一致，进行发布时间对比
+        if (semver.eq(currVersion, latestVersion)) {
+          // 发布时间检查
+          const currCommitTime = new Date(this.compileInfo.commitTime)
+          const latestPubTime = new Date(latestVerInfo.pub_time)
+          if (currCommitTime < latestPubTime) {
+            this.targetVersion = latestVerInfo
+            return latestVerInfo
+          }
+          return null
+        }
+        if (semver.lt(currVersion, latestVersion)) {
+          this.targetVersion = latestVerInfo
+          return latestVerInfo
+        }
+
+        return null
+      },
+      {
+        start: `check channel=${CHANNEL}`,
+        success: (version) =>
+          version
+            ? `update available version=${version.version} published=${version.pub_time}`
+            : 'no update available'
+      }
+    )
   }
 
   /**
    * Download update in the target directory, and wait for performation.
    */
   public async downloadUpdate(onEvent?: (event: any) => Promise<void>) {
-    if (!this.targetVersion) {
-      throw new Error('Internal error: No target version available. Check for updates first.')
-    }
-    console.log(
-      `Starting update to ${this.targetVersion.channel} version ${this.targetVersion.version} (${this.targetVersion.pub_time})`
-    )
-
-    if (this.updateMetadata === null) {
-      throw new Error('Update metadata not available. Fetch update metadata first.')
-    }
-
-    // 准备下载信息
-    let { platform, arch } = await getCompileInfo()
-    let targetFile: UpdateFile | undefined = undefined
-    for (const file of this.targetVersion.files) {
-      if (file.name.includes(platform) && file.name.includes(arch)) {
-        targetFile = file
-        break
-      }
-    }
-    if (!targetFile) {
-      throw new Error(
-        'No matching file found from update metadata for current platform and architecture.'
-      )
-    }
-
-    let newArchivePath: string | null = null
-    // 检查文件是否已存在下载目录
-    const tempDir = await getTempDir(true)
-    const downloadPath = await join(tempDir, targetFile.name)
-    if (await exists(downloadPath)) {
-      // 检查Hash
-      const array = await readFile(downloadPath)
-      const downloadedSha256 = await sha256Hex(array)
-      if (downloadedSha256 === targetFile.sha256) {
-        newArchivePath = downloadPath
-      }
-    }
-
-    // 如果文件不存在则下载文件
-    let lastError: any = null
-    if (!newArchivePath) {
-      for (const url of targetFile.urls) {
-        try {
-          // download file
-          const blob = await fetchWithSpeedCheck(url, {}, onEvent)
-
-          // 检查Hash
-          const arrayBuffer = await blob.arrayBuffer()
-          const downloadedSha256 = await sha256Hex(arrayBuffer)
-          if (downloadedSha256 !== targetFile.sha256) {
-            throw new Error('Checksum mismatch. Download failed.')
-          }
-
-          // 写入指定目录
-          await writeFile(downloadPath, new Uint8Array(arrayBuffer))
-          newArchivePath = downloadPath
-          lastError = null
-          break
-        } catch (err: any) {
-          lastError = err
+    await runLoggedTask(
+      'update.download',
+      async () => {
+        if (!this.targetVersion) {
+          throw new Error('Internal error: No target version available. Check for updates first.')
         }
-      }
-    }
-    if (lastError || !newArchivePath) {
-      throw new Error(`Failed to download update file from all sources: ${lastError}`)
-    }
 
-    // 检查是否需要解压
-    if (targetFile.name.endsWith('.zip')) {
-      await zipExtractFile(newArchivePath, tempDir)
-      // 检查是否正确输出文件
-      const extractedPath = await join(tempDir, targetFile.name.replace('.zip', ''))
-      if (!(await exists(extractedPath))) {
-        throw new Error(`Extracted file not found after zip extraction: expected ${extractedPath}`)
+        if (this.updateMetadata === null) {
+          throw new Error('Update metadata not available. Fetch update metadata first.')
+        }
+
+        // 准备下载信息
+        const { platform, arch } = await getCompileInfo()
+        let targetFile: UpdateFile | undefined
+        for (const file of this.targetVersion.files) {
+          if (file.name.includes(platform) && file.name.includes(arch)) {
+            targetFile = file
+            break
+          }
+        }
+        if (!targetFile) {
+          throw new Error(
+            'No matching file found from update metadata for current platform and architecture.'
+          )
+        }
+
+        let newArchivePath: string | null = null
+        let reusedCache = false
+        // 检查文件是否已存在下载目录
+        const tempDir = await getTempDir(true)
+        const downloadPath = await join(tempDir, targetFile.name)
+        if (await exists(downloadPath)) {
+          // 检查Hash
+          const array = await readFile(downloadPath)
+          const downloadedSha256 = await sha256Hex(array)
+          if (downloadedSha256 === targetFile.sha256) {
+            newArchivePath = downloadPath
+            reusedCache = true
+          }
+        }
+
+        // 如果文件不存在则下载文件
+        let lastError: unknown = null
+        if (!newArchivePath) {
+          for (const url of targetFile.urls) {
+            try {
+              logFrontendDebug('update.download', `try url=${url}`)
+              const blob = await fetchWithSpeedCheck(url, {}, onEvent)
+
+              // 检查Hash
+              const arrayBuffer = await blob.arrayBuffer()
+              const downloadedSha256 = await sha256Hex(arrayBuffer)
+              if (downloadedSha256 !== targetFile.sha256) {
+                throw new Error('Checksum mismatch. Download failed.')
+              }
+
+              // 写入指定目录
+              await writeFile(downloadPath, new Uint8Array(arrayBuffer))
+              newArchivePath = downloadPath
+              lastError = null
+              break
+            } catch (error) {
+              lastError = error
+            }
+          }
+        }
+        if (lastError || !newArchivePath) {
+          throw new Error(`Failed to download update file from all sources: ${lastError}`)
+        }
+
+        // 检查是否需要解压
+        if (targetFile.name.endsWith('.zip')) {
+          await zipExtractFile(newArchivePath, tempDir)
+          // 检查是否正确输出文件
+          const extractedPath = await join(tempDir, targetFile.name.replace('.zip', ''))
+          if (!(await exists(extractedPath))) {
+            throw new Error(
+              `Extracted file not found after zip extraction: expected ${extractedPath}`
+            )
+          }
+          this.updateFilePath = extractedPath
+        } else {
+          this.updateFilePath = newArchivePath
+        }
+
+        return {
+          fileName: targetFile.name,
+          reusedCache,
+          extracted: targetFile.name.endsWith('.zip')
+        }
+      },
+      {
+        start: this.targetVersion
+          ? `download version=${this.targetVersion.version}`
+          : 'download update',
+        success: ({ fileName, reusedCache, extracted }) =>
+          `ready file=${fileName} cache=${reusedCache ? 'hit' : 'miss'} extracted=${extracted}`
       }
-      this.updateFilePath = extractedPath
-    } else {
-      this.updateFilePath = newArchivePath
-    }
+    )
   }
 
   /**
    * Apply update and relaunch the app.
    */
   public async performUpdate() {
-    if (!this.updateFilePath) {
-      throw new Error('Update file path not set. Download update first.')
-    }
+    await runLoggedTask(
+      'update.apply',
+      async () => {
+        if (!this.updateFilePath) {
+          throw new Error('Update file path not set. Download update first.')
+        }
 
-    await performUpdate(this.updateFilePath)
-    await relaunch()
+        await performUpdate(this.updateFilePath)
+        await relaunch()
+      },
+      {
+        start: this.updateFilePath ? `apply file=${this.updateFilePath}` : 'apply update',
+        success: 'relaunch requested'
+      }
+    )
   }
 }
