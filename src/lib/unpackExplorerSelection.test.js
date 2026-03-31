@@ -7,12 +7,7 @@ import {
   toggleCheckedKey
 } from './unpackExplorerSelection'
 
-const items = [
-  { id: 'a' },
-  { id: 'b' },
-  { id: 'c' },
-  { id: 'd' }
-]
+const items = [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }]
 
 describe('unpackExplorerSelection', () => {
   test('toggles a checked key on and off', () => {

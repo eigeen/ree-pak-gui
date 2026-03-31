@@ -291,7 +291,11 @@ const sections = computed<SettingsSection[]>(() => [
             id: 'texture-preview',
             title: t('settings.texturePreviewTitle'),
             description: t('settings.texturePreviewDescription'),
-            keywords: [t('settings.texturePreviewHint'), t('settings.enabled'), t('settings.disabled')]
+            keywords: [
+              t('settings.texturePreviewHint'),
+              t('settings.enabled'),
+              t('settings.disabled')
+            ]
           }
         ]
       }

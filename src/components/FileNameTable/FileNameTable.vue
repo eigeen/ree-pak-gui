@@ -328,7 +328,10 @@ defineExpose({ openManager })
                       class="size-4 rounded border-input text-primary focus:ring-ring/30"
                       type="checkbox"
                     />
-                    <component :is="getSourceMeta(item).icon" class="size-4 text-muted-foreground" />
+                    <component
+                      :is="getSourceMeta(item).icon"
+                      class="size-4 text-muted-foreground"
+                    />
                     <div class="min-w-0 flex-1">
                       <p class="truncate text-sm font-medium">{{ item.identifier }}</p>
                       <p class="truncate text-xs text-muted-foreground">

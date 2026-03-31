@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import AppDropdownMenuItems from '@/components/context-menu/AppDropdownMenuItems.vue'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
 import { compactContextMenuEntries, type ContextMenuEntry } from '@/lib/contextMenu'
 
 const props = withDefaults(

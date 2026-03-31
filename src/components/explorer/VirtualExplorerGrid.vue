@@ -2,24 +2,27 @@
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
-const props = withDefaults(defineProps<{
-  items: TItem[]
-  focusedKey?: string
-  checkedKeys?: string[]
-  resetKey?: string | number
-  minColumnWidth?: number
-  gap?: number
-  overscan?: number
-  cardHeight?: number
-}>(), {
-  focusedKey: '',
-  checkedKeys: () => [],
-  resetKey: '',
-  minColumnWidth: 144,
-  gap: 12,
-  overscan: 3,
-  cardHeight: 236
-})
+const props = withDefaults(
+  defineProps<{
+    items: TItem[]
+    focusedKey?: string
+    checkedKeys?: string[]
+    resetKey?: string | number
+    minColumnWidth?: number
+    gap?: number
+    overscan?: number
+    cardHeight?: number
+  }>(),
+  {
+    focusedKey: '',
+    checkedKeys: () => [],
+    resetKey: '',
+    minColumnWidth: 144,
+    gap: 12,
+    overscan: 3,
+    cardHeight: 236
+  }
+)
 
 const emit = defineEmits<{
   (e: 'item-click', item: TItem, event: MouseEvent): void
@@ -73,18 +76,25 @@ const visibleItems = computed(() =>
 )
 const checkedKeySet = computed(() => new Set(props.checkedKeys))
 
-watch(visibleItems, (items) => {
-  emit('visible-items-change', items)
-}, { immediate: true })
+watch(
+  visibleItems,
+  (items) => {
+    emit('visible-items-change', items)
+  },
+  { immediate: true }
+)
 
 watch(columnCount, () => {
   virtualizer.value.measure()
 })
 
-watch(() => props.resetKey, () => {
-  scrollElementRef.value?.scrollTo({ top: 0, behavior: 'auto' })
-  virtualizer.value.scrollToOffset(0)
-})
+watch(
+  () => props.resetKey,
+  () => {
+    scrollElementRef.value?.scrollTo({ top: 0, behavior: 'auto' })
+    virtualizer.value.scrollToOffset(0)
+  }
+)
 
 onMounted(() => {
   if (!scrollElementRef.value) return

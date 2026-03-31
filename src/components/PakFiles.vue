@@ -1,19 +1,12 @@
 <template>
   <div class="flex h-full min-h-0 flex-col">
     <div class="flex min-h-52 flex-1 flex-col overflow-hidden p-0 border-t">
-      <div
-        class="flex items-center justify-end px-2 py-1"
-      >
+      <div class="flex items-center justify-end px-2 py-1">
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger as-child>
               <span>
-                <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  class="rounded-full"
-                  @click="$emit('open')"
-                >
+                <Button size="icon-sm" variant="ghost" class="rounded-full" @click="$emit('open')">
                   <FolderPlus class="size-4" />
                 </Button>
               </span>
@@ -46,32 +39,32 @@
         </TooltipProvider>
       </div>
 
-        <draggable
-          v-if="orderedPakList.length > 0"
-          v-model="orderedPakList"
-          item-key="path"
-          :animation="200"
-          class="editor-scrollbar flex h-full min-h-0 flex-col gap-0.5 overflow-auto rounded-[1.05rem]"
-          ghost-class="ghost"
-          handle=".drag-handle"
-          :force-fallback="true"
-          @change="onChange"
-        >
-          <template #item="{ element, index }">
-            <PakFileItem
-              :pak-id="element.id"
-              :file-path="element.path"
-              @remove="$emit('close', index)"
-              @contextmenu="openPakContextMenu($event, element, index)"
-            />
-          </template>
-        </draggable>
+      <draggable
+        v-if="orderedPakList.length > 0"
+        v-model="orderedPakList"
+        item-key="path"
+        :animation="200"
+        class="editor-scrollbar flex h-full min-h-0 flex-col gap-0.5 overflow-auto rounded-[1.05rem]"
+        ghost-class="ghost"
+        handle=".drag-handle"
+        :force-fallback="true"
+        @change="onChange"
+      >
+        <template #item="{ element, index }">
+          <PakFileItem
+            :pak-id="element.id"
+            :file-path="element.path"
+            @remove="$emit('close', index)"
+            @contextmenu="openPakContextMenu($event, element, index)"
+          />
+        </template>
+      </draggable>
 
-        <div v-else class="empty-state min-h-full border-border/70 bg-background/45">
-          <p class="text-base font-semibold text-foreground">{{ t('pakFiles.openPaks') }}</p>
-          <p class="section-copy">{{ t('pakFiles.emptyHint') }}</p>
-        </div>
+      <div v-else class="empty-state min-h-full border-border/70 bg-background/45">
+        <p class="text-base font-semibold text-foreground">{{ t('pakFiles.openPaks') }}</p>
+        <p class="section-copy">{{ t('pakFiles.emptyHint') }}</p>
       </div>
+    </div>
 
     <Teleport to="body">
       <div
@@ -89,10 +82,7 @@
           @pointerdown.stop
         >
           <template v-for="entry in pakContextMenu.items" :key="entry.key">
-            <div
-              v-if="entry.type === 'separator'"
-              class="my-1 h-px bg-border/80"
-            />
+            <div v-if="entry.type === 'separator'" class="my-1 h-px bg-border/80" />
             <button
               v-else-if="entry.type === 'action'"
               type="button"
@@ -120,7 +110,11 @@ import { pak_order, type PakId, type PakInfo } from '@/api/tauri/pak'
 import PakFileItem from '@/components/PakFileItem.vue'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { compactContextMenuEntries, type ContextMenuActionItem, type ContextMenuEntry } from '@/lib/contextMenu'
+import {
+  compactContextMenuEntries,
+  type ContextMenuActionItem,
+  type ContextMenuEntry
+} from '@/lib/contextMenu'
 
 const { t } = useI18n()
 

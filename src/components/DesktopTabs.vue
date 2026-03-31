@@ -4,9 +4,14 @@
       :is="tab.to ? RouterLink : 'button'"
       v-for="tab in props.tabs"
       :key="tab.value"
-      :ref="(element: Element | ComponentPublicInstance | null) => setTabButtonElement(tab.value, element)"
+      :ref="
+        (element: Element | ComponentPublicInstance | null) =>
+          setTabButtonElement(tab.value, element)
+      "
       v-bind="tab.to ? { to: tab.to } : { type: 'button' }"
-      :class="cn('desktop-side-tab relative', selectedValue === tab.value && 'desktop-side-tab-active')"
+      :class="
+        cn('desktop-side-tab relative', selectedValue === tab.value && 'desktop-side-tab-active')
+      "
       :aria-pressed="!tab.to ? selectedValue === tab.value : undefined"
       :aria-current="tab.to && selectedValue === tab.value ? 'page' : undefined"
       @click="handleSelect(tab.value)"

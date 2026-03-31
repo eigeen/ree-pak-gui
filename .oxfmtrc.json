@@ -6,5 +6,5 @@
   "printWidth": 100,
   "trailingComma": "none",
   "sortPackageJson": false,
-  "ignorePatterns": ["*.json", "*.md"]
+  "ignorePatterns": ["*.json", "*.md", "*.toml"]
 }

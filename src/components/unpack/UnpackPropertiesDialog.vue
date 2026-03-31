@@ -47,16 +47,15 @@ const { t } = useI18n()
         </DialogDescription>
       </DialogHeader>
 
-      <div class="editor-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-6 py-5">
+      <div
+        class="editor-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-6 py-5"
+      >
         <div v-if="props.loading" class="empty-state min-h-40 border-border/70">
           <p class="text-sm font-medium text-foreground">{{ t('dialog.loadingProperties') }}</p>
           <p class="section-copy">{{ t('dialog.loadingPropertiesHint') }}</p>
         </div>
 
-        <div
-          v-else-if="props.sections.length === 0"
-          class="empty-state min-h-40 border-border/70"
-        >
+        <div v-else-if="props.sections.length === 0" class="empty-state min-h-40 border-border/70">
           <p class="text-sm font-medium text-foreground">
             {{ props.emptyText ?? t('dialog.emptyProperties') }}
           </p>

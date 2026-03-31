@@ -29,9 +29,8 @@ export function appendRangeToCheckedKeys<TItem extends ExplorerSelectableItem>(
     return checkedKeys.includes(targetKey) ? checkedKeys : [...checkedKeys, targetKey]
   }
 
-  const [start, end] = anchorIndex <= targetIndex
-    ? [anchorIndex, targetIndex]
-    : [targetIndex, anchorIndex]
+  const [start, end] =
+    anchorIndex <= targetIndex ? [anchorIndex, targetIndex] : [targetIndex, anchorIndex]
   const nextCheckedKeys = new Set(checkedKeys)
 
   for (let index = start; index <= end; index += 1) {

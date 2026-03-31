@@ -108,10 +108,7 @@ function formatTreeSize(size: number): string {
   return `${current.toFixed(2)} ${units[index]}`
 }
 
-function mapTreeNodes(
-  nodes: TreeData[],
-  mapNode: (node: TreeData) => TreeData | null
-): TreeData[] {
+function mapTreeNodes(nodes: TreeData[], mapNode: (node: TreeData) => TreeData | null): TreeData[] {
   const nextNodes: TreeData[] = []
   let changed = false
 

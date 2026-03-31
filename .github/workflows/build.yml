@@ -9,57 +9,57 @@ on:
 jobs:
   build-windows:
     runs-on: windows-latest
-    
+
     steps:
-    - name: Checkout
-      uses: actions/checkout@v6
+      - name: Checkout
+        uses: actions/checkout@v6
 
-    - name: Setup Bun
-      uses: oven-sh/setup-bun@v2
-      with:
-        bun-version: latest
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        toolchain: stable
-        components: rustfmt, clippy
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
 
-    - name: Setup Rust cache
-      uses: Swatinem/rust-cache@v2
-      with:
-        workspaces: |
-          src-tauri
-        cache-on-failure: true
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri
+          cache-on-failure: true
 
-    - name: Install frontend dependencies
-      run: bun install --frozen-lockfile
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
 
-    - name: Build application (exe only)
-      run: |
-        bun tauri build --verbose
-      env:
-        TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-        TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+      - name: Build application (exe only)
+        run: |
+          bun tauri build --verbose
+        env:
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
 
-    - name: Get version info
-      id: version
-      working-directory: src-tauri
-      run: |
-        $version = (Get-Content Cargo.toml | Select-String "version = " | Select-Object -First 1).ToString().Split('"')[1]
-        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+      - name: Get version info
+        id: version
+        working-directory: src-tauri
+        run: |
+          $version = (Get-Content Cargo.toml | Select-String "version = " | Select-Object -First 1).ToString().Split('"')[1]
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
 
-    # - name: Print Folder Tree
-    #   uses: jaywcjlove/github-action-folder-tree@main
-    #   with:
-    #     exclude: "node_modules|dist|.git|.husky"
-    #     path: ./
+      # - name: Print Folder Tree
+      #   uses: jaywcjlove/github-action-folder-tree@main
+      #   with:
+      #     exclude: "node_modules|dist|.git|.husky"
+      #     path: ./
 
-    - name: Upload versioned executable
-      uses: actions/upload-artifact@v6
-      with:
-        name: ree-pak-rs-v${{ steps.version.outputs.VERSION }}-windows
-        path: |
-          src-tauri/target/release/ree-pak-rs.exe
-        if-no-files-found: error
-        retention-days: 30
+      - name: Upload versioned executable
+        uses: actions/upload-artifact@v6
+        with:
+          name: ree-pak-rs-v${{ steps.version.outputs.VERSION }}-windows
+          path: |
+            src-tauri/target/release/ree-pak-rs.exe
+          if-no-files-found: error
+          retention-days: 30

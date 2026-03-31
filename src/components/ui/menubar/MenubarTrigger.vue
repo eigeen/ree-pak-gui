@@ -14,12 +14,7 @@ const forwardedProps = useForwardProps(delegatedProps)
   <MenubarTrigger
     data-slot="menubar-trigger"
     v-bind="forwardedProps"
-    :class="
-      cn(
-        'data-[state=open]:bg-secondary/80 data-[state=open]:text-foreground',
-        props.class
-      )
-    "
+    :class="cn('data-[state=open]:bg-secondary/80 data-[state=open]:text-foreground', props.class)"
   >
     <slot />
   </MenubarTrigger>

@@ -12,11 +12,7 @@ import {
   type PackedPak
 } from '@/api/tauri/pak'
 import type { FileItem } from '@/store/work'
-import {
-  logFrontendDebug,
-  logFrontendError,
-  logFrontendInfo
-} from '@/utils/frontendLog'
+import { logFrontendDebug, logFrontendError, logFrontendInfo } from '@/utils/frontendLog'
 import { getParentPath } from '@/utils/path'
 import i18n from '@/plugins/i18n'
 
