@@ -20,6 +20,7 @@ use crate::{
     channel::TextureExportProgressChannel,
     error::{Error, Result},
     get_local_dir,
+    path_components::PathComponents,
     service::pak::PakService,
 };
 
@@ -74,10 +75,9 @@ impl PreviewService {
         };
 
         // check file type
-        // example: path/to/file.tex.241106027 -> tex
-        let ext = pak_entry_path.split('.').rev().nth(1).unwrap_or_default();
-        let file_type = PreviewFileType::from_extension(ext)
-            .ok_or(Error::PreviewFileNotSupported(ext.to_string()))?;
+        let file_type = preview_file_type_from_path(&pak_entry_path).ok_or_else(|| {
+            Error::PreviewFileNotSupported(preview_type_error_hint(&pak_entry_path))
+        })?;
 
         // if preview file exists, return it
         if let Some(path) = self.get_existing_preview_file(&pak_entry_path) {
@@ -362,9 +362,8 @@ fn build_texture_export_plan(
             .get_file_name(file.hash.hash_u64())
             .map(|path| path.to_string().unwrap())
             .ok_or_else(|| Error::PakEntryNotFound(file.hash.hash_u64().to_string()))?;
-        let extension = entry_path.split('.').rev().nth(1).unwrap_or_default();
-        let file_type = PreviewFileType::from_extension(extension)
-            .ok_or_else(|| Error::PreviewFileNotSupported(extension.to_string()))?;
+        let file_type = preview_file_type_from_path(&entry_path)
+            .ok_or_else(|| Error::PreviewFileNotSupported(preview_type_error_hint(&entry_path)))?;
 
         let output_path = output_dir.join(build_texture_output_path(&entry_path, file, format));
         let output_path = ensure_unique_path(output_path, file.hash.hash_u64(), &mut used_paths);
@@ -492,21 +491,45 @@ fn path_string_components(path: &str) -> Vec<&str> {
 }
 
 fn build_texture_file_name(file_name: &str, format: TextureExportFormat, hash: u64) -> String {
-    let parts = file_name.split('.').collect::<Vec<_>>();
-    let base = if parts.len() >= 3
-        && parts[parts.len() - 2].eq_ignore_ascii_case("tex")
-        && parts[parts.len() - 1].chars().all(|ch| ch.is_ascii_digit())
-    {
-        parts[..parts.len() - 2].join(".")
-    } else if parts.len() >= 2 {
-        parts[..parts.len() - 1].join(".")
-    } else if !file_name.is_empty() {
-        file_name.to_string()
-    } else {
-        format!("{hash:016X}")
-    };
+    let base = PathComponents::parse(file_name)
+        .and_then(|components| {
+            Path::new(components.raw_path())
+                .file_stem()
+                .map(|stem| stem.to_string_lossy().to_string())
+        })
+        .filter(|stem| !stem.is_empty())
+        .unwrap_or_else(|| fallback_texture_file_stem(file_name, hash));
 
     format!("{base}.{}", format.extension())
+}
+
+fn path_file_name(path: &str) -> &str {
+    path.rsplit(['/', '\\'])
+        .find(|segment| !segment.is_empty())
+        .unwrap_or(path)
+}
+
+fn preview_file_type_from_path(path: &str) -> Option<PreviewFileType> {
+    let components = PathComponents::parse(path)?;
+    PreviewFileType::from_extension(components.extension()?)
+}
+
+fn fallback_texture_file_stem(file_name: &str, hash: u64) -> String {
+    Path::new(file_name)
+        .file_stem()
+        .map(|stem| stem.to_string_lossy().to_string())
+        .filter(|stem| !stem.is_empty())
+        .unwrap_or_else(|| format!("{hash:016X}"))
+}
+
+fn preview_type_error_hint(path: &str) -> String {
+    let file_name = path_file_name(path);
+    file_name
+        .rsplit('.')
+        .next()
+        .filter(|segment| !segment.is_empty())
+        .unwrap_or(file_name)
+        .to_string()
 }
 
 #[cfg(test)]
@@ -528,6 +551,24 @@ mod tests {
     #[test]
     fn test_build_texture_file_name_replaces_tex_suffix() {
         let name = build_texture_file_name("foo.tex.241106027", TextureExportFormat::Png, 1);
+        assert_eq!(name, "foo.png");
+    }
+
+    #[test]
+    fn test_preview_file_type_supports_numeric_suffix() {
+        let file_type = preview_file_type_from_path("foo.tex.241106027");
+        assert_eq!(file_type, Some(PreviewFileType::Tex));
+    }
+
+    #[test]
+    fn test_preview_file_type_supports_version_and_tag_suffix() {
+        let file_type = preview_file_type_from_path("foo.tex.241106027.X64");
+        assert_eq!(file_type, Some(PreviewFileType::Tex));
+    }
+
+    #[test]
+    fn test_build_texture_file_name_strips_version_and_tag_suffixes() {
+        let name = build_texture_file_name("foo.tex.241106027.X64", TextureExportFormat::Png, 1);
         assert_eq!(name, "foo.png");
     }
 }

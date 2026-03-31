@@ -17,6 +17,7 @@ mod event;
 mod logger;
 mod macros;
 mod pak;
+mod path_components;
 mod service;
 mod utility;
 
