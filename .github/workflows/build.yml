@@ -42,24 +42,17 @@ jobs:
           TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
 
-      - name: Get version info
-        id: version
-        working-directory: src-tauri
-        run: |
-          $version = (Get-Content Cargo.toml | Select-String "version = " | Select-Object -First 1).ToString().Split('"')[1]
-          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+      - name: Package update artifact
+        id: package
+        run: bun run release:package
 
-      # - name: Print Folder Tree
-      #   uses: jaywcjlove/github-action-folder-tree@main
-      #   with:
-      #     exclude: "node_modules|dist|.git|.husky"
-      #     path: ./
-
-      - name: Upload versioned executable
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: ree-pak-rs-v${{ steps.version.outputs.VERSION }}-windows
+          name: ree-pak-gui-${{ steps.package.outputs.tag }}-windows
           path: |
             src-tauri/target/release/ree-pak-rs.exe
+            ${{ steps.package.outputs.archive_path }}
+            ${{ steps.package.outputs.manifest_path }}
           if-no-files-found: error
           retention-days: 30
