@@ -91,6 +91,7 @@ fn main() {
             command::pak_extract_all,
             command::pak_terminate_extraction,
             command::pak_get_header,
+            command::pak_analyze_conflicts,
             command::pak_pack,
             command::pak_terminate_pack,
             command::file_table_load,

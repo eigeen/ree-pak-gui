@@ -12,6 +12,7 @@ import { computed, ref, watch } from 'vue'
 
 interface WorkRecord {
   unpack: UnpackWork
+  pack: PackWork
 }
 
 interface UnpackWork {
@@ -28,6 +29,7 @@ type PackWork = {
     autoDetectRoot: boolean
     exportDirectory: string
     fastMode: boolean
+    allowFileNameAsPathHash: boolean
   }
   inputFiles: FileItem[]
 }
@@ -38,6 +40,19 @@ export interface FileItem {
 }
 
 const FILE_NAME = 'workspace.json'
+
+function normalizePackWork(raw: Partial<PackWork> | null | undefined): PackWork {
+  return {
+    exportConfig: {
+      mode: raw?.exportConfig?.mode === 'single' ? 'single' : 'individual',
+      autoDetectRoot: raw?.exportConfig?.autoDetectRoot ?? true,
+      exportDirectory: raw?.exportConfig?.exportDirectory ?? '',
+      fastMode: raw?.exportConfig?.fastMode ?? false,
+      allowFileNameAsPathHash: raw?.exportConfig?.allowFileNameAsPathHash ?? true
+    },
+    inputFiles: Array.isArray(raw?.inputFiles) ? raw.inputFiles : []
+  }
+}
 
 export const useWorkStore = defineStore('work', () => {
   const unpack = ref<UnpackWork>({
@@ -53,7 +68,8 @@ export const useWorkStore = defineStore('work', () => {
       mode: 'individual',
       autoDetectRoot: true,
       exportDirectory: '',
-      fastMode: false
+      fastMode: false,
+      allowFileNameAsPathHash: true
     },
     inputFiles: []
   })
@@ -85,7 +101,7 @@ export const useWorkStore = defineStore('work', () => {
           }
         }
         if (work.pack) {
-          pack.value = work.pack
+          pack.value = normalizePackWork(work.pack)
         }
 
         return {

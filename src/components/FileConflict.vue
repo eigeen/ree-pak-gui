@@ -20,21 +20,37 @@ watch(
 
     localConflicts.value = newConflicts.map((conflict) => ({
       ...conflict,
-      selectedSource: conflict.selectedSource ?? conflict.sources.length - 1
+      selectedSourceId:
+        conflict.selectedSourceId === undefined
+          ? (conflict.sources.at(-1)?.id ?? null)
+          : conflict.selectedSourceId
     }))
+    expandedFiles.value = new Set(newConflicts.map((conflict) => conflict.targetKey))
   },
   { immediate: true }
 )
 
-const toggleExpanded = (relativePath: string) => {
-  if (expandedFiles.value.has(relativePath)) {
-    expandedFiles.value.delete(relativePath)
+const toggleExpanded = (targetKey: string) => {
+  if (expandedFiles.value.has(targetKey)) {
+    expandedFiles.value.delete(targetKey)
   } else {
-    expandedFiles.value.add(relativePath)
+    expandedFiles.value.add(targetKey)
   }
 }
 
-const isExpanded = (relativePath: string) => expandedFiles.value.has(relativePath)
+const isExpanded = (targetKey: string) => expandedFiles.value.has(targetKey)
+
+const syncConflicts = () => {
+  conflicts.value = localConflicts.value.map((conflict) => ({
+    ...conflict
+  }))
+}
+
+const updateSelectedSource = (conflict: ConflictFile, value: unknown) => {
+  const nextValue = String(value)
+  conflict.selectedSourceId = nextValue === '__remove__' ? null : nextValue
+  syncConflicts()
+}
 
 const formatFileSize = (bytes: number) => {
   if (bytes === 0) return '0 B'
@@ -59,86 +75,83 @@ const formatDate = (date: Date) =>
   <div class="space-y-4">
     <p class="section-copy">{{ t('fileConflict.description') }}</p>
 
-    <div class="editor-scrollbar max-h-[30rem] space-y-3 overflow-y-auto pr-2">
+    <div class="editor-scrollbar max-h-120 overflow-y-auto">
       <div
         v-for="conflict in localConflicts"
-        :key="conflict.relativePath"
-        class="rounded-[1.25rem] border border-border/70 bg-secondary/25 p-4"
+        :key="conflict.targetKey"
+        class="border-b border-border/60 px-4 py-3 last:border-b-0"
       >
         <div class="flex items-start gap-3">
           <Button
             size="icon-sm"
             variant="ghost"
-            class="mt-0.5 rounded-full"
-            @click="toggleExpanded(conflict.relativePath)"
+            class="mt-0.5 h-7 w-7 rounded-full"
+            @click="toggleExpanded(conflict.targetKey)"
           >
-            <ChevronDown v-if="isExpanded(conflict.relativePath)" class="size-4" />
+            <ChevronDown v-if="isExpanded(conflict.targetKey)" class="size-4" />
             <ChevronRight v-else class="size-4" />
           </Button>
 
-          <div
-            class="flex size-9 shrink-0 items-center justify-center rounded-2xl border border-destructive/25 bg-destructive/10 text-destructive"
-          >
-            <AlertTriangle class="size-4" />
-          </div>
-
-          <div class="min-w-0 flex-1">
-            <div class="flex flex-wrap items-center gap-2">
-              <p class="break-all text-sm font-semibold text-foreground">
-                {{ conflict.relativePath }}
-              </p>
-              <Badge variant="outline">
-                {{ t('fileConflict.sourcesCount', { count: conflict.sources.length }) }}
-              </Badge>
+          <div class="flex min-w-0 flex-1 items-start gap-3">
+            <div class="flex h-8 w-8 shrink-0 items-center justify-center text-destructive">
+              <AlertTriangle class="size-4" />
             </div>
-            <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              <span v-if="conflict.size">
-                {{ t('fileConflict.sizeLabel', { size: formatFileSize(conflict.size) }) }}
-              </span>
-              <span v-if="conflict.modifiedDate">
-                {{ t('fileConflict.modifiedAt', { date: formatDate(conflict.modifiedDate) }) }}
-              </span>
+
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <p class="break-all text-sm font-semibold text-foreground">
+                  {{ conflict.targetPath }}
+                </p>
+                <Badge variant="outline">
+                  {{ t('fileConflict.sourcesCount', { count: conflict.sources.length }) }}
+                </Badge>
+              </div>
+              <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                <span v-if="conflict.size">
+                  {{ t('fileConflict.sizeLabel', { size: formatFileSize(conflict.size) }) }}
+                </span>
+                <span v-if="conflict.modifiedDate">
+                  {{ t('fileConflict.modifiedAt', { date: formatDate(conflict.modifiedDate) }) }}
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
-        <div
-          v-if="isExpanded(conflict.relativePath)"
-          class="mt-4 space-y-2 border-l border-border pl-5"
-        >
+        <div v-if="isExpanded(conflict.targetKey)" class="ml-9 mt-3 pl-4">
           <RadioGroup
-            :model-value="String(conflict.selectedSource)"
-            class="space-y-2"
-            @update:model-value="(value) => (conflict.selectedSource = Number(value))"
+            :model-value="conflict.selectedSourceId ?? '__remove__'"
+            class="space-y-1.5"
+            @update:model-value="(value) => updateSelectedSource(conflict, value)"
           >
             <label
-              class="flex cursor-pointer items-start gap-3 rounded-2xl border border-border/70 bg-background/90 px-3 py-3"
-              :for="`conflict-${conflict.relativePath}-remove`"
+              class="flex cursor-pointer items-start gap-3 rounded-md px-2 py-2 transition-colors hover:bg-[color-mix(in_oklch,var(--surface-toolbar)_68%,transparent)]"
+              :for="`conflict-${conflict.targetKey}-remove`"
             >
               <RadioGroupItem
-                :id="`conflict-${conflict.relativePath}-remove`"
-                value="-1"
-                class="mt-1"
+                :id="`conflict-${conflict.targetKey}-remove`"
+                value="__remove__"
+                class="mt-0.5"
               />
-              <div class="flex items-center gap-2 text-sm font-medium text-destructive">
-                <Trash2 class="size-4" />
+              <div class="flex min-w-0 items-center gap-2 text-sm font-medium text-destructive">
+                <Trash2 class="size-4 shrink-0" />
                 <span>{{ t('fileConflict.removeFile') }}</span>
               </div>
             </label>
 
             <label
-              v-for="(source, index) in conflict.sources"
-              :key="index"
-              class="flex cursor-pointer items-start gap-3 rounded-2xl border border-border/70 bg-background/90 px-3 py-3"
-              :for="`conflict-${conflict.relativePath}-${index}`"
+              v-for="(source, sourceIndex) in conflict.sources"
+              :key="source.id"
+              class="flex cursor-pointer items-start gap-3 rounded-md px-2 py-2 transition-colors hover:bg-[color-mix(in_oklch,var(--surface-toolbar)_68%,transparent)]"
+              :for="`conflict-${conflict.targetKey}-${sourceIndex}`"
             >
               <RadioGroupItem
-                :id="`conflict-${conflict.relativePath}-${index}`"
-                :value="String(index)"
-                class="mt-1"
+                :id="`conflict-${conflict.targetKey}-${sourceIndex}`"
+                :value="source.id"
+                class="mt-0.5"
               />
               <div class="min-w-0 flex-1">
-                <p class="break-all text-sm font-medium text-foreground">{{ source.sourcePath }}</p>
+                <p class="break-all text-sm text-foreground">{{ source.sourcePath }}</p>
               </div>
             </label>
           </RadioGroup>

@@ -281,6 +281,11 @@
 }
 
 @layer utilities {
+  .text-2xs {
+    font-size: 0.8125rem;
+    line-height: 1.125rem;
+  }
+
   .app-shell {
     position: relative;
     height: 100vh;
@@ -364,7 +369,7 @@
   }
 
   .section-copy {
-    @apply text-xs leading-5 text-muted-foreground;
+    @apply text-2xs leading-5 text-muted-foreground;
   }
 
   .empty-state {
@@ -619,10 +624,5 @@
     font-size: 1.125rem;
     line-height: 1.75rem;
     margin-top: 1px;
-  }
-
-  .text-2xs {
-    font-size: 0.8125rem;
-    line-height: 1.125rem;
   }
 }

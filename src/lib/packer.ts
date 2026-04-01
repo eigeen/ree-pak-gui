@@ -1,11 +1,14 @@
 import { Channel } from '@tauri-apps/api/core'
-import { exists, stat, readDir, mkdir } from '@tauri-apps/plugin-fs'
+import { exists, readDir, mkdir } from '@tauri-apps/plugin-fs'
 import { join } from '@tauri-apps/api/path'
 import { ShowError } from '@/utils/message'
 import {
+  pak_analyze_conflicts,
   pak_pack,
-  pak_get_header,
   pak_terminate_pack,
+  type PackConflictInfo,
+  type PackConflictResolution,
+  type PackOptions,
   type PackProgressEvent,
   type PackedPak
 } from '@/api/tauri/pak'
@@ -126,11 +129,12 @@ interface FileTreeNode {
 }
 
 export interface ConflictFile {
-  relativePath: string
+  targetKey: string
+  targetPath: string
   size?: number
   modifiedDate?: Date
-  sources: Array<{ sourcePath: string }>
-  selectedSource: number // -1: 移除文件, 0+: 对应源文件索引
+  sources: Array<{ id: string; sourcePath: string }>
+  selectedSourceId: string | null
 }
 
 export interface ExportConfig {
@@ -138,6 +142,7 @@ export interface ExportConfig {
   exportDirectory: string
   autoDetectRoot: boolean
   fastMode: boolean
+  allowFileNameAsPathHash: boolean
 }
 
 export interface ExportResult {
@@ -154,13 +159,6 @@ export interface PackProgress {
   finishFileCount: number
 }
 
-export interface FolderFile {
-  relativePath: string
-  fullPath: string
-  size: number
-  modifiedDate: Date
-}
-
 export class Packer {
   private progress: PackProgress = {
     working: false,
@@ -175,7 +173,7 @@ export class Packer {
     error: ''
   }
 
-  private conflictResolutions: { [relativePath: string]: number } = {}
+  private conflictResolutions: PackConflictResolution = {}
 
   constructor(
     private onProgressUpdate?: (progress: PackProgress) => void,
@@ -197,6 +195,7 @@ export class Packer {
       totalFileCount: 0,
       finishFileCount: 0
     }
+    this.conflictResolutions = {}
     this.result = {
       success: false,
       files: [],
@@ -222,10 +221,10 @@ export class Packer {
     this.updateCallbacks()
   }
 
-  async handleExport(inputFiles: FileItem[], exportConfig: ExportConfig): Promise<void> {
+  async handleExport(inputFiles: FileItem[], exportConfig: ExportConfig): Promise<ConflictFile[]> {
     logFrontendInfo(
       'repack.export',
-      `start inputs=${inputFiles.length} mode=${exportConfig.mode} auto_detect_root=${exportConfig.autoDetectRoot} fast_mode=${exportConfig.fastMode}`
+      `start inputs=${inputFiles.length} mode=${exportConfig.mode} auto_detect_root=${exportConfig.autoDetectRoot} fast_mode=${exportConfig.fastMode} filename_hash=${exportConfig.allowFileNameAsPathHash}`
     )
 
     this.resetExport()
@@ -233,13 +232,16 @@ export class Packer {
     try {
       if (exportConfig.mode === 'individual') {
         await this.handleIndividualExport(inputFiles, exportConfig)
+        return []
       } else if (exportConfig.mode === 'single') {
-        await this.handleMergeExport(inputFiles, exportConfig)
+        return await this.handleMergeExport(inputFiles, exportConfig)
       }
     } catch (e) {
       logFrontendError('repack.export', 'export failed', e)
       ShowError(e)
     }
+
+    return []
   }
 
   private async handleIndividualExport(
@@ -252,8 +254,6 @@ export class Packer {
       totalFileCount: inputFiles.length,
       finishFileCount: 0
     })
-
-    const outputFiles: string[] = []
 
     function sleep(time: number) {
       return new Promise((resolve) => {
@@ -284,14 +284,16 @@ export class Packer {
           this.handlePackProgress(event)
         }
 
-        const processedSources = await this.processSources([file], exportConfig, {})
+        const processedSources = await this.processSources([file], exportConfig)
         logFrontendDebug(
           'repack.process-sources',
           `individual output=${outputPath} sources=${processedSources.length}`
         )
 
-        await pak_pack(processedSources, outputPath, channel)
-        outputFiles.push(outputPath)
+        await pak_pack(
+          this.buildPackOptions(processedSources, outputPath, exportConfig, {}),
+          channel
+        )
 
         // 等待完成信号，确保文件写入完成，再开始下一个文件
         while (true) {
@@ -327,7 +329,7 @@ export class Packer {
         finishFileCount: 0
       })
 
-      const conflicts = await this.analyzeConflicts(inputFiles)
+      const conflicts = await this.analyzeConflicts(inputFiles, exportConfig)
 
       if (conflicts.length > 0) {
         logFrontendInfo('repack.conflicts', `detected conflicts=${conflicts.length}`)
@@ -371,11 +373,7 @@ export class Packer {
     }
 
     try {
-      const processedSources = await this.processSources(
-        inputFiles,
-        exportConfig,
-        this.conflictResolutions
-      )
+      const processedSources = await this.processSources(inputFiles, exportConfig)
       logFrontendDebug(
         'repack.process-sources',
         `merge output=${outputPath} sources=${processedSources.length}`
@@ -386,7 +384,10 @@ export class Packer {
         this.handlePackProgress(event)
       }
 
-      await pak_pack(processedSources, outputPath, channel)
+      await pak_pack(
+        this.buildPackOptions(processedSources, outputPath, exportConfig, this.conflictResolutions),
+        channel
+      )
 
       // `pak_pack` 只负责启动后台打包线程，真实结果以后续 `workFinished` 事件为准。
     } catch (error) {
@@ -440,109 +441,39 @@ export class Packer {
     }
   }
 
-  async analyzeConflicts(files: FileItem[]): Promise<ConflictFile[]> {
+  async analyzeConflicts(files: FileItem[], exportConfig: ExportConfig): Promise<ConflictFile[]> {
     try {
-      logFrontendInfo('repack.conflicts', `scan inputs=${files.length}`)
-      const fileMap = new Map<
-        string,
-        Array<{ sourcePath: string; size: number; modifiedDate: Date }>
-      >()
+      const processedSources = await this.processSources(files, exportConfig)
+      logFrontendInfo(
+        'repack.conflicts',
+        `scan inputs=${files.length} sources=${processedSources.length}`
+      )
 
-      for (const file of files) {
-        if (file.isFile && file.path.endsWith('.pak')) {
-          const headerInfo = await pak_get_header(file.path)
-          for (const pakEntry of headerInfo.entries) {
-            // 构建相对路径，由于PakEntry没有relativePath属性，我们需要使用其他方式
-            const key = `entry_${pakEntry.hashNameLower}_${pakEntry.hashNameUpper}`
-            if (!fileMap.has(key)) {
-              fileMap.set(key, [])
-            }
-            fileMap.get(key)?.push({
-              sourcePath: `${file.path}:${key}`,
-              size: pakEntry.uncompressedSize,
-              modifiedDate: new Date()
-            })
-          }
-        } else {
-          const folderFiles = await this.scanFolderFiles(file.path)
-          for (const folderFile of folderFiles) {
-            const key = folderFile.relativePath
-            if (!fileMap.has(key)) {
-              fileMap.set(key, [])
-            }
-            fileMap.get(key)?.push({
-              sourcePath: folderFile.fullPath,
-              size: folderFile.size,
-              modifiedDate: folderFile.modifiedDate
-            })
-          }
-        }
-      }
+      const conflicts = await pak_analyze_conflicts({
+        sources: processedSources,
+        allowFileNameAsPathHash: exportConfig.allowFileNameAsPathHash
+      })
 
-      const conflicts: ConflictFile[] = []
-      for (const [relativePath, sources] of fileMap) {
-        if (sources.length > 1) {
-          conflicts.push({
-            relativePath,
-            size: sources[0]?.size,
-            modifiedDate: sources[0]?.modifiedDate,
-            sources: sources.map((s) => ({ sourcePath: s.sourcePath })),
-            selectedSource: sources.length - 1
-          })
-        }
-      }
-
-      return conflicts
+      return conflicts.map((conflict) => this.mapConflictInfo(conflict))
     } catch (error) {
       logFrontendError('repack.conflicts', 'analyze conflicts failed', error)
       return []
     }
   }
 
-  private async scanFolderFiles(folderPath: string): Promise<FolderFile[]> {
-    const files: FolderFile[] = []
-
-    const scanRecursive = async (currentPath: string, basePath: string) => {
-      try {
-        const entries = await readDir(currentPath)
-
-        for (const entry of entries) {
-          const fullPath = await join(currentPath, entry.name)
-
-          if (entry.isDirectory) {
-            await scanRecursive(fullPath, basePath)
-          } else {
-            const fileStat = await stat(fullPath)
-            const relativePath = fullPath.replace(basePath, '').replace(/\\/g, '/')
-
-            files.push({
-              relativePath: relativePath.startsWith('/') ? relativePath : '/' + relativePath,
-              fullPath,
-              size: fileStat.size,
-              modifiedDate: fileStat.mtime ? new Date(fileStat.mtime) : new Date()
-            })
-          }
-        }
-      } catch (error) {
-        logFrontendError('repack.scan-folder', `scan failed path=${currentPath}`, error)
-      }
-    }
-
-    await scanRecursive(folderPath, folderPath)
-    return files
-  }
-
-  private async processSources(
-    files: FileItem[],
-    exportConfig: ExportConfig,
-    _resolutions: { [relativePath: string]: number }
-  ): Promise<string[]> {
-    const sourcePaths = files.map((f) => f.path)
+  private async processSources(files: FileItem[], exportConfig: ExportConfig): Promise<string[]> {
+    const sourcePaths = files.map((file) => file.path)
 
     if (exportConfig.autoDetectRoot) {
       const processedPaths: string[] = []
 
-      for (const path of sourcePaths) {
+      for (const file of files) {
+        const path = file.path
+        if (file.isFile) {
+          processedPaths.push(path)
+          continue
+        }
+
         // 向下查找第一个文件
         const firstFile = await this.findFirstFile(path)
         if (!firstFile) {
@@ -645,7 +576,38 @@ export class Packer {
     }
   }
 
-  setConflictResolutions(resolutions: { [relativePath: string]: number }): void {
+  setConflictResolutions(resolutions: PackConflictResolution): void {
     this.conflictResolutions = resolutions
+  }
+
+  private buildPackOptions(
+    sources: string[],
+    output: string,
+    exportConfig: ExportConfig,
+    conflictResolutions: PackConflictResolution
+  ): PackOptions {
+    return {
+      sources,
+      output,
+      allowFileNameAsPathHash: exportConfig.allowFileNameAsPathHash,
+      conflictResolutions
+    }
+  }
+
+  private mapConflictInfo(conflict: PackConflictInfo): ConflictFile {
+    return {
+      targetKey: conflict.targetKey,
+      targetPath: conflict.targetPath,
+      size: conflict.size,
+      modifiedDate:
+        conflict.modifiedTimestampMs === undefined || conflict.modifiedTimestampMs === null
+          ? undefined
+          : new Date(conflict.modifiedTimestampMs),
+      sources: conflict.sources.map((source) => ({
+        id: source.id,
+        sourcePath: source.sourcePath
+      })),
+      selectedSourceId: conflict.selectedSourceId ?? conflict.sources.at(-1)?.id ?? null
+    }
   }
 }

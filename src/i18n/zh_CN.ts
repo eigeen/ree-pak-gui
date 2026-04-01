@@ -160,6 +160,8 @@ export default {
       fastMode: '快速模式',
       fastModeTooltipL1: '导入文件后会自动导出到指定目录，无需确认。',
       fastModeTooltipL2: '如未指定目录，则导出到输入文件相同目录。',
+      allowFileNameAsPathHash: '允许使用文件名作为路径哈希',
+      allowFileNameAsPathHashTooltipL1: '当文件名为16进制哈希时，直接采用作为目标路径哈希。',
       exportDirectory: '导出目录',
       exportDirectoryPlaceholder: '导出目录',
       export: '导出',

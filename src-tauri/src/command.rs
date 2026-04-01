@@ -1,7 +1,7 @@
 use anyhow::Context as _;
 use ree_pak_core::filename::FileNameTable;
 use serde::{Deserialize, Serialize};
-use std::time::Instant;
+use std::{collections::HashMap, time::Instant};
 
 use crate::{
     channel::{
@@ -15,7 +15,7 @@ use crate::{
         tree::{FileTree, RenderTreeOptions},
     },
     service::{
-        pak::{PakHeaderInfo, PakService},
+        pak::{PackConflictInfo, PakHeaderInfo, PakService},
         preview::{PreviewService, TextureExportFormat},
     },
     utility, warp_result_elapsed,
@@ -160,21 +160,54 @@ pub fn pak_get_header(pak_path: &str) -> Result<PakHeaderInfo, String> {
     })
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PackOptions {
+    pub sources: Vec<String>,
+    pub output: String,
+    pub allow_file_name_as_path_hash: bool,
+    #[serde(default)]
+    pub conflict_resolutions: HashMap<String, Option<String>>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PackAnalyzeOptions {
+    pub sources: Vec<String>,
+    pub allow_file_name_as_path_hash: bool,
+}
+
 #[tauri::command]
-pub fn pak_pack(
-    sources: Vec<String>,
-    output: String,
-    on_event: PackProgressChannelInner,
-) -> Result<(), String> {
+pub fn pak_analyze_conflicts(options: PackAnalyzeOptions) -> Result<Vec<PackConflictInfo>, String> {
+    let pak_service = PakService::get();
+    let source_count = options.sources.len();
+    log_sync_command(
+        "pak_analyze_conflicts",
+        Some(format!("sources={source_count} phase=analyze")),
+        || {
+            pak_service
+                .analyze_conflicts(&options)
+                .map_err(|e| e.to_string())
+        },
+    )
+}
+
+#[tauri::command]
+pub fn pak_pack(options: PackOptions, on_event: PackProgressChannelInner) -> Result<(), String> {
     let pak_service = PakService::get();
     let channel = PackProgressChannel::new(on_event);
-    let source_count = sources.len();
+    let source_count = options.sources.len();
+    let output = options.output.clone();
     log_sync_command(
         "pak_pack",
         Some(format!(
             "sources={source_count} output={output} phase=dispatch"
         )),
-        || pak_service.pack(&sources, &output, channel).map_err(|e| e.to_string()),
+        || {
+            pak_service
+                .pack(&options, channel)
+                .map_err(|e| e.to_string())
+        },
     )
 }
 
@@ -190,11 +223,9 @@ pub fn pak_terminate_pack() -> Result<(), String> {
 pub fn file_table_load(path: &str) -> Result<(), String> {
     let pak_service = PakService::get();
     log_sync_command("file_table_load", Some(format!("path={path}")), || {
-        {
-            let table = FileNameTable::from_list_file(path).map_err(|e| e.to_string())?;
-            pak_service.set_file_name_table(table);
-            Ok::<(), String>(())
-        }
+        let table = FileNameTable::from_list_file(path).map_err(|e| e.to_string())?;
+        pak_service.set_file_name_table(table);
+        Ok::<(), String>(())
     })
 }
 
@@ -286,14 +317,18 @@ pub fn get_compile_info() -> CompileInfo {
 /// Will apply after restart.
 #[tauri::command]
 pub fn perform_update(file_path: String) -> Result<(), String> {
-    log_sync_command("perform_update", Some(format!("file_path={file_path}")), || {
-        self_replace::self_replace(&file_path)
-            .context("Failed to replace current binary")
-            .map_err(|e| e.to_string())?;
-        let _ = std::fs::remove_file(&file_path);
+    log_sync_command(
+        "perform_update",
+        Some(format!("file_path={file_path}")),
+        || {
+            self_replace::self_replace(&file_path)
+                .context("Failed to replace current binary")
+                .map_err(|e| e.to_string())?;
+            let _ = std::fs::remove_file(&file_path);
 
-        Ok(())
-    })
+            Ok(())
+        },
+    )
 }
 
 #[tauri::command]
@@ -316,7 +351,7 @@ pub fn murmur32(buffer: Vec<u8>) -> Result<u32, String> {
 }
 
 #[tauri::command]
-pub fn murmur32_utf16(str: String) -> Result<u64, String> {
+pub fn murmur32_utf16(str: String) -> Result<JsSafeHash, String> {
     use ree_pak_core::utf16_hash::Utf16HashExt;
-    Ok(str.hash_mixed())
+    Ok(JsSafeHash::from_u64(str.hash_mixed()))
 }

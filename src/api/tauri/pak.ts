@@ -113,6 +113,34 @@ export type PackedPak = {
 export type UnpackProgressEvent = WorkProgressEvent<UnpackProgressData>
 export type PackProgressEvent = WorkProgressEvent<PackProgressData>
 
+export type PackConflictResolution = Record<string, string | null>
+
+export interface PackAnalyzeOptions {
+  sources: string[]
+  allowFileNameAsPathHash: boolean
+}
+
+export interface PackConflictSourceInfo {
+  id: string
+  sourcePath: string
+}
+
+export interface PackConflictInfo {
+  targetKey: string
+  targetPath: string
+  size?: number
+  modifiedTimestampMs?: number | null
+  sources: PackConflictSourceInfo[]
+  selectedSourceId?: string | null
+}
+
+export interface PackOptions {
+  sources: string[]
+  output: string
+  allowFileNameAsPathHash: boolean
+  conflictResolutions?: PackConflictResolution
+}
+
 export function pak_clear_all(): Promise<void> {
   return invoke('pak_clear_all')
 }
@@ -216,13 +244,13 @@ export function pak_get_header(pakPath: string): Promise<PakHeaderInfo> {
   return invoke('pak_get_header', { pakPath })
 }
 
+export function pak_analyze_conflicts(options: PackAnalyzeOptions): Promise<PackConflictInfo[]> {
+  return invoke('pak_analyze_conflicts', { options })
+}
+
 // Pack files/folders
-export function pak_pack(
-  sources: string[],
-  output: string,
-  onEvent: Channel<PackProgressEvent>
-): Promise<void> {
-  return invoke('pak_pack', { sources, output, onEvent })
+export function pak_pack(options: PackOptions, onEvent: Channel<PackProgressEvent>): Promise<void> {
+  return invoke('pak_pack', { options, onEvent })
 }
 
 // Terminate pack operation

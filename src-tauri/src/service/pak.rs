@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fs::File,
     io::{BufReader, BufWriter, Read, Write},
     path::{Path, PathBuf},
@@ -27,6 +28,7 @@ use crate::{
         FileTreeProgressChannel, PackProgressChannel, PackedFile, PackedFileTree, PackedPak,
         UnpackProgressChannel,
     },
+    command::{PackAnalyzeOptions, PackOptions},
     common::JsSafeHash,
     error::{Error, Result},
     pak::{
@@ -35,6 +37,8 @@ use crate::{
         tree::{FileTree, RenderTreeNode, RenderTreeOptions},
     },
 };
+
+const FILENAME_HASH_DIRECTORY: &str = "_FilenameHash";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -67,6 +71,24 @@ pub struct PakEntry {
     pub encryption_type: String,
     pub checksum: String,
     pub unk_attr: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PackConflictSourceInfo {
+    pub id: String,
+    pub source_path: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PackConflictInfo {
+    pub target_key: String,
+    pub target_path: String,
+    pub size: Option<u64>,
+    pub modified_timestamp_ms: Option<i64>,
+    pub sources: Vec<PackConflictSourceInfo>,
+    pub selected_source_id: Option<String>,
 }
 
 impl From<PakMetadata> for PakHeaderInfo {
@@ -131,7 +153,7 @@ impl PakTreeBuilder {
     fn add_file(&mut self, pak_path: &str, file_path: Option<String>, hash: u64, size: u64) {
         let pak_files = self.paks.entry(pak_path.to_string()).or_default();
         pak_files.push(PackedFile::new(
-            file_path.unwrap_or_else(|| format!("{:16X}", hash)),
+            file_path.unwrap_or_else(|| format!("{:016X}", hash)),
             JsSafeHash::from_u64(hash),
             size,
         ));
@@ -146,6 +168,24 @@ impl PakTreeBuilder {
 
         PackedFileTree::new(paks)
     }
+}
+
+#[derive(Debug, Clone)]
+enum ManifestSource {
+    LooseFile { real_path: PathBuf },
+    PakEntry { pak_path: PathBuf, entry_hash: u64 },
+}
+
+#[derive(Debug, Clone)]
+struct FileManifest {
+    hash: u64,
+    target_key: String,
+    display_path: Option<String>,
+    source_id: String,
+    source_label: String,
+    size: u64,
+    modified_timestamp_ms: Option<i64>,
+    source: ManifestSource,
 }
 
 pub struct PakService {
@@ -423,19 +463,20 @@ impl PakService {
         }
     }
 
-    pub fn pack(
-        &self,
-        sources: &[impl AsRef<str>],
-        output: &str,
-        progress: PackProgressChannel,
-    ) -> Result<()> {
+    pub fn analyze_conflicts(&self, options: &PackAnalyzeOptions) -> Result<Vec<PackConflictInfo>> {
+        let manifest_groups =
+            collect_manifest_groups(&options.sources, options.allow_file_name_as_path_hash, None)?;
+        Ok(build_pack_conflicts(&manifest_groups))
+    }
+
+    pub fn pack(&self, options: &PackOptions, progress: PackProgressChannel) -> Result<()> {
         if let Some(handle) = &*self.work_thread.lock()
             && !handle.is_finished()
         {
             return Err(Error::PackAlreadyRunning);
         }
 
-        let output_path = PathBuf::from(output);
+        let output_path = PathBuf::from(&options.output);
         if output_path.exists() {
             return Err(Error::FileIO {
                 path: output_path.display().to_string(),
@@ -447,168 +488,72 @@ impl PakService {
         }
 
         let should_terminate = self.should_terminate.clone();
-        let sources = sources
-            .iter()
-            .map(|s| s.as_ref().to_string())
-            .collect::<Vec<_>>();
+        let options = options.clone();
         let progress1 = progress.clone();
         *self.work_thread.lock() = Some(thread::spawn(move || {
             let main_fn = move || -> Result<PakTreeBuilder> {
-                // collect all files and build file tree
-                let mut file_manifests: IndexMap<u64, FileManifest> = IndexMap::new();
+                let manifest_groups = collect_manifest_groups(
+                    &options.sources,
+                    options.allow_file_name_as_path_hash,
+                    Some(&should_terminate),
+                )?;
                 let mut tree_builder = PakTreeBuilder::new();
 
-                for source in sources {
-                    if should_terminate.load(Ordering::Relaxed) {
-                        return Err(Error::Terminated);
-                    }
-
-                    let source_path = Path::new(&source);
-                    if !source_path.exists() {
-                        return Err(Error::FileIO {
-                            path: source_path.display().to_string(),
-                            source: std::io::Error::new(
-                                std::io::ErrorKind::NotFound,
-                                "File not found",
-                            ),
-                        });
-                    }
-
-                    let root_path = source_path.to_path_buf();
-
-                    if source_path.is_file() {
-                        // if is file, check its a pak
-                        let mut magic = [0; 4];
-                        let mut file = File::open(source_path)?;
-                        file.read_exact(&mut magic)?;
-                        if magic != *b"AKPK" {
-                            return Err(Error::FileIO {
-                                path: source_path.display().to_string(),
-                                source: std::io::Error::new(
-                                    std::io::ErrorKind::InvalidData,
-                                    "Not a pak file",
-                                ),
-                            });
-                        }
-
-                        // collect files
-                        let header = PakService::get_header_raw(source_path)?;
-                        for entry in header.entries() {
-                            file_manifests.insert(
-                                entry.hash(),
-                                FileManifest {
-                                    real_path: None,
-                                    pak_path: None,
-                                    from_pak: Some(source_path.to_path_buf()),
-                                },
-                            );
-                        }
-                    } else {
-                        WalkDir::new(source_path)
-                            .into_iter()
-                            .filter(|entry| {
-                                entry
-                                    .as_ref()
-                                    .unwrap()
-                                    .metadata()
-                                    .is_ok_and(|m| m.is_file())
-                            })
-                            .try_for_each(|entry| -> Result<()> {
-                                let entry = entry.map_err(|e| Error::FileIO {
-                                    path: root_path.display().to_string(),
-                                    source: std::io::Error::other(e.to_string()),
-                                })?;
-                                let path = entry.path();
-                                let relative_path =
-                                    get_relative_path_with_parent(&root_path, path)?;
-                                let hash = relative_path.hash_mixed();
-
-                                log::debug!("Adding loose file: {:?}", relative_path);
-                                file_manifests.insert(
-                                    hash,
-                                    FileManifest {
-                                        real_path: Some(path.to_path_buf()),
-                                        pak_path: Some(relative_path),
-                                        from_pak: None,
-                                    },
-                                );
-                                Ok(())
-                            })?;
-                    }
-                }
+                let selected_manifests = manifest_groups
+                    .into_values()
+                    .filter_map(|group| select_manifest(group, &options.conflict_resolutions))
+                    .collect::<Vec<_>>();
 
                 // create output pak file
                 let output_writer = BufWriter::new(File::create(&output_path)?);
-                let mut pak_writer = PakWriter::new(output_writer, file_manifests.len() as u64);
-                progress1.work_start(file_manifests.len() as u32);
+                let mut pak_writer = PakWriter::new(output_writer, selected_manifests.len() as u64);
+                progress1.work_start(selected_manifests.len() as u32);
 
                 // wrapper pak_writer to ensure it is finished
                 let mut write_files_into_pak = || -> Result<()> {
-                    // write loose files
-                    for (&hash, manifest) in &file_manifests {
+                    for manifest in &selected_manifests {
                         if should_terminate.load(Ordering::Relaxed) {
                             return Err(Error::Terminated);
                         }
 
-                        let Some(real_path) = &manifest.real_path else {
-                            continue;
-                        };
-                        let mut reader = BufReader::new(File::open(real_path)?);
-                        let file_size = real_path.metadata()?.len();
-                        pak_writer.start_file_hash(hash, FileOptions::default())?;
-                        std::io::copy(&mut reader, &mut pak_writer)?;
-                        progress1.file_done(real_path.to_str().unwrap());
+                        match &manifest.source {
+                            ManifestSource::LooseFile { real_path } => {
+                                let mut reader = BufReader::new(File::open(real_path)?);
+                                pak_writer
+                                    .start_file_hash(manifest.hash, FileOptions::default())?;
+                                std::io::copy(&mut reader, &mut pak_writer)?;
+                            }
+                            ManifestSource::PakEntry {
+                                pak_path,
+                                entry_hash,
+                            } => {
+                                let pak = PakFile::from_file(File::open(pak_path)?)?;
+                                let entry = pak
+                                    .metadata()
+                                    .entries()
+                                    .iter()
+                                    .find(|entry| entry.hash() == *entry_hash)
+                                    .ok_or_else(|| {
+                                        Error::PakEntryNotFound(format!(
+                                            "{}:{:016X}",
+                                            pak_path.display(),
+                                            entry_hash
+                                        ))
+                                    })?;
+                                let mut reader = pak.open_entry(entry)?;
+                                pak_writer
+                                    .start_file_hash(manifest.hash, FileOptions::default())?;
+                                std::io::copy(&mut reader, &mut pak_writer)?;
+                            }
+                        }
 
-                        // Add to tree builder
+                        progress1.file_done(&manifest.source_label);
                         tree_builder.add_file(
                             &output_path.to_string_lossy(),
-                            manifest.pak_path.clone(),
-                            hash,
-                            file_size,
+                            manifest.display_path.clone(),
+                            manifest.hash,
+                            manifest.size,
                         );
-                    }
-                    // write pak files. group by from_pak,
-                    // and write each pak file
-                    let mut pak_files = file_manifests
-                        .values()
-                        .filter_map(|manifest| manifest.from_pak.clone())
-                        .collect::<Vec<_>>();
-                    pak_files.sort();
-                    pak_files.dedup();
-                    for pak_file in pak_files {
-                        if should_terminate.load(Ordering::Relaxed) {
-                            return Err(Error::Terminated);
-                        }
-
-                        let pak = PakFile::from_file(File::open(&pak_file)?)?;
-                        for entry in pak.metadata().entries() {
-                            if !file_manifests.contains_key(&entry.hash()) {
-                                continue;
-                            }
-
-                            let mut reader = pak.open_entry(entry)?;
-                            pak_writer.start_file_hash(entry.hash(), FileOptions::default())?;
-                            std::io::copy(&mut reader, &mut pak_writer)?;
-                            progress1.file_done(&format!(
-                                "{}:{:16X}",
-                                pak_file.display(),
-                                entry.hash()
-                            ));
-
-                            // Add to tree builder
-                            // tree_builder.add_pak_file(
-                            //     &output_path.to_string_lossy(),
-                            //     &format!("{}:{:16X}", pak_file.display(), entry.hash()),
-                            //     entry.hash(),
-                            //     entry.uncompressed_size(),
-                            // );
-                            tree_builder.add_file(
-                                &output_path.to_string_lossy(),
-                                None,
-                                entry.hash(),
-                                entry.uncompressed_size(),
-                            );
-                        }
                     }
                     Ok(())
                 };
@@ -713,8 +658,7 @@ fn unpack_optional_blocking(
                 move |entry, rel_path, reader| {
                     let relative_root = relative_roots
                         .get(&entry.hash())
-                        .map(|value| value.as_deref())
-                        .flatten();
+                        .and_then(|value| value.as_deref());
                     let output_path = match extract_mode {
                         ExtractMode::RelativePath => {
                             output_root.join(build_extract_relative_path(rel_path, relative_root))
@@ -780,10 +724,225 @@ impl PakService {
     }
 }
 
-struct FileManifest {
-    real_path: Option<PathBuf>,
-    pak_path: Option<String>,
-    from_pak: Option<PathBuf>,
+#[derive(Debug)]
+struct ResolvedLooseFileTarget {
+    hash: u64,
+    target_key: String,
+    display_path: String,
+}
+
+fn collect_manifest_groups(
+    sources: &[String],
+    allow_file_name_as_path_hash: bool,
+    should_terminate: Option<&AtomicBool>,
+) -> Result<IndexMap<String, Vec<FileManifest>>> {
+    let mut manifest_groups: IndexMap<String, Vec<FileManifest>> = IndexMap::new();
+
+    for source in sources {
+        if should_terminate.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
+            return Err(Error::Terminated);
+        }
+
+        let source_path = Path::new(source);
+        if !source_path.exists() {
+            return Err(Error::FileIO {
+                path: source_path.display().to_string(),
+                source: std::io::Error::new(std::io::ErrorKind::NotFound, "File not found"),
+            });
+        }
+
+        let root_path = source_path.to_path_buf();
+
+        if source_path.is_file() {
+            let mut magic = [0; 4];
+            let mut file = File::open(source_path)?;
+            file.read_exact(&mut magic)?;
+            if magic != *b"AKPK" {
+                return Err(Error::FileIO {
+                    path: source_path.display().to_string(),
+                    source: std::io::Error::new(std::io::ErrorKind::InvalidData, "Not a pak file"),
+                });
+            }
+
+            let header = PakService::get_header_raw(source_path)?;
+            for entry in header.entries() {
+                let hash = entry.hash();
+                let target_key = build_target_key(hash);
+                manifest_groups
+                    .entry(target_key.clone())
+                    .or_default()
+                    .push(FileManifest {
+                        hash,
+                        target_key,
+                        display_path: None,
+                        source_id: format!("{}#{:016X}", source_path.display(), hash),
+                        source_label: format!("{}:{:016X}", source_path.display(), hash),
+                        size: entry.uncompressed_size(),
+                        modified_timestamp_ms: None,
+                        source: ManifestSource::PakEntry {
+                            pak_path: source_path.to_path_buf(),
+                            entry_hash: hash,
+                        },
+                    });
+            }
+            continue;
+        }
+
+        WalkDir::new(source_path)
+            .into_iter()
+            .filter(|entry| {
+                entry
+                    .as_ref()
+                    .unwrap()
+                    .metadata()
+                    .is_ok_and(|m| m.is_file())
+            })
+            .try_for_each(|entry| -> Result<()> {
+                if should_terminate.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
+                    return Err(Error::Terminated);
+                }
+
+                let entry = entry.map_err(|e| Error::FileIO {
+                    path: root_path.display().to_string(),
+                    source: std::io::Error::other(e.to_string()),
+                })?;
+                let path = entry.path();
+                let relative_path = get_relative_path_with_parent(&root_path, path)?;
+                let resolved_target =
+                    resolve_loose_file_target(&relative_path, path, allow_file_name_as_path_hash);
+                let absolute_path = path.to_path_buf();
+                let file_size = absolute_path.metadata()?.len();
+
+                log::debug!("Adding loose file: {:?}", relative_path);
+                manifest_groups
+                    .entry(resolved_target.target_key.clone())
+                    .or_default()
+                    .push(FileManifest {
+                        hash: resolved_target.hash,
+                        target_key: resolved_target.target_key,
+                        display_path: Some(resolved_target.display_path),
+                        source_id: absolute_path.display().to_string(),
+                        source_label: absolute_path.display().to_string(),
+                        size: file_size,
+                        modified_timestamp_ms: get_path_modified_timestamp_ms(&absolute_path),
+                        source: ManifestSource::LooseFile {
+                            real_path: absolute_path,
+                        },
+                    });
+                Ok(())
+            })?;
+    }
+
+    Ok(manifest_groups)
+}
+
+fn build_pack_conflicts(
+    manifest_groups: &IndexMap<String, Vec<FileManifest>>,
+) -> Vec<PackConflictInfo> {
+    manifest_groups
+        .values()
+        .filter(|group| group.len() > 1)
+        .map(|group| PackConflictInfo {
+            target_key: group
+                .first()
+                .map(|manifest| manifest.target_key.clone())
+                .unwrap_or_default(),
+            target_path: resolve_group_target_path(group),
+            size: group.first().map(|manifest| manifest.size),
+            modified_timestamp_ms: group
+                .first()
+                .and_then(|manifest| manifest.modified_timestamp_ms),
+            sources: group
+                .iter()
+                .map(|manifest| PackConflictSourceInfo {
+                    id: manifest.source_id.clone(),
+                    source_path: manifest.source_label.clone(),
+                })
+                .collect(),
+            selected_source_id: group.last().map(|manifest| manifest.source_id.clone()),
+        })
+        .collect()
+}
+
+fn resolve_group_target_path(group: &[FileManifest]) -> String {
+    group
+        .iter()
+        .rev()
+        .find_map(|manifest| manifest.display_path.clone())
+        .unwrap_or_else(|| {
+            format!(
+                "{:016X}",
+                group
+                    .last()
+                    .map(|manifest| manifest.hash)
+                    .unwrap_or_default()
+            )
+        })
+}
+
+fn get_path_modified_timestamp_ms(path: &Path) -> Option<i64> {
+    let modified = path.metadata().ok()?.modified().ok()?;
+    let duration = modified.duration_since(std::time::UNIX_EPOCH).ok()?;
+    i64::try_from(duration.as_millis()).ok()
+}
+
+fn resolve_loose_file_target(
+    relative_path: &str,
+    path: &Path,
+    allow_file_name_as_path_hash: bool,
+) -> ResolvedLooseFileTarget {
+    if allow_file_name_as_path_hash && let Some(hash) = derive_filename_hash(path) {
+        return ResolvedLooseFileTarget {
+            hash,
+            target_key: build_target_key(hash),
+            display_path: build_filename_hash_display_path(hash),
+        };
+    }
+
+    let hash = relative_path.hash_mixed();
+    ResolvedLooseFileTarget {
+        hash,
+        target_key: build_target_key(hash),
+        display_path: relative_path.to_string(),
+    }
+}
+
+fn derive_filename_hash(path: &Path) -> Option<u64> {
+    let file_name = path.file_name()?.to_str()?;
+    parse_hash_candidate(file_name)
+        .or_else(|| file_name.split('.').next().and_then(parse_hash_candidate))
+}
+
+fn parse_hash_candidate(candidate: &str) -> Option<u64> {
+    let trimmed = candidate.trim();
+    if trimmed.len() != 16 || !trimmed.chars().all(|char| char.is_ascii_hexdigit()) {
+        return None;
+    }
+    u64::from_str_radix(trimmed, 16).ok()
+}
+
+fn build_target_key(hash: u64) -> String {
+    format!("hash:{hash:016X}")
+}
+
+fn build_filename_hash_display_path(hash: u64) -> String {
+    format!("{FILENAME_HASH_DIRECTORY}/{hash:016X}")
+}
+
+fn select_manifest(
+    mut manifests: Vec<FileManifest>,
+    resolutions: &HashMap<String, Option<String>>,
+) -> Option<FileManifest> {
+    let target_key = manifests.first()?.target_key.clone();
+    match resolutions.get(&target_key) {
+        Some(Some(source_id)) => manifests
+            .iter()
+            .position(|manifest| manifest.source_id == *source_id)
+            .map(|index| manifests.remove(index))
+            .or_else(|| manifests.pop()),
+        Some(None) => None,
+        None => manifests.pop(),
+    }
 }
 
 /// 获取包含父目录名称的相对路径
@@ -917,5 +1076,105 @@ mod tests {
             Some(r"natives\STM"),
         );
         assert_eq!(path, PathBuf::from("stage/test.txt"));
+    }
+
+    #[test]
+    fn test_derive_filename_hash_from_plain_hex_name() {
+        let hash = derive_filename_hash(Path::new("10015D55056456A1")).unwrap();
+        assert_eq!(hash, 0x10015D55056456A1);
+    }
+
+    #[test]
+    fn test_derive_filename_hash_from_first_segment_before_extension() {
+        let hash = derive_filename_hash(Path::new("10015d55056456a1.tex.123")).unwrap();
+        assert_eq!(hash, 0x10015D55056456A1);
+    }
+
+    #[test]
+    fn test_derive_filename_hash_rejects_non_hex_names() {
+        assert_eq!(derive_filename_hash(Path::new("_Unknown")), None);
+        assert_eq!(
+            derive_filename_hash(Path::new("10015D55056456A.tex.123")),
+            None
+        );
+        assert_eq!(derive_filename_hash(Path::new("10015D55056456AG")), None);
+    }
+
+    #[test]
+    fn test_resolve_loose_file_target_uses_virtual_folder_for_filename_hash() {
+        let target = resolve_loose_file_target(
+            "_Unknown/10015D55056456A1.tex.123",
+            Path::new("C:/mods/_Unknown/10015D55056456A1.tex.123"),
+            true,
+        );
+        assert_eq!(target.hash, 0x10015D55056456A1);
+        assert_eq!(target.target_key, "hash:10015D55056456A1");
+        assert_eq!(target.display_path, "_FilenameHash/10015D55056456A1");
+    }
+
+    #[test]
+    fn test_resolve_loose_file_target_preserves_relative_path_when_disabled() {
+        let target = resolve_loose_file_target(
+            "_Unknown/10015D55056456A1",
+            Path::new("C:/mods/_Unknown/10015D55056456A1"),
+            false,
+        );
+        assert_eq!(target.hash, "_Unknown/10015D55056456A1".hash_mixed());
+        assert_eq!(target.target_key, build_target_key(target.hash));
+        assert_eq!(target.display_path, "_Unknown/10015D55056456A1");
+    }
+
+    #[test]
+    fn test_select_manifest_uses_resolution_source_id() {
+        let target_key = build_target_key(0x10015D55056456A1);
+        let manifests = vec![
+            FileManifest {
+                hash: 1,
+                target_key: target_key.clone(),
+                display_path: Some("path/a".to_string()),
+                source_id: "a".to_string(),
+                source_label: "a".to_string(),
+                size: 1,
+                source: ManifestSource::LooseFile {
+                    real_path: PathBuf::from("a"),
+                },
+            },
+            FileManifest {
+                hash: 1,
+                target_key: target_key.clone(),
+                display_path: Some("path/b".to_string()),
+                source_id: "b".to_string(),
+                source_label: "b".to_string(),
+                size: 1,
+                source: ManifestSource::LooseFile {
+                    real_path: PathBuf::from("b"),
+                },
+            },
+        ];
+        let mut resolutions = HashMap::new();
+        resolutions.insert(target_key, Some("a".to_string()));
+
+        let selected = select_manifest(manifests, &resolutions).unwrap();
+        assert_eq!(selected.source_id, "a");
+    }
+
+    #[test]
+    fn test_select_manifest_can_remove_target() {
+        let target_key = build_target_key(1);
+        let manifests = vec![FileManifest {
+            hash: 1,
+            target_key: target_key.clone(),
+            display_path: Some("path/a".to_string()),
+            source_id: "a".to_string(),
+            source_label: "a".to_string(),
+            size: 1,
+            source: ManifestSource::LooseFile {
+                real_path: PathBuf::from("a"),
+            },
+        }];
+        let mut resolutions = HashMap::new();
+        resolutions.insert(target_key, None);
+
+        assert!(select_manifest(manifests, &resolutions).is_none());
     }
 }

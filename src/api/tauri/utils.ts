@@ -59,6 +59,6 @@ export function murmur32(buffer: Uint8Array): Promise<number> {
   return invoke('murmur32', { buffer })
 }
 
-export function murmur32_utf16(str: string): Promise<number> {
+export function murmur32_utf16(str: string): Promise<JsSafeHash> {
   return invoke('murmur32_utf16', { str })
 }

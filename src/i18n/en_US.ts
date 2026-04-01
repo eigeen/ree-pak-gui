@@ -164,6 +164,9 @@ export default {
         'Automatically export to specified directory after importing files, no confirmation needed.',
       fastModeTooltipL2:
         'If no directory is specified, export to the same directory as input files.',
+      allowFileNameAsPathHash: 'Allow using file names as path hashes',
+      allowFileNameAsPathHashTooltipL1:
+        'When the file name is a hexadecimal hash, use it directly as the target path hash.',
       exportDirectory: 'Export Directory',
       exportDirectoryPlaceholder: 'Export directory',
       export: 'Export',

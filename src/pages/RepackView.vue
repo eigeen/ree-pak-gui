@@ -51,6 +51,7 @@ type PackState = {
     autoDetectRoot: boolean
     exportDirectory: string
     fastMode: boolean
+    allowFileNameAsPathHash: boolean
   }
   inputFiles: FileItem[]
 }
@@ -207,8 +208,10 @@ const addFiles = async (paths: string[]) => {
     packState.value.inputFiles.push(...addList)
 
     if (packState.value.exportConfig.fastMode) {
-      await handleExport()
-      handleCloseAll()
+      const conflicts = await handleExport()
+      if (conflicts.length === 0 && exportResult.value.success) {
+        handleCloseAll()
+      }
     }
   } catch (error) {
     ShowError(error)
@@ -245,10 +248,16 @@ const handleRemoveFile = (index: number) => {
 
 const handleExport = async () => {
   if (!ensureTaskProgressIdle(t('global.taskBusy'))) {
-    return
+    return []
   }
 
-  await packer.handleExport(packState.value.inputFiles, packState.value.exportConfig)
+  const conflicts = await packer.handleExport(
+    packState.value.inputFiles,
+    packState.value.exportConfig
+  )
+  conflictFiles.value = conflicts
+  conflictDialogVisible.value = conflicts.length > 0
+  return conflicts
 }
 
 const handleTerminateExport = async () => {
@@ -257,17 +266,18 @@ const handleTerminateExport = async () => {
 
 const handleResetExport = () => {
   packer.resetExport()
+  conflictFiles.value = []
 }
 
-const handleConflictResolve = () => {
-  const resolutions: Record<string, number> = {}
+const handleConflictResolve = async () => {
+  const resolutions: Record<string, string | null> = {}
   conflictFiles.value.forEach((conflict) => {
-    resolutions[conflict.relativePath] = conflict.selectedSource
+    resolutions[conflict.targetKey] = conflict.selectedSourceId
   })
 
   packer.setConflictResolutions(resolutions)
   conflictDialogVisible.value = false
-  packer.proceedWithMergeExport(packState.value.inputFiles, packState.value.exportConfig)
+  await packer.proceedWithMergeExport(packState.value.inputFiles, packState.value.exportConfig)
 }
 
 const handleConflictCancel = () => {
@@ -495,6 +505,20 @@ function formatFileSize(bytes: number) {
                       </div>
                     </div>
                     <Switch v-model="packState.exportConfig.fastMode" />
+                  </label>
+
+                  <label
+                    class="flex min-h-12 items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-[color-mix(in_oklch,var(--surface-toolbar)_76%,var(--surface-panel))]"
+                  >
+                    <div class="min-w-0 flex-1 space-y-1">
+                      <div class="flex items-center gap-2">
+                        <p class="text-sm font-medium text-foreground">
+                          {{ t('pack.allowFileNameAsPathHash') }}
+                        </p>
+                        <HoverBubble>{{ t('pack.allowFileNameAsPathHashTooltipL1') }}</HoverBubble>
+                      </div>
+                    </div>
+                    <Switch v-model="packState.exportConfig.allowFileNameAsPathHash" />
                   </label>
                 </div>
 
