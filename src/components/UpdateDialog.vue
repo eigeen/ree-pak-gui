@@ -2,37 +2,38 @@
   <Dialog v-model:open="show">
     <DialogContent
       :show-close-button="!downloading"
-      class="max-w-xl rounded-[1.5rem] border-white/60 bg-background/96"
+      class="max-h-[90vh] max-w-xl grid-rows-[auto_minmax(0,1fr)_auto] rounded-3xl border-white/60 bg-background/96"
     >
       <DialogHeader class="space-y-3">
         <div class="flex items-center gap-3">
-          <div
-            class="flex size-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary"
-          >
-            <Download class="size-5" />
-          </div>
+          <Download class="size-5" />
           <div>
-            <DialogTitle>{{ t('updateDialog.updateAvailable') }}</DialogTitle>
-            <DialogDescription>{{ t('updateDialog.description') }}</DialogDescription>
+            <DialogTitle class="update-dialog-title">{{
+              t('updateDialog.updateAvailable')
+            }}</DialogTitle>
+            <DialogDescription class="update-dialog-description mt-1">{{
+              t('updateDialog.description')
+            }}</DialogDescription>
           </div>
         </div>
       </DialogHeader>
 
-      <div class="space-y-5">
-        <div class="app-panel-muted space-y-2 p-4">
-          <h3 class="text-base font-semibold">
-            {{ t('updateDialog.version') }} v{{ updateState.updateVersion?.version }}
-          </h3>
-          <p class="text-sm text-muted-foreground">
-            {{ t('updateDialog.releaseDate') }}: {{ updateState.updateVersion?.pub_time }}
-          </p>
-          <p
-            v-if="updateState.updateVersion?.description"
-            class="text-sm leading-6 text-muted-foreground"
-          >
-            {{ updateState.updateVersion?.description }}
-          </p>
-        </div>
+      <div class="flex min-h-0 flex-col gap-5 overflow-hidden px-2">
+        <h3 class="text-base font-semibold">
+          {{ t('updateDialog.version') }} v{{ updateState.updateVersion?.version }}
+        </h3>
+        <p class="text-sm text-muted-foreground">
+          {{ t('updateDialog.releaseDate') }}: {{ updateState.updateVersion?.pub_time }}
+        </p>
+
+        <ScrollArea v-if="renderedDescription" class="min-h-0 flex-1 pr-3">
+          <div
+            ref="descriptionRef"
+            class="update-description-markdown text-sm"
+            v-html="renderedDescription"
+            @click="handleDescriptionClick"
+          />
+        </ScrollArea>
 
         <div class="space-y-3">
           <p v-if="!downloading" class="text-sm text-muted-foreground">
@@ -58,9 +59,11 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted, ref } from 'vue'
+import MarkdownIt from 'markdown-it/dist/index.cjs.js'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getCurrentWindow, ProgressBarStatus } from '@tauri-apps/api/window'
+import { openUrl } from '@tauri-apps/plugin-opener'
 import { Download } from 'lucide-vue-next'
 import { UpdateService } from '@/service/update'
 import { useUpdateStore } from '@/store/update'
@@ -76,6 +79,7 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import { Progress } from '@/components/ui/progress'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 const { t } = useI18n()
 const updateStore = useUpdateStore()
@@ -84,6 +88,48 @@ const updateState = updateStore as any
 const show = ref(false)
 const downloading = ref(false)
 const progress = ref(0)
+const descriptionRef = ref<HTMLElement | null>(null)
+const markdown = new MarkdownIt({
+  html: false,
+  breaks: true,
+  linkify: true
+})
+const renderedDescription = computed(() => {
+  const description = updateState.updateVersion?.description
+  return description ? markdown.render(description) : ''
+})
+
+const handleDescriptionClick = async (event: MouseEvent) => {
+  const container = descriptionRef.value
+  const target = event.target
+  if (!container || !(target instanceof Element)) {
+    return
+  }
+
+  const anchor = target.closest('a')
+  if (!(anchor instanceof HTMLAnchorElement) || !container.contains(anchor)) {
+    return
+  }
+
+  const href = anchor.getAttribute('href')
+  if (!href) {
+    return
+  }
+
+  let protocol = ''
+  try {
+    protocol = new URL(href).protocol
+  } catch {
+    return
+  }
+
+  if (!['http:', 'https:', 'mailto:'].includes(protocol)) {
+    return
+  }
+
+  event.preventDefault()
+  await openUrl(href)
+}
 
 const startDownload = async () => {
   downloading.value = true
@@ -145,3 +191,141 @@ const popup = () => {
 
 defineExpose({ popup })
 </script>
+
+<style scoped>
+.update-dialog-title {
+  font-size: 1rem;
+  line-height: 1.35;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.update-dialog-description {
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.update-description-markdown {
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  word-break: break-word;
+}
+
+.update-description-markdown :deep(*:first-child) {
+  margin-top: 0;
+}
+
+.update-description-markdown :deep(*:last-child) {
+  margin-bottom: 0;
+}
+
+.update-description-markdown :deep(p),
+.update-description-markdown :deep(ul),
+.update-description-markdown :deep(ol),
+.update-description-markdown :deep(blockquote),
+.update-description-markdown :deep(pre),
+.update-description-markdown :deep(h1),
+.update-description-markdown :deep(h2),
+.update-description-markdown :deep(h3),
+.update-description-markdown :deep(h4),
+.update-description-markdown :deep(h5),
+.update-description-markdown :deep(h6) {
+  margin: 0.625rem 0;
+}
+
+.update-description-markdown :deep(ul),
+.update-description-markdown :deep(ol) {
+  padding-left: 1.25rem;
+}
+
+/* 标题样式 */
+.update-description-markdown :deep(h1),
+.update-description-markdown :deep(h2),
+.update-description-markdown :deep(h3),
+.update-description-markdown :deep(h4),
+.update-description-markdown :deep(h5),
+.update-description-markdown :deep(h6) {
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+/* 分割线 */
+.update-description-markdown :deep(h1) {
+  font-size: 2em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid #d0d7de7a;
+}
+.update-description-markdown :deep(h2) {
+  font-size: 1.5em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid #d0d7de7a;
+}
+
+.update-description-markdown :deep(h3) {
+  font-size: 1.25em;
+}
+.update-description-markdown :deep(h4) {
+  font-size: 1em;
+}
+.update-description-markdown :deep(h5) {
+  font-size: 0.875em;
+}
+.update-description-markdown :deep(h6) {
+  font-size: 0.85em;
+  color: #57606a;
+}
+
+/* 段落与间距 */
+.update-description-markdown :deep(p),
+.update-description-markdown :deep(blockquote),
+.update-description-markdown :deep(ul),
+.update-description-markdown :deep(ol),
+.update-description-markdown :deep(dl),
+.update-description-markdown :deep(table),
+.update-description-markdown :deep(pre),
+.update-description-markdown :deep(details) {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.update-description-markdown :deep(li + li) {
+  margin-top: 0.25rem;
+}
+
+.update-description-markdown :deep(a) {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.update-description-markdown :deep(code) {
+  border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
+  border-radius: 0.375rem;
+  background: color-mix(in srgb, var(--color-secondary) 72%, transparent);
+  padding: 0.1rem 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.update-description-markdown :deep(pre) {
+  overflow-x: auto;
+  border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--color-secondary) 72%, transparent);
+  padding: 0.75rem 0.875rem;
+}
+
+.update-description-markdown :deep(pre code) {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.update-description-markdown :deep(blockquote) {
+  border-left: 3px solid color-mix(in srgb, var(--color-primary) 40%, transparent);
+  padding-left: 0.875rem;
+  color: color-mix(in srgb, var(--color-muted-foreground) 88%, white);
+}
+</style>

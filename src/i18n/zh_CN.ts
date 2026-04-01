@@ -135,7 +135,7 @@ export default {
     },
     updateDialog: {
       updateAvailable: '有可用更新',
-      description: '检测到新版本，可直接下载并在完成后重启。',
+      description: '检测到新版本，可下载并自动重启。',
       version: '版本',
       releaseDate: '发布日期',
       notNow: '暂不更新',

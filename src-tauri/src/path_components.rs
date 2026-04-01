@@ -111,18 +111,18 @@ fn parse_raw_path_range(mut normalized_full: String) -> (String, Range<usize>) {
 
         if is_digits(seg_a_str) {
             raw_end = dot_a;
-        } else if is_tag(seg_a_str) {
-            if let Some((seg_b, dot_b)) = last_segment_range(&normalized_full, dot_a) {
-                let seg_b_str = &normalized_full[seg_b.clone()];
-                if is_digits(seg_b_str) {
-                    raw_end = dot_b;
-                } else if is_tag(seg_b_str) {
-                    if let Some((seg_c, dot_c)) = last_segment_range(&normalized_full, dot_b) {
-                        let seg_c_str = &normalized_full[seg_c.clone()];
-                        if is_digits(seg_c_str) {
-                            raw_end = dot_c;
-                        }
-                    }
+        } else if is_tag(seg_a_str)
+            && let Some((seg_b, dot_b)) = last_segment_range(&normalized_full, dot_a)
+        {
+            let seg_b_str = &normalized_full[seg_b.clone()];
+            if is_digits(seg_b_str) {
+                raw_end = dot_b;
+            } else if is_tag(seg_b_str)
+                && let Some((seg_c, dot_c)) = last_segment_range(&normalized_full, dot_b)
+            {
+                let seg_c_str = &normalized_full[seg_c.clone()];
+                if is_digits(seg_c_str) {
+                    raw_end = dot_c;
                 }
             }
         }
@@ -174,7 +174,7 @@ fn find_ignore_ascii_case(haystack: &str, needle: &str) -> Option<usize> {
         window
             .iter()
             .zip(ned.iter())
-            .all(|(&a, &b)| a.to_ascii_lowercase() == b.to_ascii_lowercase())
+            .all(|(&a, &b)| a.eq_ignore_ascii_case(&b))
     })
 }
 

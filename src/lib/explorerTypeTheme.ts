@@ -1,12 +1,4 @@
-import {
-  Box,
-  File,
-  FileImage,
-  FileMusic,
-  Folder,
-  Layers3,
-  Sparkles
-} from 'lucide-vue-next'
+import { Box, File, FileImage, FileMusic, Folder, Layers3, Sparkles } from 'lucide-vue-next'
 import { getReAssetExtension } from '@/lib/reAssetPath'
 
 type ExplorerThemeDefinition = {

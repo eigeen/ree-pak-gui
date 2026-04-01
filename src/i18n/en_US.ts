@@ -137,7 +137,7 @@ export default {
     },
     updateDialog: {
       updateAvailable: 'Update Available',
-      description: 'A new version is available. Download it now and restart after completion.',
+      description: 'A new version is available. Download it now and restart.',
       version: 'Version',
       releaseDate: 'Release Date',
       notNow: 'Not Now',
