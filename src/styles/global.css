@@ -369,7 +369,9 @@
   }
 
   .section-copy {
-    @apply text-2xs leading-5 text-muted-foreground;
+    @apply leading-5 text-muted-foreground;
+    font-size: 0.8125rem;
+    line-height: 1.125rem;
   }
 
   .empty-state {
