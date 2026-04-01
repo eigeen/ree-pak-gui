@@ -209,7 +209,7 @@ export default {
       languageDescription: '切换应用界面语言，修改后立即生效。',
       themeSection: '外观',
       themeTitle: '颜色主题',
-      themeDescription: '默认跟随系统颜色，也可以手动固定为浅色或深色。',
+      themeDescription: '默认跟随系统颜色。',
       themeToggleTitle: '颜色主题：{mode}（当前 {current}，点击切换明暗）',
       themeCurrentDescription: '当前实际显示为 {current}。',
       themeModeSystem: '跟随系统',

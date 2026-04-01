@@ -1,9 +1,25 @@
 import { fetch } from '@tauri-apps/plugin-http'
 
-const METADATA_URLS = [
-  'https://raw.githubusercontent.com/eigeen/ree-pak-gui-update/refs/heads/main/update.json',
-  'https://gitee.com/eigeen/ree-pak-gui-update/raw/main/update.json'
-]
+const GITHUB_RELEASES_API_URL =
+  'https://api.github.com/repos/eigeen/ree-pak-gui/releases?per_page=20'
+
+interface GithubReleaseAsset {
+  name: string
+  size: number
+  state: string
+  digest?: string | null
+  browser_download_url: string
+}
+
+interface GithubRelease {
+  tag_name: string
+  html_url: string
+  body: string | null
+  draft: boolean
+  prerelease: boolean
+  published_at: string | null
+  assets: GithubReleaseAsset[]
+}
 
 export interface UpdateMetadata {
   versions: UpdateVersion[]
@@ -11,18 +27,64 @@ export interface UpdateMetadata {
 
 export interface UpdateVersion {
   version: string
-  channel: string
+  tagName: string
   pub_time: string
   description?: string
-  min_version?: string
+  releaseUrl: string
   files: UpdateFile[]
 }
 
 export interface UpdateFile {
   name: string
   size: number
-  sha256: string
-  urls: string[]
+  sha256?: string
+  url: string
+}
+
+function normalizeVersion(tagName: string): string {
+  return tagName.trim().replace(/^v/i, '')
+}
+
+function parseSha256Digest(digest?: string | null): string | undefined {
+  if (!digest) {
+    return undefined
+  }
+
+  const [algorithm, value] = digest.split(':', 2)
+  if (algorithm?.toLowerCase() !== 'sha256' || !value) {
+    return undefined
+  }
+
+  return value
+}
+
+function normalizeRelease(release: GithubRelease): UpdateVersion | null {
+  if (release.draft || release.prerelease || !release.published_at) {
+    return null
+  }
+
+  const version = normalizeVersion(release.tag_name)
+  if (!version) {
+    return null
+  }
+
+  const files = release.assets
+    .filter((asset) => asset.state === 'uploaded' && asset.browser_download_url)
+    .map<UpdateFile>((asset) => ({
+      name: asset.name,
+      size: asset.size,
+      sha256: parseSha256Digest(asset.digest),
+      url: asset.browser_download_url
+    }))
+
+  return {
+    version,
+    tagName: release.tag_name,
+    pub_time: release.published_at,
+    description: release.body ?? undefined,
+    releaseUrl: release.html_url,
+    files
+  }
 }
 
 export class UpdateAPI {
@@ -38,27 +100,32 @@ export class UpdateAPI {
   }
 
   public async fetchUpdateMetadata(): Promise<UpdateMetadata> {
-    let lastError: Error | null = null
-
-    for (const url of METADATA_URLS) {
-      try {
-        const response = await fetch(url, { method: 'GET', connectTimeout: 15000 })
-        if (response.status === 200) {
-          return (await response.json()) as UpdateMetadata
-        } else {
-          lastError = new Error(
-            `Failed to fetch update metadata from ${url}: ${response.status} ${response.statusText}`
-          )
-          continue
+    let response: Awaited<ReturnType<typeof fetch>>
+    try {
+      response = await fetch(GITHUB_RELEASES_API_URL, {
+        method: 'GET',
+        connectTimeout: 15000,
+        headers: {
+          Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28'
         }
-      } catch (e) {
-        lastError = e as Error
-      }
+      })
+    } catch (error) {
+      throw new Error(`Failed to fetch releases from GitHub: ${String(error)}`)
     }
 
-    if (lastError) {
-      throw new Error(`Failed to fetch update metadata from all sources: ${lastError}`)
+    if (response.status !== 200) {
+      throw new Error(
+        `Failed to fetch releases from GitHub: ${response.status} ${response.statusText}`
+      )
     }
-    throw new Error('Failed to fetch update metadata from all sources')
+
+    const releases = (await response.json()) as GithubRelease[]
+
+    return {
+      versions: releases
+        .map(normalizeRelease)
+        .filter((release): release is UpdateVersion => release !== null)
+    }
   }
 }

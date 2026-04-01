@@ -11,8 +11,6 @@ import { exists, readFile, writeFile } from '@tauri-apps/plugin-fs'
 import { relaunch } from '@tauri-apps/plugin-process'
 import semver from 'semver'
 
-const CHANNEL = 'release'
-
 export class UpdateService {
   private static instance: UpdateService | null = null
 
@@ -59,45 +57,79 @@ export class UpdateService {
           `metadata fetched versions=${this.updateMetadata.versions.length}`
         )
 
-        // 先检查version，如果为最新版本，再检查pub_time
-        const validVersions = this.updateMetadata.versions.filter((v) => v.channel === CHANNEL)
-        if (!validVersions) {
+        if (this.updateMetadata.versions.length === 0) {
           return null
         }
 
-        // 获取当前最新版本信息
-        const latestVerInfo = validVersions.reduce(
-          (acc: UpdateVersion | null, cur: UpdateVersion) => {
-            if (!acc) {
-              return cur
+        const validRemoteVersions = this.updateMetadata.versions
+          .map((version) => {
+            const parsed = semver.parse(version.version)
+            if (!parsed) {
+              logFrontendDebug('update.check', `skip invalid remote version=${version.version}`)
+              return null
             }
-            if (semver.gt(cur.version, acc.version)) {
-              return cur
+
+            if (parsed.prerelease.length > 0) {
+              logFrontendDebug('update.check', `skip prerelease remote version=${version.version}`)
+              return null
             }
-            return acc
-          },
-          null
-        )
-        if (!latestVerInfo) {
+
+            return {
+              version,
+              semver: parsed
+            }
+          })
+          .filter(
+            (
+              entry
+            ): entry is {
+              version: UpdateVersion
+              semver: semver.SemVer
+            } => entry !== null
+          )
+
+        if (validRemoteVersions.length === 0) {
           return null
         }
 
-        const latestSemver = semver.valid(latestVerInfo.version)
-        if (!latestSemver) {
-          throw new Error(`Invalid version from remote: ${latestVerInfo.version}`)
-        }
-
-        // 版本对比
-        const toSemVer = (version: string) => {
-          const parsed = semver.parse(version)
-          if (!parsed) {
-            throw new Error(`Invalid version: ${version}`)
+        const latestVersionEntry = validRemoteVersions.reduce((acc, cur) => {
+          if (semver.gt(cur.semver, acc.semver)) {
+            return cur
           }
+
+          return acc
+        })
+        const latestVerInfo = latestVersionEntry.version
+
+        const parseLocalVersion = (version: string): semver.SemVer | null => {
+          const normalizedVersion = semver.valid(version) ?? semver.coerce(version)?.version
+          const parsed = normalizedVersion ? semver.parse(normalizedVersion) : null
+
+          if (!parsed) {
+            logFrontendDebug('update.check', `skip invalid local version=${version}`)
+            return null
+          }
+
           return parsed
         }
 
-        const currVersion = toSemVer(this.compileInfo.version)
-        const latestVersion = toSemVer(latestSemver)
+        const currVersion = parseLocalVersion(this.compileInfo.version)
+        const latestVersion = latestVersionEntry.semver
+
+        if (!currVersion) {
+          const currCommitTime = new Date(this.compileInfo.commitTime)
+          const latestPubTime = new Date(latestVerInfo.pub_time)
+          if (
+            Number.isNaN(currCommitTime.getTime()) ||
+            Number.isNaN(latestPubTime.getTime()) ||
+            currCommitTime < latestPubTime
+          ) {
+            this.targetVersion = latestVerInfo
+            return latestVerInfo
+          }
+
+          return null
+        }
 
         if (semver.gt(currVersion, latestVersion)) {
           return null
@@ -121,7 +153,7 @@ export class UpdateService {
         return null
       },
       {
-        start: `check channel=${CHANNEL}`,
+        start: 'check github releases',
         success: (version) =>
           version
             ? `update available version=${version.version} published=${version.pub_time}`
@@ -166,42 +198,41 @@ export class UpdateService {
         const tempDir = await getTempDir(true)
         const downloadPath = await join(tempDir, targetFile.name)
         if (await exists(downloadPath)) {
-          // 检查Hash
-          const array = await readFile(downloadPath)
-          const downloadedSha256 = await sha256Hex(array)
-          if (downloadedSha256 === targetFile.sha256) {
+          if (!targetFile.sha256) {
             newArchivePath = downloadPath
             reusedCache = true
+          } else {
+            const array = await readFile(downloadPath)
+            const downloadedSha256 = await sha256Hex(array)
+            if (downloadedSha256 === targetFile.sha256) {
+              newArchivePath = downloadPath
+              reusedCache = true
+            }
           }
         }
 
-        // 如果文件不存在则下载文件
         let lastError: unknown = null
         if (!newArchivePath) {
-          for (const url of targetFile.urls) {
-            try {
-              logFrontendDebug('update.download', `try url=${url}`)
-              const blob = await fetchWithSpeedCheck(url, {}, onEvent)
+          try {
+            logFrontendDebug('update.download', `try url=${targetFile.url}`)
+            const blob = await fetchWithSpeedCheck(targetFile.url, {}, onEvent)
 
-              // 检查Hash
-              const arrayBuffer = await blob.arrayBuffer()
+            const arrayBuffer = await blob.arrayBuffer()
+            if (targetFile.sha256) {
               const downloadedSha256 = await sha256Hex(arrayBuffer)
               if (downloadedSha256 !== targetFile.sha256) {
                 throw new Error('Checksum mismatch. Download failed.')
               }
-
-              // 写入指定目录
-              await writeFile(downloadPath, new Uint8Array(arrayBuffer))
-              newArchivePath = downloadPath
-              lastError = null
-              break
-            } catch (error) {
-              lastError = error
             }
+
+            await writeFile(downloadPath, new Uint8Array(arrayBuffer))
+            newArchivePath = downloadPath
+          } catch (error) {
+            lastError = error
           }
         }
         if (lastError || !newArchivePath) {
-          throw new Error(`Failed to download update file from all sources: ${lastError}`)
+          throw new Error(`Failed to download update file: ${lastError}`)
         }
 
         // 检查是否需要解压

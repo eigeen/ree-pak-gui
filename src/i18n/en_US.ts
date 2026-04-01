@@ -214,8 +214,7 @@ export default {
       languageDescription: 'Switch the application language and apply the change immediately.',
       themeSection: 'Appearance',
       themeTitle: 'Color Theme',
-      themeDescription:
-        'Follow the system color scheme by default, or pin the app to light or dark.',
+      themeDescription: 'Follow the system color scheme by default.',
       themeToggleTitle: 'Theme: {mode} (currently {current}, click to toggle)',
       themeCurrentDescription: 'The app is currently rendered in {current}.',
       themeModeSystem: 'System',
