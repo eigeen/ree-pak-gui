@@ -9,6 +9,7 @@ import { ElTreeV2 } from 'element-plus'
 interface Props {
   data: TreeData[] | null
   currentNodeKey?: string
+  checkedKeys?: string[]
 }
 
 const props = defineProps<Props>()
@@ -16,6 +17,7 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   (e: 'node-click', data: TreeData, node: TreeNode, event: MouseEvent): void
   (e: 'node-contextmenu', data: TreeData, node: TreeNode, event: MouseEvent): void
+  (e: 'node-check', checkedKeys: string[]): void
   (e: 'background-contextmenu', event: MouseEvent): void
 }>()
 
@@ -48,6 +50,14 @@ watch(
     if (!key) return
     treeComponent.value?.setCurrentKey?.(key)
   }
+)
+
+watch(
+  () => props.checkedKeys ?? [],
+  (keys) => {
+    ;(treeComponent.value as any)?.setCheckedKeys?.(keys)
+  },
+  { deep: true }
 )
 
 const treeProps = {
@@ -104,6 +114,11 @@ function handleNodeContextMenu(event: Event, data: TreeNodeData, node: TreeNode)
   emit('node-contextmenu', toTreeData(data), node, event as MouseEvent)
 }
 
+function handleNodeCheck() {
+  const checkedKeys = ((treeComponent.value as any)?.getCheckedKeys?.(false) ?? []).map(String)
+  emit('node-check', checkedKeys)
+}
+
 defineExpose({ bringNodeIntoView, collapseAll })
 </script>
 
@@ -112,6 +127,7 @@ defineExpose({ bringNodeIntoView, collapseAll })
     <el-tree-v2
       ref="treeComponent"
       :current-node-key="currentNodeKey"
+      :default-checked-keys="props.checkedKeys ?? []"
       :data="treeData"
       :height="treeHeight"
       :props="treeProps"
@@ -120,6 +136,7 @@ defineExpose({ bringNodeIntoView, collapseAll })
       node-key="id"
       show-checkbox
       @node-click="handleNodeClick"
+      @check="handleNodeCheck"
       @node-contextmenu="handleNodeContextMenu"
     >
       <template #default="{ node }">
