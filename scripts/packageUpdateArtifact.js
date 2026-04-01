@@ -32,6 +32,15 @@ function getShortCommitHash() {
     return shaFromEnv.slice(0, 7)
   }
 
+  try {
+    return execFileSync('jj', ['log', '-r', '@', '-T', 'commit_id.short(7)', '--no-graph'], {
+      cwd: ROOT_DIR,
+      encoding: 'utf8'
+    }).trim()
+  } catch {
+    // Fall back to git for non-jj environments such as GitHub Actions.
+  }
+
   return execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
     cwd: ROOT_DIR,
     encoding: 'utf8'
