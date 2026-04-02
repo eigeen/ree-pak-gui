@@ -46,6 +46,8 @@ export class UpdateService {
     return runLoggedTask(
       'update.check',
       async () => {
+        this.targetVersion = null
+
         if (this.compileInfo.version === '') {
           await this.initialize()
         }
@@ -134,15 +136,7 @@ export class UpdateService {
         if (semver.gt(currVersion, latestVersion)) {
           return null
         }
-        // 如果版本一致，进行发布时间对比
         if (semver.eq(currVersion, latestVersion)) {
-          // 发布时间检查
-          const currCommitTime = new Date(this.compileInfo.commitTime)
-          const latestPubTime = new Date(latestVerInfo.pub_time)
-          if (currCommitTime < latestPubTime) {
-            this.targetVersion = latestVerInfo
-            return latestVerInfo
-          }
           return null
         }
         if (semver.lt(currVersion, latestVersion)) {
