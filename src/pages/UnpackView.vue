@@ -328,6 +328,11 @@ import {
   getExplorerThemeForType,
   resolveExplorerFileTypeKey
 } from '@/lib/explorerTypeTheme'
+import {
+  canOpenExplorerItemPreview,
+  getDefaultExplorerLayoutMode,
+  isTextureExplorerEntry
+} from '@/lib/unpackExplorerPreview'
 import type { ContextMenuEntry } from '@/lib/contextMenu'
 import type {
   ExplorerColumnLabels,
@@ -1605,22 +1610,19 @@ function getExplorerTypeKey(item: ExplorerEntry) {
 }
 
 function isTextureEntry(item: ExplorerEntry) {
-  return !item.isDir && getExplorerTypeKey(item) === 'texture'
+  return isTextureExplorerEntry(item)
 }
 
 function canPreviewExplorerItem(item: ExplorerEntry) {
-  return texturePreviewEnabled.value && isTextureEntry(item)
+  return canOpenExplorerItemPreview(item)
 }
 
 function getDefaultExplorerLayout(directory: ExplorerEntry | null): ExplorerLayoutMode {
-  if (
-    directory &&
-    directory.children.some((child) => !child.isDir && getExplorerTypeKey(child) === 'texture')
-  ) {
-    return 'tile'
-  }
-
-  return unpackState.value.explorerLayoutMode ?? 'details'
+  return getDefaultExplorerLayoutMode(
+    directory,
+    unpackState.value.explorerLayoutMode,
+    texturePreviewEnabled.value
+  )
 }
 
 function getExplorerTypeDefinition(item: ExplorerEntry) {
