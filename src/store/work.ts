@@ -6,7 +6,7 @@
 import { getLocalDir } from '@/lib/localDir'
 import { logFrontendDebug, logFrontendError, runLoggedTask } from '@/utils/frontendLog'
 import { join } from '@tauri-apps/api/path'
-import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
+import { exists, readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 
@@ -87,6 +87,15 @@ export const useWorkStore = defineStore('work', () => {
       async () => {
         const dataDir = await getLocalDir()
         const workFile = await join(dataDir, FILE_NAME)
+        if (!(await exists(workFile))) {
+          return {
+            workFile,
+            unpackPakCount: 0,
+            packInputCount: 0,
+            existed: false
+          }
+        }
+
         const content = await readTextFile(workFile)
         const work = JSON.parse(content)
 
@@ -107,13 +116,16 @@ export const useWorkStore = defineStore('work', () => {
         return {
           workFile,
           unpackPakCount: Array.isArray(work.unpack?.paks) ? work.unpack.paks.length : 0,
-          packInputCount: Array.isArray(work.pack?.inputFiles) ? work.pack.inputFiles.length : 0
+          packInputCount: Array.isArray(work.pack?.inputFiles) ? work.pack.inputFiles.length : 0,
+          existed: true
         }
       },
       {
         start: `load file=${FILE_NAME}`,
-        success: ({ workFile, unpackPakCount, packInputCount }) =>
-          `loaded file=${workFile} unpack_paks=${unpackPakCount} pack_inputs=${packInputCount}`
+        success: ({ workFile, unpackPakCount, packInputCount, existed }) =>
+          existed
+            ? `loaded file=${workFile} unpack_paks=${unpackPakCount} pack_inputs=${packInputCount}`
+            : `skip missing file=${workFile}`
       }
     )
   }
