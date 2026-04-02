@@ -37,62 +37,6 @@ pub struct NodeInfo {
     pub belongs_to: Option<PakId>,
 }
 
-impl FileTree {
-    /// Combine two file trees and return a new one.
-    ///
-    /// The same file will override by the new one.
-    pub fn combine(self, other: FileTree) -> FileTree {
-        let mut combined_roots = HashMap::new();
-
-        for root in self.roots {
-            combined_roots.insert(root.info.relative_path.clone(), root);
-        }
-        for root in other.roots {
-            let key = root.info.relative_path.clone();
-            if let Some(existing) = combined_roots.get_mut(&key) {
-                Self::combine_nodes(existing, root);
-            } else {
-                combined_roots.insert(key, root);
-            }
-        }
-
-        // TODO: 重新计算所有目录大小
-
-        // 目录大小由其他函数独立计算
-        let combined_uncompressed_size = 0;
-        let combined_compressed_size = 0;
-        let combined_file_count = 0;
-
-        FileTree {
-            roots: combined_roots.into_values().collect(),
-            uncompressed_size: combined_uncompressed_size,
-            compressed_size: combined_compressed_size,
-            file_count: combined_file_count,
-        }
-    }
-
-    fn combine_nodes(node1: &mut FileTreeNode, node2: FileTreeNode) {
-        // 目录，直接合并子节点
-        if node2.info.is_dir {
-            for (ref key, child_node2) in node2.children {
-                if let Some(child_node1) = node1.children.get_mut(key) {
-                    Self::combine_nodes(child_node1, child_node2);
-                } else {
-                    node1.children.insert(key.clone(), child_node2);
-                }
-            }
-        } else {
-            // 非目录覆盖
-            *node1 = node2;
-        }
-    }
-
-    /// 计算并更新所有父节点的大小
-    fn update_dir_node_size(_root: &mut FileTreeNode) {
-        todo!();
-    }
-}
-
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RenderTreeOptions {

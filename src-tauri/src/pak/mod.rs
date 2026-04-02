@@ -8,7 +8,7 @@ use ree_pak_core::{
 };
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
-use tree::{FileTree, FileTreeNode, NodeInfo};
+use tree::{FileTreeNode, NodeInfo};
 
 use crate::common::{JsSafeHash, UniqueId};
 
@@ -68,22 +68,6 @@ impl Pak {
             id: UniqueId::create().into(),
             path: path.to_string(),
             pakfile: Arc::new(pakfile),
-        }
-    }
-
-    pub fn create_tree(&self, name_table: &FileNameTable) -> FileTree {
-        let mut root_children = HashMap::new();
-        let mut stats = FileTreeStats::default();
-
-        self.pakfile.metadata().entries().iter().for_each(|entry| {
-            insert_tree_entry(&mut root_children, &mut stats, self.id, name_table, entry);
-        });
-
-        FileTree {
-            roots: root_children.into_values().collect(),
-            uncompressed_size: stats.uncompressed_size,
-            compressed_size: stats.compressed_size,
-            file_count: stats.file_count,
         }
     }
 }

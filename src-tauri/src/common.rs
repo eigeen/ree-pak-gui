@@ -34,8 +34,13 @@ impl JsSafeHash {
 
 #[cfg(test)]
 mod tests {
+    use super::JsSafeHash;
+
     #[test]
     fn test_js_safe_hash() {
-        todo!()
+        let hash = JsSafeHash::from_u64(0x1234_5678_9ABC_DEF0);
+
+        assert_eq!(hash.hash_u64(), 0x1234_5678_9ABC_DEF0);
+        assert_eq!(hash, JsSafeHash(0x9ABC_DEF0, 0x1234_5678));
     }
 }

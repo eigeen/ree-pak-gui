@@ -202,7 +202,7 @@ impl PreviewService {
         .map_err(|error| Error::Internal(error.to_string()))?;
 
         export_running.store(false, Ordering::SeqCst);
-        Ok(result?)
+        result
     }
 
     pub fn terminate_export(&self) {

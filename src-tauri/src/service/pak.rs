@@ -1135,6 +1135,7 @@ mod tests {
                 source_id: "a".to_string(),
                 source_label: "a".to_string(),
                 size: 1,
+                modified_timestamp_ms: None,
                 source: ManifestSource::LooseFile {
                     real_path: PathBuf::from("a"),
                 },
@@ -1146,6 +1147,7 @@ mod tests {
                 source_id: "b".to_string(),
                 source_label: "b".to_string(),
                 size: 1,
+                modified_timestamp_ms: None,
                 source: ManifestSource::LooseFile {
                     real_path: PathBuf::from("b"),
                 },
@@ -1168,6 +1170,7 @@ mod tests {
             source_id: "a".to_string(),
             source_label: "a".to_string(),
             size: 1,
+            modified_timestamp_ms: None,
             source: ManifestSource::LooseFile {
                 real_path: PathBuf::from("a"),
             },
