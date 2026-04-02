@@ -6,8 +6,11 @@ https://github.com/eigeen/ree-pak-gui/releases
 
 ## Introduction
 
-![v0.3.0_unpack_view](docs/img/v0.3.0_unpack_view.png)
-![v0.3.0_manage_file_list](docs/img/v0.3.0_manage_file_list.png)
+Added more **right-click** menus in v0.5.0 and later. Try right-clicking for more interactions!
+
+![details_view](docs/img/details_view.png)
+![image_preview_tiles_view](docs/img/image_preview_tiles_view.png)
+![repack_view](docs/img/repack_view.png)
 
 ## User Manual
 
@@ -21,5 +24,5 @@ In progress.
 
 ```sh
 bun install
-bun run tauri build
+bun tauri build
 ```

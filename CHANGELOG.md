@@ -1,5 +1,66 @@
 # Changelog
 
+## v0.5.0
+
+### Quick Overview
+
+- A more professional and intuitive resource preview interface.
+- Tiled preview for texture files.
+- Added the ability to export texture assets in batches.
+- Added support for extracting files with either full paths or relative paths.
+- Added a dark theme, plus configurable theme and UI language settings.
+- Significantly improved file tree loading performance.
+- Removed the Path Scan feature.
+
+### Full UI Redesign
+
+- Introduced a new UI/UX design language inspired by [FModel](https://github.com/4sval/FModel), with an overall visual style close to VSCode's default light/dark themes. The main interface has been reorganized into a more compact desktop-tool layout, with a new menu bar, tab area, status bar, and toolbar structure for a more professional workflow.
+- Migrated the frontend from `Vuetify` (Material Design style) to the `shadcn-vue` / `Reka UI` stack.
+- Added extensive context menu support for deeper and more convenient interactions.
+- Added a system log panel so key runtime information can be viewed directly in the interface.
+- Temporarily removed the Path Scan feature.
+
+### Extraction and Preview
+
+- The Explorer view now supports both `Tiled` and `Detailed List` layouts, making texture asset previewing more convenient.
+- Added resource property inspection, allowing direct access to basic information and some low-level metadata for folders, files, and Pak archives.
+- Added support for batch exporting texture assets to `DDS` / `PNG`.
+- Files can now be extracted using either full paths or relative paths. When exporting only a small number of files, it is no longer necessary to output them into nested `natives/STM/...` directories.
+
+### Repacking
+
+- Added support for recognizing hexadecimal file names.
+- Added support for resolving conflicts when merging multiple directories.
+
+### Performance Improvements
+
+- Improved file tree loading speed. (Typical time reduced from 10417ms to 805ms)
+- Improved path list loading speed. (Typical time reduced from 475ms to 79ms)
+- Improved frontend post-processing performance for the file tree, optimizing both initial loading and filtering. (About 5x faster)
+
+### Settings, Theme, and Language
+
+- Added a dedicated settings view.
+- Added UI language settings. The application currently supports `简体中文` / `English`.
+- Added color theme settings with `System`, `Light`, and `Dark` modes.
+- Introduced a dark theme.
+
+### Auto Update
+
+- Switched the application update source to `GitHub Releases`.
+- The update dialog now supports Markdown descriptions.
+
+### Project Structure and Toolchain
+
+- Upgraded to `Vite 8`.
+- Switched code formatting from `Prettier` to `oxfmt`.
+- Switched code linting from `ESLint` to `oxlint`.
+- Cleaned up some legacy auto-import configuration and unused frontend dependencies.
+
+## v0.4.9
+
+- RE9 support
+
 ## v0.4.8
 
 ### Features
