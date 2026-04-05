@@ -364,7 +364,7 @@ import {
 import { fileListService } from '@/service/filelist'
 import { useSettingsStore, type AppSettings } from '@/store/settings'
 import { useWorkStore } from '@/store/work'
-import { logFrontendInfo } from '@/utils/frontendLog'
+import { logFrontendInfo, logFrontendWarn } from '@/utils/frontendLog'
 import { ShowError, ShowInfo, ShowWarn } from '@/utils/message'
 import {
   getSelectedItemRelativeRoot,
@@ -1990,7 +1990,11 @@ async function ensureTexturePreview(item: ExplorerEntry) {
       [item.id]: previewUrl
     }
     return previewUrl
-  } catch {
+  } catch (error) {
+    logFrontendWarn(
+      'unpack.preview',
+      `texture preview load failed path=${item.path} error=${error instanceof Error ? error.message : String(error)}`
+    )
     texturePreviewCache.value = {
       ...texturePreviewCache.value,
       [item.id]: null
