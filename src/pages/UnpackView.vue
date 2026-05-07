@@ -155,7 +155,23 @@
         <ResizablePanel :default-size="76" :min-size="48">
           <ResizablePanelGroup direction="vertical">
             <ResizablePanel :default-size="75" :min-size="52">
+              <UnpackPreviewModePane
+                v-if="previewState"
+                :exit-label="t('unpack.exitPreviewMode')"
+                :kind-label="previewKindLabel"
+                :file-name="previewState.entry.name"
+                :file-icon="previewFileIcon"
+                :parent-segments="previewParentSegments"
+                accent="audio"
+                @exit="exitPreviewMode"
+              >
+                <UnpackAudioBankPreview
+                  v-if="previewState.kind === 'audioBank'"
+                  :entry="previewState.entry"
+                />
+              </UnpackPreviewModePane>
               <UnpackExplorerPane
+                v-else
                 v-model:search-text="explorerSearchText"
                 :has-tree="Boolean(treeData)"
                 :has-pak-data="pakData.length > 0"
@@ -192,12 +208,18 @@
         </ResizablePanel>
       </ResizablePanelGroup>
 
-      <div class="desktop-statusbar">
+      <div class="desktop-statusbar" :data-preview-mode="previewState ? previewState.kind : null">
         <div class="flex items-center gap-3">
-          <span>{{ statusText }}</span>
+          <template v-if="previewState">
+            <component :is="previewFileIcon" class="size-3.5" />
+            <span>{{ t('unpack.audioPreviewMode') }}</span>
+            <span class="opacity-60">·</span>
+            <span class="font-semibold">{{ previewState.entry.name }}</span>
+          </template>
+          <span v-else>{{ statusText }}</span>
         </div>
         <div class="flex items-center gap-4">
-          <span>{{ currentDirectoryPath }}</span>
+          <span>{{ previewState ? previewState.entry.path : currentDirectoryPath }}</span>
         </div>
       </div>
     </div>
@@ -277,6 +299,7 @@ import {
   LayoutGrid,
   List,
   LocateFixed,
+  Music,
   PackageOpen,
   RefreshCw,
   Wrench
@@ -319,7 +342,9 @@ import SystemLogPanel from '@/components/SystemLogPanel.vue'
 import UnpackSidebarTabs, {
   type UnpackSidebarTabItem
 } from '@/components/unpack/UnpackSidebarTabs.vue'
+import UnpackAudioBankPreview from '@/components/unpack/UnpackAudioBankPreview.vue'
 import UnpackExplorerPane from '@/components/unpack/UnpackExplorerPane.vue'
+import UnpackPreviewModePane from '@/components/unpack/UnpackPreviewModePane.vue'
 import UnpackPropertiesDialog, {
   type PropertySection
 } from '@/components/unpack/UnpackPropertiesDialog.vue'
@@ -331,7 +356,9 @@ import {
 import {
   canOpenExplorerItemPreview,
   getDefaultExplorerLayoutMode,
-  isTextureExplorerEntry
+  getExplorerPreviewKind,
+  isTextureExplorerEntry,
+  type ExplorerPreviewKind
 } from '@/lib/unpackExplorerPreview'
 import type { ContextMenuEntry } from '@/lib/contextMenu'
 import type {
@@ -457,6 +484,7 @@ const imageViewerState = ref({
   urls: [] as string[],
   index: 0
 })
+const previewState = ref<{ kind: ExplorerPreviewKind; entry: ExplorerEntry } | null>(null)
 const taskProgress = useTaskProgressState()
 
 const canRenderTree = computed(
@@ -920,6 +948,51 @@ const desktopMenuItems = computed<MenuGroup[]>(() => [
   }
 ])
 
+const previewKindLabel = computed(() => {
+  if (!previewState.value) return ''
+  switch (previewState.value.kind) {
+    case 'audioBank':
+      return t('unpack.audioBankKind')
+    default:
+      return ''
+  }
+})
+
+const previewFileIcon = computed(() => {
+  if (!previewState.value) return null
+  switch (previewState.value.kind) {
+    case 'audioBank':
+      return Music
+    default:
+      return null
+  }
+})
+
+const previewParentSegments = computed(() => {
+  const entry = previewState.value?.entry
+  if (!entry) return []
+
+  const segments: { id: string; label: string }[] = []
+  let cursor = entry.parentId ? explorerNodeMap.value.get(entry.parentId) : undefined
+
+  while (cursor && cursor.id !== EXPLORER_ROOT_ID) {
+    segments.unshift({ id: cursor.id, label: cursor.name })
+    cursor = cursor.parentId ? explorerNodeMap.value.get(cursor.parentId) : undefined
+  }
+
+  return segments
+})
+
+function enterPreviewMode(item: ExplorerEntry) {
+  const kind = getExplorerPreviewKind(item)
+  if (kind !== 'audioBank') return
+  previewState.value = { kind, entry: item }
+}
+
+function exitPreviewMode() {
+  previewState.value = null
+}
+
 const breadcrumbDisplaySegments = computed(() => {
   const segments: Array<{ id: string; label: string }> = []
   let cursor = currentDirectory.value
@@ -985,6 +1058,7 @@ watch(pakData, async () => {
   currentDirectoryKey.value = ''
   checkedTreeKeys.value = []
   clearExplorerSelection()
+  exitPreviewMode()
   explorerContextMenuTarget.value = null
   explorerContextMenuOpen.value = false
   treeContextMenuTarget.value = null
@@ -1014,8 +1088,13 @@ watch(explorerRoot, (root) => {
     treeFocusKey.value = ''
     checkedTreeKeys.value = []
     clearExplorerSelection()
+    exitPreviewMode()
     visibleExplorerEntries.value = []
     return
+  }
+
+  if (previewState.value && !explorerNodeMap.value.has(previewState.value.entry.id)) {
+    exitPreviewMode()
   }
 
   currentDirectoryKey.value = explorerNodeMap.value.has(currentDirectoryKey.value)
@@ -1396,6 +1475,7 @@ function handleNodeClick(data: TreeData) {
     return
   }
 
+  exitPreviewMode()
   setExplorerFocus(data.id)
   checkedEntryKeys.value = []
   selectionAnchorKey.value = ''
@@ -1488,6 +1568,7 @@ function createExplorerRoot(nodes: TreeData[]): ExplorerEntry {
 function openDirectory(id: string) {
   const entry = explorerNodeMap.value.get(id)
   if (!entry || !entry.isDir) return
+  exitPreviewMode()
   currentDirectoryKey.value = entry.id
   treeContextMenuOpen.value = false
   explorerContextMenuOpen.value = false
@@ -1592,6 +1673,12 @@ async function handleExplorerItemOpen(item: ExplorerEntry) {
 
   if (item.isDir) {
     openDirectory(item.id)
+    return
+  }
+
+  const previewKind = getExplorerPreviewKind(item)
+  if (previewKind === 'audioBank') {
+    enterPreviewMode(item)
     return
   }
 

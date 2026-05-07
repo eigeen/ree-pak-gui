@@ -44,6 +44,12 @@ export default {
       openParentDirectory: 'Go to parent directory',
       openDirectory: 'Open folder',
       previewItem: 'Preview',
+      exitPreviewMode: 'Exit Preview',
+      audioPreviewMode: 'Audio Preview Mode',
+      audioBankKind: 'WWise Audio Bank',
+      audioBankPreviewTitle: 'Audio Preview Mode',
+      audioBankPreviewPlaceholder:
+        'Audio list and playback controls are coming soon. This update only ships the entry point and shell.',
       locateInTree: 'Locate in tree',
       viewProperties: 'View properties',
       copyPath: 'Copy path',
