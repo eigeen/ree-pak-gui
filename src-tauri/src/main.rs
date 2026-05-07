@@ -7,7 +7,7 @@ use pak::group::PakGroup;
 use service::pak::PakService;
 use tauri::{AppHandle, Manager};
 
-use crate::service::preview::PreviewService;
+use crate::service::{audio::AudioService, preview::PreviewService};
 
 mod channel;
 mod command;
@@ -63,6 +63,7 @@ fn main() {
 
     // initialize services
     let _ = PakService::initialize(PakGroup::new());
+    let _ = AudioService::initialize();
     let _ = PreviewService::initialize();
 
     tauri::Builder::default()
@@ -97,6 +98,8 @@ fn main() {
             command::file_table_load,
             command::file_table_push_paths,
             command::get_preview_file,
+            command::audio_list_container,
+            command::audio_extract_wems,
             command::export_texture_files,
             command::terminate_texture_export,
             command::get_exe_path,

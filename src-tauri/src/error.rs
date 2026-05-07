@@ -18,6 +18,10 @@ pub enum Error {
     },
     #[error("Tex error: {0}")]
     Tex(#[from] re_tex::error::Error),
+    #[error("Sound BNK error: {0}")]
+    SoundBnk(#[from] re_sound::bnk::BnkError),
+    #[error("Sound PCK error: {0}")]
+    SoundPck(#[from] re_sound::pck::PckError),
     #[error("Image error: {0}")]
     Image(#[from] image::ImageError),
 
@@ -46,6 +50,10 @@ pub enum Error {
     PakEntryNotFound(String),
     #[error("Preview file not supported: {0}")]
     PreviewFileNotSupported(String),
+    #[error("Audio file not supported: {0}")]
+    AudioFileNotSupported(String),
+    #[error("Audio entry not found: {0}")]
+    AudioEntryNotFound(String),
 
     #[error("Internal error: {0}")]
     Internal(String),

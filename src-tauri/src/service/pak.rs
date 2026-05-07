@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     fs::File,
-    io::{BufReader, BufWriter, Read, Write},
+    io::{BufReader, BufWriter, Read},
     path::{Path, PathBuf},
     sync::{
         Arc, OnceLock,
@@ -404,25 +404,32 @@ impl PakService {
             }
         }
 
-        let bytes = self.read_file_bytes(entry_path)?;
+        let (pakfile, entry) = self.find_entry(entry_path)?;
+        let mut entry_reader = pakfile.open_entry(&entry)?;
 
         let output_path = output_path.as_ref();
-        let file_dir = output_path.parent().unwrap();
-        if !file_dir.exists() {
+        if let Some(file_dir) = output_path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            && !file_dir.exists()
+        {
             std::fs::create_dir_all(file_dir)?;
         }
         let mut file = File::create(output_path)?;
-        file.write_all(&bytes)?;
+        std::io::copy(&mut entry_reader, &mut file)?;
         Ok(())
     }
 
-    pub fn read_file_bytes(&self, entry_path: &str) -> Result<Vec<u8>> {
-        let (pakfile, entry) = self.find_entry(entry_path)?;
+    pub(crate) fn get_entry_path_by_hash(&self, hash: u64) -> Result<String> {
+        let pak_group = self.pak_group.lock();
+        let Some(file_name_table) = pak_group.file_name_table() else {
+            return Err(Error::MissingFileList);
+        };
 
-        let mut entry_reader = pakfile.open_entry(&entry)?;
-        let mut bytes = Vec::with_capacity(entry.uncompressed_size() as usize);
-        entry_reader.read_to_end(&mut bytes)?;
-        Ok(bytes)
+        file_name_table
+            .get_file_name(hash)
+            .map(|path| path.to_string().unwrap())
+            .ok_or_else(|| Error::PakEntryNotFound(hash.to_string()))
     }
 
     fn find_entry(&self, entry_path: &str) -> Result<(Arc<PakFile>, CorePakEntry)> {

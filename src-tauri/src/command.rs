@@ -15,6 +15,7 @@ use crate::{
         tree::{FileTree, RenderTreeOptions},
     },
     service::{
+        audio::{AudioContainerInfo, AudioExtractBatchOptions, AudioService, AudioSourceRef},
         pak::{PackConflictInfo, PakHeaderInfo, PakService},
         preview::{PreviewService, TextureExportFormat},
     },
@@ -248,6 +249,32 @@ pub async fn get_preview_file(hash: JsSafeHash) -> Result<String, String> {
         .await
         .map_err(|e| e.to_string())
         .map(|p| p.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub async fn audio_list_container(source: AudioSourceRef) -> Result<AudioContainerInfo, String> {
+    let audio_service = AudioService::get();
+
+    tokio::task::spawn_blocking(move || audio_service.list_container(source))
+        .await
+        .map_err(|error| error.to_string())?
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn audio_extract_wems(options: AudioExtractBatchOptions) -> Result<Vec<String>, String> {
+    let audio_service = AudioService::get();
+
+    tokio::task::spawn_blocking(move || audio_service.extract_wems(options))
+        .await
+        .map_err(|error| error.to_string())?
+        .map(|paths| {
+            paths
+                .into_iter()
+                .map(|path| path.to_string_lossy().to_string())
+                .collect()
+        })
+        .map_err(|error| error.to_string())
 }
 
 #[derive(Debug, Clone, Deserialize)]
