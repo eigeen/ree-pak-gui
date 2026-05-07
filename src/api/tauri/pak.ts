@@ -141,6 +141,33 @@ export interface PackOptions {
   conflictResolutions?: PackConflictResolution
 }
 
+export interface AudioSourceRef {
+  hash: JsSafeHash
+  belongsTo: PakId
+}
+
+export interface AudioExtractBatchOptions {
+  source: AudioSourceRef
+  indices: number[]
+  outputDir?: string
+}
+
+export type AudioContainerKind = 'bnk' | 'pck'
+
+export interface AudioEntryInfo {
+  index: number
+  wemId: number
+  offset: number
+  size: number
+  languageId?: number | null
+}
+
+export interface AudioContainerInfo {
+  sourcePath: string
+  containerKind: AudioContainerKind
+  entries: AudioEntryInfo[]
+}
+
 export function pak_clear_all(): Promise<void> {
   return invoke('pak_clear_all')
 }
@@ -256,4 +283,16 @@ export function pak_pack(options: PackOptions, onEvent: Channel<PackProgressEven
 // Terminate pack operation
 export function pak_terminate_pack(): Promise<void> {
   return invoke('pak_terminate_pack')
+}
+
+export function audio_list_container(source: AudioSourceRef): Promise<AudioContainerInfo> {
+  return invoke('audio_list_container', { source })
+}
+
+export function audio_extract_wems(options: AudioExtractBatchOptions): Promise<string[]> {
+  return invoke('audio_extract_wems', { options })
+}
+
+export function audio_extract_wavs(options: AudioExtractBatchOptions): Promise<string[]> {
+  return invoke('audio_extract_wavs', { options })
 }

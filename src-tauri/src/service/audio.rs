@@ -3,6 +3,7 @@ use std::{
     fs::File,
     io::{BufReader, Read, Seek, Write},
     path::{Path, PathBuf},
+    process::Command,
     sync::OnceLock,
 };
 
@@ -14,7 +15,7 @@ use crate::{
     TEMP_DIR_NAME,
     common::JsSafeHash,
     error::{Error, Result},
-    get_local_dir,
+    external_tools, get_local_dir,
     pak::PakId,
     path_components::PathComponents,
     service::pak::PakService,
@@ -60,15 +61,16 @@ impl AudioService {
     }
 
     pub fn extract_wems(&self, options: AudioExtractBatchOptions) -> Result<Vec<PathBuf>> {
-        let source_path = self
-            .pak_service
-            .get_entry_path_by_hash(options.source.hash.hash_u64())?;
-        let kind = audio_container_kind_from_path(&source_path)
-            .ok_or_else(|| Error::AudioFileNotSupported(audio_type_error_hint(&source_path)))?;
-        let container_path =
-            self.ensure_container_file(options.source.hash.hash_u64(), &source_path, kind)?;
-        let wems = extract_wems_from_file(kind, &container_path, &options.indices)?;
+        let output_dir = options
+            .output_dir
+            .filter(|path| !path.trim().is_empty())
+            .map(PathBuf::from)
+            .unwrap_or_else(|| self.temp_dir.clone());
 
+        self.extract_wems_to_dir(options.source, &options.indices, &output_dir)
+    }
+
+    pub fn extract_wavs(&self, options: AudioExtractBatchOptions) -> Result<Vec<PathBuf>> {
         let output_dir = options
             .output_dir
             .filter(|path| !path.trim().is_empty())
@@ -78,10 +80,46 @@ impl AudioService {
             std::fs::create_dir_all(&output_dir)?;
         }
 
+        let wems = self.extract_wems_to_dir(options.source, &options.indices, &self.temp_dir)?;
+        wems.into_iter()
+            .map(|wem_path| {
+                let wav_file_name = wem_path
+                    .with_extension("wav")
+                    .file_name()
+                    .ok_or_else(|| {
+                        Error::Internal(format!("Invalid wem output path: {}", wem_path.display()))
+                    })?
+                    .to_owned();
+                let wav_path = output_dir.join(Path::new(&wav_file_name));
+                convert_wem_to_wav(&wem_path, &wav_path)?;
+                Ok(wav_path)
+            })
+            .collect()
+    }
+
+    fn extract_wems_to_dir(
+        &self,
+        source: AudioSourceRef,
+        indices: &[usize],
+        output_dir: &Path,
+    ) -> Result<Vec<PathBuf>> {
+        let source_path = self
+            .pak_service
+            .get_entry_path_by_hash(source.hash.hash_u64())?;
+        let kind = audio_container_kind_from_path(&source_path)
+            .ok_or_else(|| Error::AudioFileNotSupported(audio_type_error_hint(&source_path)))?;
+        let container_path =
+            self.ensure_container_file(source.hash.hash_u64(), &source_path, kind)?;
+        let wems = extract_wems_from_file(kind, &container_path, indices)?;
+
+        if !output_dir.exists() {
+            std::fs::create_dir_all(&output_dir)?;
+        }
+
         let mut output_paths = Vec::with_capacity(wems.len());
         for wem in wems {
             let output_path = output_dir.join(build_temp_wem_file_name(
-                options.source.hash.hash_u64(),
+                source.hash.hash_u64(),
                 wem.index,
                 wem.wem_id,
             ));
@@ -333,6 +371,55 @@ where
             })
         })
         .collect()
+}
+
+fn convert_wem_to_wav(wem_path: &Path, wav_path: &Path) -> Result<()> {
+    if wav_path.exists() {
+        return Ok(());
+    }
+
+    let cli_path = external_tools::find_vgmstream_cli().ok_or_else(|| {
+        let expected = external_tools::vgmstream_cli_candidates()
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| external_tools::extension_dir("vgmstream"))
+            .to_string_lossy()
+            .to_string();
+        Error::VgmstreamCliNotFound(expected)
+    })?;
+
+    if let Some(parent) = wav_path.parent()
+        && !parent.exists()
+    {
+        std::fs::create_dir_all(parent)?;
+    }
+
+    let mut command = Command::new(&cli_path);
+    if let Some(parent) = cli_path.parent() {
+        command.current_dir(parent);
+    }
+
+    let output = command
+        .args(["-i", "-o"])
+        .arg(wav_path)
+        .arg(wem_path)
+        .output()?;
+
+    if output.status.success() {
+        return Ok(());
+    }
+
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let detail = if !stderr.is_empty() {
+        stderr
+    } else if !stdout.is_empty() {
+        stdout
+    } else {
+        format!("exit status {}", output.status)
+    };
+
+    Err(Error::VgmstreamCliFailed(detail))
 }
 
 fn audio_container_kind_from_path(path: &str) -> Option<AudioContainerKind> {

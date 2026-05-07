@@ -277,6 +277,22 @@ pub async fn audio_extract_wems(options: AudioExtractBatchOptions) -> Result<Vec
         .map_err(|error| error.to_string())
 }
 
+#[tauri::command]
+pub async fn audio_extract_wavs(options: AudioExtractBatchOptions) -> Result<Vec<String>, String> {
+    let audio_service = AudioService::get();
+
+    tokio::task::spawn_blocking(move || audio_service.extract_wavs(options))
+        .await
+        .map_err(|error| error.to_string())?
+        .map(|paths| {
+            paths
+                .into_iter()
+                .map(|path| path.to_string_lossy().to_string())
+                .collect()
+        })
+        .map_err(|error| error.to_string())
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TextureExportOptions {

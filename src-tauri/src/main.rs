@@ -14,6 +14,7 @@ mod command;
 mod common;
 mod error;
 mod event;
+mod external_tools;
 mod logger;
 mod macros;
 mod pak;
@@ -100,6 +101,7 @@ fn main() {
             command::get_preview_file,
             command::audio_list_container,
             command::audio_extract_wems,
+            command::audio_extract_wavs,
             command::export_texture_files,
             command::terminate_texture_export,
             command::get_exe_path,

@@ -54,6 +54,10 @@ pub enum Error {
     AudioFileNotSupported(String),
     #[error("Audio entry not found: {0}")]
     AudioEntryNotFound(String),
+    #[error("vgmstream-cli not found. Place it under: {0}")]
+    VgmstreamCliNotFound(String),
+    #[error("vgmstream-cli failed: {0}")]
+    VgmstreamCliFailed(String),
 
     #[error("Internal error: {0}")]
     Internal(String),
