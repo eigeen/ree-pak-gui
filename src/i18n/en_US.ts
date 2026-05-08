@@ -77,6 +77,9 @@ export default {
       audioBankExportFailed: 'Export failed',
       audioBankNoCurrent: 'No track is playing',
       audioBankPreparingTrack: 'Preparing…',
+      vgmstreamMissingForPlayback:
+        'Audio playback requires vgmstream. Please install it in Settings.',
+      openVgmstreamSettings: 'Open Settings',
       locateInTree: 'Locate in tree',
       viewProperties: 'View properties',
       copyPath: 'Copy path',

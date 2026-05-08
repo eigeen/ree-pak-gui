@@ -11,8 +11,9 @@ import {
   Volume2,
   VolumeX
 } from 'lucide-vue-next'
-import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { computed, h, nextTick, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import {
   audio_extract_wavs,
   audio_list_container,
@@ -27,6 +28,7 @@ import {
 import { getAudioSourceRef, resolveAudioBankDirectoryName } from '@/lib/audioBank'
 import type { ContextMenuEntry } from '@/lib/contextMenu'
 import type { ExplorerEntry } from '@/lib/unpackExplorer'
+import { VgmstreamService } from '@/service/vgmstream'
 import { ShowError, ShowInfo } from '@/utils/message'
 
 const props = defineProps<{
@@ -34,6 +36,8 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
+const router = useRouter()
+const vgmstreamService = VgmstreamService.getInstance()
 
 const PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 2]
 
@@ -210,6 +214,7 @@ async function ensurePrepared(entry: AudioEntryInfo): Promise<string | null> {
   const cached = wavUrls.value[entry.index]
   if (cached) return cached
   if (!source.value) return null
+  if (!(await ensureVgmstreamInstalledForPlayback())) return null
 
   preparingIndex.value = entry.index
   try {
@@ -222,11 +227,52 @@ async function ensurePrepared(entry: AudioEntryInfo): Promise<string | null> {
     wavUrls.value = { ...wavUrls.value, [entry.index]: url }
     return url
   } catch (error) {
-    ShowError(error instanceof Error ? error.message : String(error))
+    if (isVgmstreamMissingError(error)) {
+      showVgmstreamInstallPrompt()
+    } else {
+      ShowError(error instanceof Error ? error.message : String(error))
+    }
     return null
   } finally {
     preparingIndex.value = null
   }
+}
+
+async function ensureVgmstreamInstalledForPlayback() {
+  try {
+    const status = await vgmstreamService.getStatus()
+    if (status.installed) return true
+
+    showVgmstreamInstallPrompt()
+    return false
+  } catch {
+    return true
+  }
+}
+
+function showVgmstreamInstallPrompt() {
+  ShowError(
+    h('span', { class: 'inline-flex flex-wrap items-baseline gap-1' }, [
+      t('unpack.vgmstreamMissingForPlayback'),
+      h(
+        'a',
+        {
+          href: '#settings-item-vgmstream',
+          class: 'app-message-link',
+          onClick: (event: MouseEvent) => {
+            event.preventDefault()
+            void router.push({ name: 'SettingsView', hash: '#settings-item-vgmstream' })
+          }
+        },
+        t('unpack.openVgmstreamSettings')
+      )
+    ])
+  )
+}
+
+function isVgmstreamMissingError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error)
+  return message.includes('vgmstream-cli not found')
 }
 
 async function playEntry(entry: AudioEntryInfo) {

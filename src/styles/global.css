@@ -622,6 +622,17 @@
     word-break: break-all;
   }
 
+  .app-toast .app-message-link {
+    color: var(--color-primary);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .app-toast .app-message-link:hover {
+    color: color-mix(in srgb, var(--color-primary) 82%, var(--color-foreground));
+  }
+
   .app-toast .el-message__icon {
     font-size: 1.125rem;
     line-height: 1.75rem;

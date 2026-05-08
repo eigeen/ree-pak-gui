@@ -77,6 +77,8 @@ export default {
       audioBankExportFailed: '导出失败',
       audioBankNoCurrent: '当前没有播放中的音频',
       audioBankPreparingTrack: '准备中…',
+      vgmstreamMissingForPlayback: '播放音频需要先安装 vgmstream，请到设置中安装。',
+      openVgmstreamSettings: '前往设置',
       locateInTree: '在树中定位',
       viewProperties: '查看属性',
       copyPath: '复制路径',

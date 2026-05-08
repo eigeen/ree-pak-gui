@@ -179,6 +179,7 @@
                       </div>
 
                       <SettingsInlineItem
+                        id="settings-item-vgmstream"
                         v-if="hasVisibleItem(section, 'audio', 'vgmstream')"
                         :title="t('settings.vgmstreamTitle')"
                         :description="t('settings.vgmstreamDescription')"
@@ -211,7 +212,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, unref, watch, type Ref } from 'vue'
+import { computed, nextTick, ref, unref, watch, type Ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { ChevronRight, CircleAlert, Search, Settings2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import SettingsInlineItem from '@/components/Settings/SettingsInlineItem.vue'
@@ -257,6 +259,7 @@ type ThemeOption = {
 
 const { t } = useI18n()
 const settingsStore = useSettingsStore()
+const route = useRoute()
 const settings = computed(() => unref(settingsStore.settings as unknown as Ref<AppSettings>))
 const { isDark, themeMode } = useAppTheme()
 
@@ -413,6 +416,26 @@ watch(
     if (!nextSections.some((section) => section.id === activeSection.value)) {
       activeSection.value = nextSections[0]?.id ?? 'common'
     }
+  },
+  { immediate: true }
+)
+
+watch(
+  () => route.hash,
+  (hash) => {
+    if (!hash) return
+
+    searchText.value = ''
+    const targetId = hash.slice(1)
+    void nextTick(() => {
+      const target = document.getElementById(targetId)
+      if (!target) return
+
+      if (targetId.includes('vgmstream')) {
+        activeSection.value = 'extensions'
+      }
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
   },
   { immediate: true }
 )
