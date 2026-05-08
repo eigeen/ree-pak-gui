@@ -169,6 +169,26 @@
                   </div>
                 </template>
 
+                <template v-else-if="section.id === 'extensions'">
+                  <div class="max-w-3xl space-y-8">
+                    <div v-if="hasVisibleGroup(section, 'audio')">
+                      <div class="mb-3">
+                        <h4 class="text-base font-semibold text-foreground">
+                          {{ getSectionGroup(section, 'audio')?.title }}
+                        </h4>
+                      </div>
+
+                      <SettingsInlineItem
+                        v-if="hasVisibleItem(section, 'audio', 'vgmstream')"
+                        :title="t('settings.vgmstreamTitle')"
+                        :description="t('settings.vgmstreamDescription')"
+                      >
+                        <VgmstreamExtensionManager />
+                      </SettingsInlineItem>
+                    </div>
+                  </div>
+                </template>
+
                 <template v-else>
                   <div class="text-sm text-muted-foreground">
                     {{ t('settings.placeholderSection') }}
@@ -195,6 +215,7 @@ import { computed, ref, unref, watch, type Ref } from 'vue'
 import { ChevronRight, CircleAlert, Search, Settings2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import SettingsInlineItem from '@/components/Settings/SettingsInlineItem.vue'
+import VgmstreamExtensionManager from '@/components/Settings/VgmstreamExtensionManager.vue'
 import LanguageSelect from '@/components/LanguageSelect.vue'
 import { DenseInput } from '@/components/ui/input'
 import {
@@ -295,6 +316,32 @@ const sections = computed<SettingsSection[]>(() => [
               t('settings.texturePreviewHint'),
               t('settings.enabled'),
               t('settings.disabled')
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'extensions',
+    label: t('settings.sectionExtensions'),
+    groups: [
+      {
+        id: 'audio',
+        title: t('settings.extensionAudioTitle'),
+        items: [
+          {
+            id: 'vgmstream',
+            title: t('settings.vgmstreamTitle'),
+            description: t('settings.vgmstreamDescription'),
+            keywords: [
+              'vgmstream',
+              'vgmstream-cli',
+              'wem',
+              'wav',
+              t('settings.installExtension'),
+              t('settings.extensionInstalled'),
+              t('settings.extensionMissing')
             ]
           }
         ]

@@ -9,6 +9,16 @@ export interface CompileInfo {
   arch: string
 }
 
+export interface VgmstreamStatus {
+  installed: boolean
+  platform: string
+  arch: string
+  assetName?: string
+  installDir: string
+  expectedPath: string
+  executablePath?: string
+}
+
 export type TextureExportFormat = 'dds' | 'png'
 
 export interface TextureExportOptions {
@@ -49,6 +59,14 @@ export function getCompileInfo(): Promise<CompileInfo> {
 
 export function performUpdate(filePath: string): Promise<void> {
   return invoke('perform_update', { filePath })
+}
+
+export function vgmstreamGetStatus(): Promise<VgmstreamStatus> {
+  return invoke('vgmstream_get_status')
+}
+
+export function vgmstreamInstallFromArchive(archivePath: string): Promise<VgmstreamStatus> {
+  return invoke('vgmstream_install_from_archive', { archivePath })
 }
 
 export function zipExtractFile(filePath: string, outputPath?: string): Promise<void> {

@@ -11,6 +11,7 @@ use crate::{
         UnpackProgressChannelInner,
     },
     common::JsSafeHash,
+    external_tools::{self, VgmstreamStatus},
     pak::{
         ExtractFileInfo, ExtractOptions, PakId, PakInfo,
         tree::{FileTree, RenderTreeOptions},
@@ -319,6 +320,23 @@ pub fn audio_terminate_extract() -> Result<(), String> {
     AudioService::get().terminate_extract();
     log::warn!("Audio export process terminated.");
     Ok(())
+}
+
+#[tauri::command]
+pub fn vgmstream_get_status() -> VgmstreamStatus {
+    external_tools::vgmstream_status()
+}
+
+#[tauri::command]
+pub fn vgmstream_install_from_archive(archive_path: String) -> Result<VgmstreamStatus, String> {
+    log_sync_command(
+        "vgmstream_install_from_archive",
+        Some(format!("archive_path={archive_path}")),
+        || {
+            external_tools::install_vgmstream_from_archive(archive_path.clone())
+                .map_err(|error| error.to_string())
+        },
+    )
 }
 
 #[derive(Debug, Clone, Deserialize)]

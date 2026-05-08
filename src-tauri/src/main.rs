@@ -171,6 +171,8 @@ fn main() {
             command::audio_extract_wavs,
             command::audio_extract_wavs_with_progress,
             command::audio_terminate_extract,
+            command::vgmstream_get_status,
+            command::vgmstream_install_from_archive,
             command::export_texture_files,
             command::terminate_texture_export,
             command::get_exe_path,

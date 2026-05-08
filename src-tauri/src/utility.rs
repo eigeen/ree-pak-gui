@@ -49,6 +49,12 @@ pub fn zip_extract_all(
         let mut file = zip.by_index(i)?;
         if let Some(p) = file.enclosed_name() {
             let outpath = output_root.join(p);
+
+            if file.is_dir() {
+                std::fs::create_dir_all(&outpath)?;
+                continue;
+            }
+
             if let Some(p) = outpath.parent()
                 && !p.exists()
             {

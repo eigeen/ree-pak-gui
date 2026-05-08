@@ -211,8 +211,16 @@ fn build_vgmstream_command(cli_path: &Path, wem_path: &Path, wav_path: &Path) ->
     if let Some(parent) = cli_path.parent() {
         command.current_dir(parent);
         command.env(
+            "PATH",
+            build_child_library_path(parent, std::env::var_os("PATH")),
+        );
+        command.env(
             "DYLD_LIBRARY_PATH",
             build_child_library_path(parent, std::env::var_os("DYLD_LIBRARY_PATH")),
+        );
+        command.env(
+            "LD_LIBRARY_PATH",
+            build_child_library_path(parent, std::env::var_os("LD_LIBRARY_PATH")),
         );
     }
 
@@ -231,17 +239,31 @@ fn ensure_parent_dir(path: &Path) -> Result<()> {
 }
 
 fn command_error_detail(output: &std::process::Output) -> String {
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-    if !stderr.is_empty() {
-        return stderr;
+    let mut detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if !detail.is_empty() {
+        append_dynamic_library_hint(&mut detail);
+        return detail;
     }
 
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if !stdout.is_empty() {
-        return stdout;
+    detail = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if !detail.is_empty() {
+        append_dynamic_library_hint(&mut detail);
+        return detail;
     }
 
-    format!("exit status {}", output.status)
+    detail = format!("exit status {}", output.status);
+    append_dynamic_library_hint(&mut detail);
+    detail
+}
+
+fn append_dynamic_library_hint(detail: &mut String) {
+    if cfg!(target_os = "windows") {
+        return;
+    }
+
+    detail.push_str(
+        " On macOS/Linux, vgmstream may require additional dynamic libraries. Search the exact error message and use AI assistance to resolve missing library dependencies.",
+    );
 }
 
 fn build_child_library_path(
