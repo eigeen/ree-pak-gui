@@ -72,7 +72,7 @@ function handleItemOpen(item: ExplorerEntry, event: MouseEvent) {
           >
             <el-image
               :src="props.renderers.getTexturePreview(item) ?? undefined"
-              :alt="item.name"
+              :alt="item.displayName ?? item.name"
               fit="cover"
               class="asset-tile-preview"
             >
@@ -103,7 +103,7 @@ function handleItemOpen(item: ExplorerEntry, event: MouseEvent) {
           <p
             class="text-sm line-clamp-2 min-h-[2.5rem] break-all font-semibold leading-5 text-foreground"
           >
-            {{ item.name }}
+            {{ item.displayName ?? item.name }}
           </p>
 
           <div v-if="item.isDir" class="pt-1 text-2xs text-muted-foreground">

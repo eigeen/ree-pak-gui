@@ -376,10 +376,12 @@ import {
   toggleCheckedKey
 } from '@/lib/unpackExplorerSelection'
 import {
+  buildCompactDisplayChildren,
   buildDirectoryTreeData,
   buildTreeData,
   createTreeFilter,
   filterTreeData,
+  getTreeDataDisplayName,
   type TreeData
 } from '@/lib/unpackTree'
 import {
@@ -553,17 +555,20 @@ const explorerEntries = computed(() => {
   if (!dir) return []
 
   const keyword = explorerSearchText.value.trim().toLowerCase()
-  return dir.children
+  return (buildCompactDisplayChildren(dir.children) as ExplorerEntry[])
     .filter((item) => {
       if (!keyword) return true
-      return item.name.toLowerCase().includes(keyword) || item.path.toLowerCase().includes(keyword)
+      return (
+        getExplorerDisplayName(item).toLowerCase().includes(keyword) ||
+        item.path.toLowerCase().includes(keyword)
+      )
     })
     .sort((a, b) => {
       if (a.isDir !== b.isDir) {
         return a.isDir ? -1 : 1
       }
 
-      return a.name.localeCompare(b.name)
+      return getExplorerDisplayName(a).localeCompare(getExplorerDisplayName(b))
     })
 })
 const pakFileNameMap = computed(() => {
@@ -1003,20 +1008,12 @@ const breadcrumbDisplaySegments = computed(() => {
       break
     }
 
-    const labels = splitBreadcrumbLabel(cursor.name)
-    for (let i = labels.length - 1; i >= 0; i -= 1) {
-      segments.unshift({ id: cursor.id, label: labels[i] ?? cursor.name })
-    }
+    segments.unshift({ id: cursor.id, label: cursor.name })
     cursor = cursor.parentId ? (explorerNodeMap.value.get(cursor.parentId) ?? null) : null
   }
 
   return segments
 })
-
-function splitBreadcrumbLabel(label: string): string[] {
-  const parts = label.split(/\s*\/\s*/).filter((part) => part.length > 0)
-  return parts.length > 0 ? parts : [label]
-}
 
 function openPathListManager() {
   fileNameTable.value?.openManager()
@@ -1713,6 +1710,10 @@ async function handleExplorerItemOpen(item: ExplorerEntry) {
 
 function getExplorerTypeKey(item: ExplorerEntry) {
   return resolveExplorerFileTypeKey(item.name, item.isDir)
+}
+
+function getExplorerDisplayName(item: ExplorerEntry) {
+  return getTreeDataDisplayName(item)
 }
 
 function isTextureEntry(item: ExplorerEntry) {

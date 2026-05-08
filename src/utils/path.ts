@@ -22,10 +22,7 @@ export function getFileStem(path: string): string {
 }
 
 export function normalizeDisplayPath(path: string): string {
-  return path
-    .replace(/\\/g, '/')
-    .replace(/\s*\/\s*/g, '/')
-    .trim()
+  return path.replace(/\\/g, '/').trim()
 }
 
 export function normalizePathForSegments(path: string): string {

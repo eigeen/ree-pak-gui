@@ -40,7 +40,6 @@ pub struct NodeInfo {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RenderTreeOptions {
-    merge_directories: Option<bool>,
     sort_by_name: Option<bool>,
     sort_by_size: Option<bool>,
 }
@@ -48,7 +47,6 @@ pub struct RenderTreeOptions {
 impl Default for RenderTreeOptions {
     fn default() -> Self {
         Self {
-            merge_directories: Some(true),
             sort_by_name: Some(true),
             sort_by_size: Some(false),
         }
@@ -56,10 +54,6 @@ impl Default for RenderTreeOptions {
 }
 
 impl RenderTreeOptions {
-    pub fn merge_directories(&self) -> bool {
-        self.merge_directories.unwrap_or(true)
-    }
-
     pub fn sort_by_name(&self) -> bool {
         self.sort_by_name.unwrap_or(true)
     }
@@ -98,18 +92,13 @@ impl RenderTreeNode {
             .iter()
             .map(convert_to_render_node)
             .collect::<Vec<_>>();
-        // 合并独立嵌套目录
-        if options.merge_directories() {
-            merge_nested_dirs(&mut roots);
-        }
-        // 排序
+
         if options.sort_by_name() {
             sort_by_name(&mut roots);
         } else if options.sort_by_size() {
             // TODO
         }
 
-        // 计算目录大小
         for root in &mut roots {
             apply_dir_size(root);
         }
@@ -132,41 +121,19 @@ fn convert_to_render_node(node: &FileTreeNode) -> RenderTreeNode {
     }
 }
 
-/// 计算目录包含的所有文件大小
 fn apply_dir_size(node: &mut RenderTreeNode) {
-    // 如果是目录，先初始化大小
     if node.is_dir {
-        // 初始化压缩前后大小
         let mut total_compressed_size = 0;
         let mut total_uncompressed_size = 0;
 
-        // 遍历子节点
         for child in &mut node.children {
             apply_dir_size(child);
             total_compressed_size += child.compressed_size;
             total_uncompressed_size += child.uncompressed_size;
         }
 
-        // 更新当前目录的大小
         node.compressed_size = total_compressed_size;
         node.uncompressed_size = total_uncompressed_size;
-    }
-}
-
-/// 合并唯一的嵌套目录为 a/b/c 形式的单个节点，减少可视化显示层级
-fn merge_nested_dirs(nodes: &mut [RenderTreeNode]) {
-    for node in nodes {
-        merge_nested_dirs(&mut node.children);
-
-        if node.is_dir && node.children.len() == 1 {
-            let child = node.children.iter_mut().next().unwrap();
-            if child.is_dir {
-                let new_name = SmolStr::from(format!("{} / {}", node.name, child.name));
-                // 合并后的节点
-                node.name = new_name.clone();
-                node.children = child.children.clone();
-            }
-        }
     }
 }
 
@@ -178,5 +145,59 @@ fn sort_by_name(nodes: &mut [RenderTreeNode]) {
     });
     for node in nodes {
         sort_by_name(&mut node.children);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn directory(name: &str, children: Vec<FileTreeNode>) -> FileTreeNode {
+        FileTreeNode {
+            info: NodeInfo {
+                is_dir: true,
+                relative_path: SmolStr::new(name),
+                ..NodeInfo::default()
+            },
+            children: children
+                .into_iter()
+                .map(|child| (child.info.relative_path.clone(), child))
+                .collect(),
+        }
+    }
+
+    fn file(name: &str, size: u64) -> FileTreeNode {
+        FileTreeNode {
+            info: NodeInfo {
+                is_dir: false,
+                relative_path: SmolStr::new(name),
+                compressed_size: size,
+                uncompressed_size: size,
+                ..NodeInfo::default()
+            },
+            children: HashMap::new(),
+        }
+    }
+
+    #[test]
+    fn render_tree_keeps_real_directory_chain() {
+        let tree = FileTree {
+            roots: vec![directory(
+                "A",
+                vec![directory(
+                    "B",
+                    vec![directory("C", vec![file("x.tex", 12)])],
+                )],
+            )],
+            ..FileTree::default()
+        };
+
+        let roots = RenderTreeNode::try_from_file_tree(tree, &RenderTreeOptions::default())
+            .expect("tree should render");
+
+        assert_eq!(roots[0].name, "A");
+        assert_eq!(roots[0].children[0].name, "B");
+        assert_eq!(roots[0].children[0].children[0].name, "C");
+        assert_eq!(roots[0].children[0].children[0].children[0].name, "x.tex");
     }
 }

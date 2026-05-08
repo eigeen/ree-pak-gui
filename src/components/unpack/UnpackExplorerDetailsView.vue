@@ -66,7 +66,7 @@ function handleItemOpen(item: ExplorerEntry, event: MouseEvent) {
       <div class="flex items-center justify-center">
         <Checkbox
           :model-value="props.checkedKeys.includes(item.id)"
-          :aria-label="item.name"
+          :aria-label="item.displayName ?? item.name"
           @update:model-value="emit('item-check', item, $event === true)"
           @click.stop
         />
@@ -80,7 +80,7 @@ function handleItemOpen(item: ExplorerEntry, event: MouseEvent) {
         />
 
         <span class="text-sm truncate font-medium text-foreground">
-          {{ item.name }}
+          {{ item.displayName ?? item.name }}
         </span>
       </div>
 

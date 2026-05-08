@@ -31,7 +31,6 @@ export interface NodeInfo {
 }
 
 export interface RenderTreeOptions {
-  mergeDirectories?: boolean
   sortByName?: boolean
   sortBySize?: boolean
 }

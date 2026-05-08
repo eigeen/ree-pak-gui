@@ -4,6 +4,7 @@ export interface TreeData {
   id: string
   name: string
   label: string
+  displayName?: string
   path: string
   parentId?: string
   hash?: JsSafeHash
@@ -21,7 +22,15 @@ export function buildTreeData(nodes: RenderTreeNode[]): TreeData[] {
 }
 
 export function buildDirectoryTreeData(nodes: TreeData[]): TreeData[] {
-  return mapTreeNodes(nodes, pruneTreeFiles)
+  return mapTreeNodes(nodes, createDirectoryTreeDisplayNode)
+}
+
+export function buildCompactDisplayChildren(nodes: TreeData[]): TreeData[] {
+  return mapTreeNodes(nodes, createCompactDisplayNode)
+}
+
+export function getTreeDataDisplayName(node: Pick<TreeData, 'displayName' | 'name'>): string {
+  return node.displayName ?? node.name
 }
 
 export function createTreeFilter(filterText = '', regexMode = false): string | RegExp {
@@ -128,18 +137,52 @@ function mapTreeNodes(nodes: TreeData[], mapNode: (node: TreeData) => TreeData |
   return changed ? nextNodes : nodes
 }
 
-function pruneTreeFiles(node: TreeData): TreeData | null {
+function createDirectoryTreeDisplayNode(node: TreeData): TreeData | null {
   if (!node.isDir) {
     return null
   }
 
-  const directoryChildren = mapTreeNodes(node.children, pruneTreeFiles)
-  if (directoryChildren === node.children) {
-    return node
+  return createCompactDisplayNode(node, buildDirectoryTreeData)
+}
+
+function createCompactDisplayNode(
+  node: TreeData,
+  buildChildren: (nodes: TreeData[]) => TreeData[] = (children) => children
+): TreeData {
+  if (!node.isDir) return node
+
+  const resolved = resolveCompactDirectoryDisplay(node)
+  const children = buildChildren(resolved.node.children)
+  const unchanged =
+    resolved.node === node &&
+    resolved.displayName === getTreeDataDisplayName(node) &&
+    children === node.children
+
+  if (unchanged) return node
+
+  return {
+    ...resolved.node,
+    label: resolved.displayName,
+    displayName: resolved.displayName,
+    children
+  }
+}
+
+function resolveCompactDirectoryDisplay(node: TreeData): { node: TreeData; displayName: string } {
+  const names = [node.name]
+  let cursor = node
+
+  while (hasSingleDirectoryChild(cursor)) {
+    cursor = cursor.children[0]!
+    names.push(cursor.name)
   }
 
   return {
-    ...node,
-    children: directoryChildren
+    node: cursor,
+    displayName: names.join(' / ')
   }
+}
+
+function hasSingleDirectoryChild(node: TreeData): boolean {
+  return node.children.length === 1 && node.children[0]?.isDir === true
 }
