@@ -74,7 +74,7 @@ function handleItemOpen(item: ExplorerEntry, event: MouseEvent) {
               :src="props.renderers.getTexturePreview(item) ?? undefined"
               :alt="item.displayName ?? item.name"
               fit="cover"
-              class="asset-tile-preview"
+              class="asset-tile-preview size-full"
             >
               <template #error>
                 <div class="flex h-full w-full items-center justify-center">
@@ -115,12 +115,12 @@ function handleItemOpen(item: ExplorerEntry, event: MouseEvent) {
           >
             <span class="truncate">{{ props.renderers.getItemTypeLabel(item) }}</span>
             <template v-if="item.isDir">
-              <span class="asset-counts shrink-0">
-                <span class="asset-count-chip">
+              <span class="inline-flex shrink-0 items-center gap-1.5">
+                <span class="asset-count-chip inline-flex items-center gap-1">
                   <Folder class="size-3" />
                   {{ props.renderers.getDirectoryCounts(item).folders }}
                 </span>
-                <span class="asset-count-chip">
+                <span class="asset-count-chip inline-flex items-center gap-1">
                   <File class="size-3" />
                   {{ props.renderers.getDirectoryCounts(item).files }}
                 </span>
@@ -135,25 +135,8 @@ function handleItemOpen(item: ExplorerEntry, event: MouseEvent) {
 </template>
 
 <style scoped>
-.asset-tile-preview {
-  height: 100%;
-  width: 100%;
-}
-
 .asset-hero-icon {
   filter: drop-shadow(0 10px 18px rgb(0 0 0 / 0.28));
-}
-
-.asset-counts {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.asset-count-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
 }
 
 .asset-tile-preview :deep(.el-image__wrapper),

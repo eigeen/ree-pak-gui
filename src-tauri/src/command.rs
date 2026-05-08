@@ -5,9 +5,10 @@ use std::{collections::HashMap, time::Instant};
 
 use crate::{
     channel::{
-        FileTreeProgressChannel, FileTreeProgressChannelInner, PackProgressChannel,
-        PackProgressChannelInner, TextureExportProgressChannel, TextureExportProgressChannelInner,
-        UnpackProgressChannel, UnpackProgressChannelInner,
+        AudioExportProgressChannel, AudioExportProgressChannelInner, FileTreeProgressChannel,
+        FileTreeProgressChannelInner, PackProgressChannel, PackProgressChannelInner,
+        TextureExportProgressChannel, TextureExportProgressChannelInner, UnpackProgressChannel,
+        UnpackProgressChannelInner,
     },
     common::JsSafeHash,
     pak::{
@@ -291,6 +292,33 @@ pub async fn audio_extract_wavs(options: AudioExtractBatchOptions) -> Result<Vec
                 .collect()
         })
         .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn audio_extract_wavs_with_progress(
+    options: AudioExtractBatchOptions,
+    on_event: AudioExportProgressChannelInner,
+) -> Result<Vec<String>, String> {
+    let audio_service = AudioService::get();
+    let progress = AudioExportProgressChannel::new(on_event);
+
+    tokio::task::spawn_blocking(move || audio_service.extract_wavs_with_progress(options, progress))
+        .await
+        .map_err(|error| error.to_string())?
+        .map(|paths| {
+            paths
+                .into_iter()
+                .map(|path| path.to_string_lossy().to_string())
+                .collect()
+        })
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn audio_terminate_extract() -> Result<(), String> {
+    AudioService::get().terminate_extract();
+    log::warn!("Audio export process terminated.");
+    Ok(())
 }
 
 #[derive(Debug, Clone, Deserialize)]

@@ -68,21 +68,13 @@ onUnmounted(() => {
         </template>
 
         <span class="preview-mode-filename-chip">
-          <component
-            v-if="props.fileIcon"
-            :is="props.fileIcon"
-            class="size-3 shrink-0"
-          />
+          <component v-if="props.fileIcon" :is="props.fileIcon" class="size-3 shrink-0" />
           <span class="truncate">{{ props.fileName }}</span>
         </span>
       </div>
 
       <span v-if="props.kindLabel" class="preview-mode-kind-badge">
-        <component
-          v-if="props.fileIcon"
-          :is="props.fileIcon"
-          class="size-3 shrink-0"
-        />
+        <component v-if="props.fileIcon" :is="props.fileIcon" class="size-3 shrink-0" />
         {{ props.kindLabel }}
       </span>
     </div>

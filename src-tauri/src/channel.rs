@@ -225,6 +225,74 @@ impl TextureExportProgressChannelImpl<TextureExportProgressData> {
     }
 }
 
+// Audio export progress
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioExportProgressData {
+    path: String,
+    finish_count: u32,
+}
+
+pub type AudioExportProgressChannel = AudioExportProgressChannelImpl<AudioExportProgressData>;
+pub type AudioExportProgressChannelInner = Channel<WorkProgressEvent<AudioExportProgressData>>;
+
+#[derive(Clone)]
+pub struct AudioExportProgressChannelImpl<T> {
+    channel: Channel<WorkProgressEvent<T>>,
+    finish_count: Arc<AtomicU32>,
+    throttle: ProgressThrottle,
+}
+
+impl AudioExportProgressChannelImpl<AudioExportProgressData> {
+    pub fn new(channel: Channel<WorkProgressEvent<AudioExportProgressData>>) -> Self {
+        Self {
+            channel,
+            finish_count: Arc::new(AtomicU32::new(0)),
+            throttle: ProgressThrottle::new(PROGRESS_EVENT_INTERVAL),
+        }
+    }
+
+    pub fn work_start(&self, count: u32) {
+        if let Err(e) = self.channel.send(WorkProgressEvent::WorkStart { count }) {
+            log::error!("Failed to send audio export start event: {}", e);
+        }
+    }
+
+    pub fn file_done(&self, path: &str) {
+        let finish_count = self
+            .finish_count
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+            + 1;
+
+        if !self.throttle.should_emit() {
+            return;
+        }
+
+        if let Err(e) = self
+            .channel
+            .send(WorkProgressEvent::FileDone(AudioExportProgressData {
+                path: path.to_string(),
+                finish_count,
+            }))
+        {
+            log::error!("Failed to send audio export file done event: {}", e);
+        }
+    }
+
+    pub fn work_finished(&self) {
+        if let Err(e) = self.channel.send(WorkProgressEvent::WorkFinished(None)) {
+            log::error!("Failed to send audio export finished event: {}", e);
+        }
+    }
+
+    pub fn error(&self, error: String) {
+        if let Err(e) = self.channel.send(WorkProgressEvent::Error { error }) {
+            log::error!("Failed to send audio export error event: {}", e);
+        }
+    }
+}
+
 // Pack progress
 
 #[derive(Clone, Serialize)]

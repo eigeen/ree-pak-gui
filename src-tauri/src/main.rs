@@ -168,6 +168,8 @@ fn main() {
             command::audio_list_container,
             command::audio_extract_wems,
             command::audio_extract_wavs,
+            command::audio_extract_wavs_with_progress,
+            command::audio_terminate_extract,
             command::export_texture_files,
             command::terminate_texture_export,
             command::get_exe_path,

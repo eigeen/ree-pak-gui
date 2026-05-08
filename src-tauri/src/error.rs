@@ -42,6 +42,8 @@ pub enum Error {
     PackAlreadyRunning,
     #[error("Texture export already running.")]
     TextureExportAlreadyRunning,
+    #[error("Audio export already running.")]
+    AudioExportAlreadyRunning,
     #[error("Pak writer error: {0}")]
     PackWriter(#[from] ree_pak_core::write::PakWriteError),
     #[error("Terminated.")]

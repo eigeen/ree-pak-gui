@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import { convertFileSrc } from '@tauri-apps/api/core'
-import { join } from '@tauri-apps/api/path'
-import { open as dialogOpen } from '@tauri-apps/plugin-dialog'
 import {
   Download,
   LoaderCircle,
@@ -19,9 +17,9 @@ import {
   audio_extract_wavs,
   audio_list_container,
   type AudioContainerInfo,
-  type AudioEntryInfo,
-  type AudioSourceRef
+  type AudioEntryInfo
 } from '@/api/tauri/pak'
+import { useAudioBankExportProgress } from '@/composables/useAudioBankExportProgress'
 import type { ExplorerEntry } from '@/lib/unpackExplorer'
 import { getFileName } from '@/utils/path'
 import { ShowError, ShowInfo } from '@/utils/message'
@@ -34,10 +32,6 @@ const { t } = useI18n()
 
 const PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 2]
 const FALLBACK_BANK_DIRECTORY = 'sound-bank'
-
-type AudioExportOptions = {
-  createBankDirectory?: boolean
-}
 
 const audioRef = ref<HTMLAudioElement | null>(null)
 const progressRef = ref<HTMLElement | null>(null)
@@ -58,7 +52,6 @@ const isMuted = ref(false)
 const playbackRate = ref(1)
 const loop = ref(false)
 const searchText = ref('')
-const exporting = ref(false)
 
 const source = computed(() => {
   if (!props.entry.hash || !props.entry.belongsTo) return null
@@ -105,6 +98,11 @@ const containerExtension = computed(() => {
   const match = path.match(/\.([a-z0-9]+)(?:\.\d+(?:\.[A-Za-z0-9]+)?)?$/i)
   if (match && match[1]) return match[1].toUpperCase()
   return (containerInfo.value?.containerKind ?? '').toUpperCase()
+})
+
+const { exporting, exportEntries } = useAudioBankExportProgress({
+  source,
+  getBankDirectoryName: getAudioBankDirectoryName
 })
 
 watch(
@@ -319,63 +317,6 @@ async function exportAll() {
   await exportEntries(entries, { createBankDirectory: true })
 }
 
-async function exportEntries(entries: AudioEntryInfo[], options: AudioExportOptions = {}) {
-  const exportSource = source.value
-  if (!exportSource || exporting.value) return
-  const outputDir = await chooseAudioExportOutputDir(options)
-  if (!outputDir) return
-
-  await runAudioExport(entries, outputDir, exportSource)
-}
-
-async function chooseAudioExportOutputDir(options: AudioExportOptions) {
-  const target = await dialogOpen({
-    directory: true,
-    multiple: false,
-    title: t('unpack.audioBankExportSelectDir')
-  })
-  if (typeof target !== 'string' || !target) return
-  return await resolveExportOutputDir(target, options)
-}
-
-async function runAudioExport(
-  entries: AudioEntryInfo[],
-  outputDir: string,
-  exportSource: AudioSourceRef
-) {
-  exporting.value = true
-  try {
-    await extractAndReportAudioEntries(entries, outputDir, exportSource)
-  } catch (error) {
-    ShowError(formatAudioExportError(error))
-  } finally {
-    exporting.value = false
-  }
-}
-
-async function extractAndReportAudioEntries(
-  entries: AudioEntryInfo[],
-  outputDir: string,
-  exportSource: AudioSourceRef
-) {
-  const paths = await audio_extract_wavs({
-    source: exportSource,
-    indices: entries.map((entry) => entry.index),
-    outputDir
-  })
-  ShowInfo(t('unpack.audioBankExportDone', { count: paths.length }))
-}
-
-function formatAudioExportError(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error)
-  return `${t('unpack.audioBankExportFailed')}: ${message}`
-}
-
-async function resolveExportOutputDir(target: string, options: AudioExportOptions) {
-  if (!options.createBankDirectory) return target
-  return await join(target, getAudioBankDirectoryName())
-}
-
 function getAudioBankDirectoryName() {
   const sourcePath = containerInfo.value?.sourcePath || props.entry.name
   const fileName = getFileName(sourcePath).trim()
@@ -420,11 +361,14 @@ onUnmounted(releaseAudioFileReferences)
 </script>
 
 <template>
-  <div class="audio-preview">
-    <div class="ap-transport">
+  <div class="audio-preview flex h-full min-w-0 flex-col bg-[var(--surface-panel)] text-foreground">
+    <!-- transport bar -->
+    <div
+      class="flex h-15 shrink-0 items-center gap-3 border-b border-border/80 bg-[var(--surface-toolbar)] px-4 py-2.5"
+    >
       <button
         type="button"
-        class="ap-icon-btn ap-stop"
+        class="ap-icon-btn"
         :disabled="currentIndex === null"
         @click="stopPlayback"
       >
@@ -432,51 +376,67 @@ onUnmounted(releaseAudioFileReferences)
       </button>
       <button
         type="button"
-        class="ap-play"
+        class="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--audio-accent)] text-[#1a1a1a] transition-colors hover:bg-[var(--audio-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
         :disabled="loadingContainer || !containerInfo?.entries.length"
         @click="togglePlay"
       >
-        <LoaderCircle
-          v-if="preparingIndex !== null"
-          class="size-4 animate-spin"
-        />
+        <LoaderCircle v-if="preparingIndex !== null" class="size-4 animate-spin" />
         <Pause v-else-if="isPlaying" class="size-4" />
         <Play v-else class="size-4" />
       </button>
 
-      <div class="ap-progress-wrap">
-        <span class="ap-time">{{ formatTime(currentTime) }}</span>
+      <div class="flex min-w-0 flex-1 items-center gap-2">
+        <span class="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+          {{ formatTime(currentTime) }}
+        </span>
         <div
           ref="progressRef"
-          class="ap-progress"
+          class="h-1.5 min-w-0 flex-1 cursor-pointer overflow-hidden rounded-[3px] bg-secondary"
           @click="handleProgressClick"
         >
-          <div class="ap-progress-fill" :style="{ width: progressRatio * 100 + '%' }" />
+          <div
+            class="h-full bg-[var(--audio-accent)] transition-[width] duration-75 ease-linear"
+            :style="{ width: progressRatio * 100 + '%' }"
+          />
         </div>
-        <span class="ap-time">{{ formatTime(duration) }}</span>
+        <span class="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+          {{ formatTime(duration) }}
+        </span>
       </div>
 
       <button
         type="button"
         class="ap-icon-btn"
-        :class="{ 'ap-toggle-on': loop }"
+        :class="{ 'text-[var(--audio-accent)]': loop }"
         @click="loop = !loop"
       >
         <Repeat class="size-3.5" />
       </button>
 
-      <button type="button" class="ap-speed" @click="cycleSpeed">
+      <button
+        type="button"
+        class="inline-flex h-6 shrink-0 items-center justify-center rounded bg-secondary px-2 text-[11px] tabular-nums text-foreground transition-colors hover:bg-accent"
+        @click="cycleSpeed"
+      >
         {{ playbackRate.toFixed(playbackRate % 1 === 0 ? 1 : 2) }}x
       </button>
 
-      <div class="ap-volume">
-        <button type="button" class="ap-volume-btn" @click="toggleMute">
+      <div class="flex shrink-0 items-center gap-1.5">
+        <button
+          type="button"
+          class="inline-flex items-center justify-center p-0.5 text-muted-foreground hover:text-foreground"
+          @click="toggleMute"
+        >
           <VolumeX v-if="isMuted || volume === 0" class="size-3.5" />
           <Volume2 v-else class="size-3.5" />
         </button>
-        <div ref="volumeRef" class="ap-volume-bar" @click="handleVolumeClick">
+        <div
+          ref="volumeRef"
+          class="h-1 w-16 cursor-pointer overflow-hidden rounded-[2px] bg-secondary"
+          @click="handleVolumeClick"
+        >
           <div
-            class="ap-volume-fill"
+            class="h-full bg-foreground/70"
             :style="{ width: (isMuted ? 0 : volume) * 100 + '%' }"
           />
         </div>
@@ -494,35 +454,45 @@ onUnmounted(releaseAudioFileReferences)
       </button>
     </div>
 
-    <div v-if="currentEntry" class="ap-strip">
-      <Play class="size-3 text-[#ffad66]" />
-      <span class="ap-strip-label">{{ t('unpack.audioBankNowPlaying') }}</span>
-      <span class="ap-strip-index">#{{ formatIndex(currentEntry.index) }}</span>
-      <span class="ap-strip-name">WEM {{ currentEntry.wemId }}</span>
-      <span class="ap-strip-sep">·</span>
-      <span class="ap-strip-meta">{{ formatBytes(currentEntry.size) }}</span>
+    <!-- now-playing strip -->
+    <div
+      v-if="currentEntry"
+      class="flex h-8 shrink-0 items-center gap-2.5 overflow-hidden border-b border-border/80 px-4 py-1.5 text-[11px]"
+    >
+      <Play class="size-3 text-[var(--audio-accent)]" />
+      <span class="text-muted-foreground">{{ t('unpack.audioBankNowPlaying') }}</span>
+      <span class="tabular-nums text-muted-foreground">#{{ formatIndex(currentEntry.index) }}</span>
+      <span class="text-xs font-semibold text-[var(--audio-accent-soft)]">
+        WEM {{ currentEntry.wemId }}
+      </span>
+      <span class="text-muted-foreground/60">·</span>
+      <span class="text-muted-foreground">{{ formatBytes(currentEntry.size) }}</span>
       <template v-if="containerExtension">
-        <span class="ap-strip-sep">·</span>
-        <span class="ap-strip-meta">{{ containerExtension }}</span>
+        <span class="text-muted-foreground/60">·</span>
+        <span class="text-muted-foreground">{{ containerExtension }}</span>
       </template>
-      <template
-        v-if="currentEntry.languageId !== null && currentEntry.languageId !== undefined"
-      >
-        <span class="ap-strip-sep">·</span>
-        <span class="ap-strip-meta">Lang {{ currentEntry.languageId }}</span>
+      <template v-if="currentEntry.languageId !== null && currentEntry.languageId !== undefined">
+        <span class="text-muted-foreground/60">·</span>
+        <span class="text-muted-foreground">Lang {{ currentEntry.languageId }}</span>
       </template>
     </div>
 
-    <div class="ap-tbl-toolbar">
-      <div class="ap-search">
-        <Search class="size-3 text-[#666666]" />
+    <!-- table toolbar -->
+    <div
+      class="flex h-9 shrink-0 items-center gap-2.5 border-b border-border/80 bg-[var(--surface-toolbar)] px-3 py-1.5"
+    >
+      <div
+        class="flex w-60 items-center gap-1.5 rounded-[3px] border border-border/80 bg-[var(--surface-canvas)] px-2 py-1"
+      >
+        <Search class="size-3 text-muted-foreground" />
         <input
           v-model="searchText"
           type="text"
+          class="min-w-0 flex-1 border-none bg-transparent text-[11px] text-foreground outline-none placeholder:text-muted-foreground"
           :placeholder="t('unpack.audioBankSearchPlaceholder')"
         />
       </div>
-      <span class="ap-count-chip">
+      <span class="shrink-0 rounded-[3px] bg-secondary px-2 py-1 text-[11px] text-muted-foreground">
         {{ t('unpack.audioBankTrackCount', { count: filteredEntries.length }) }}
       </span>
       <div class="flex-1" />
@@ -538,7 +508,10 @@ onUnmounted(releaseAudioFileReferences)
       </button>
     </div>
 
-    <div class="ap-tbl-hdr">
+    <!-- table header -->
+    <div
+      class="ap-tbl-grid h-7.5 shrink-0 gap-2.5 border-b border-border/80 bg-[var(--surface-canvas)] px-2.5 text-[11px] font-semibold text-foreground"
+    >
       <div class="ap-col-marker" />
       <div class="ap-col-index">{{ t('unpack.audioBankColumnIndex') }}</div>
       <div class="ap-col-id">{{ t('unpack.audioBankColumnId') }}</div>
@@ -549,17 +522,18 @@ onUnmounted(releaseAudioFileReferences)
       </div>
     </div>
 
-    <div class="ap-tbl-body editor-scrollbar">
+    <!-- table body -->
+    <div class="editor-scrollbar min-h-0 flex-1 overflow-auto bg-[var(--surface-panel)]">
       <div
         v-if="loadingContainer"
-        class="ap-empty"
+        class="flex h-full items-center justify-center p-8 text-xs text-muted-foreground"
       >
-        <LoaderCircle class="mr-2 size-4 animate-spin text-[#ffad66]" />
+        <LoaderCircle class="mr-2 size-4 animate-spin text-[var(--audio-accent)]" />
         {{ t('unpack.audioBankLoading') }}
       </div>
       <div
         v-else-if="!containerInfo?.entries.length"
-        class="ap-empty"
+        class="flex h-full items-center justify-center p-8 text-xs text-muted-foreground"
       >
         {{ t('unpack.audioBankEmpty') }}
       </div>
@@ -567,18 +541,18 @@ onUnmounted(releaseAudioFileReferences)
         v-else
         v-for="entry in filteredEntries"
         :key="entry.index"
-        class="ap-tbl-row"
+        class="ap-tbl-grid ap-tbl-row h-7 shrink-0 cursor-pointer gap-2.5 border-b border-border/40 border-l-2 border-l-transparent px-2.5 text-[11px] text-muted-foreground transition-colors duration-100 hover:bg-secondary/40 hover:text-foreground"
         :data-active="entry.index === currentIndex || null"
         @click="playEntry(entry)"
       >
         <div class="ap-col-marker">
           <LoaderCircle
             v-if="preparingIndex === entry.index"
-            class="size-3 animate-spin text-[#ffad66]"
+            class="size-3 animate-spin text-[var(--audio-accent)]"
           />
           <Play
             v-else-if="entry.index === currentIndex"
-            class="size-3 text-[#ffad66]"
+            class="size-3 text-[var(--audio-accent)]"
           />
         </div>
         <div class="ap-col-index">{{ formatIndex(entry.index) }}</div>
@@ -588,11 +562,7 @@ onUnmounted(releaseAudioFileReferences)
         </div>
         <div class="ap-col-size">{{ formatBytes(entry.size) }}</div>
         <div v-if="hasLanguage" class="ap-col-lang">
-          {{
-            entry.languageId !== null && entry.languageId !== undefined
-              ? entry.languageId
-              : '—'
-          }}
+          {{ entry.languageId !== null && entry.languageId !== undefined ? entry.languageId : '—' }}
         </div>
       </div>
     </div>
@@ -611,384 +581,109 @@ onUnmounted(releaseAudioFileReferences)
 
 <style scoped>
 .audio-preview {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-width: 0;
-  background: #1a1a1a;
-  color: #cccccc;
-  font-family: Inter, system-ui, sans-serif;
-}
-
-.ap-transport {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  height: 60px;
-  padding: 10px 16px;
-  background: #1f1f1f;
-  border-bottom: 1px solid #2a2a2a;
-  flex-shrink: 0;
+  --audio-accent: #ffad66;
+  --audio-accent-hover: #ffbe85;
+  --audio-accent-soft: #ffd3a9;
 }
 
 .ap-icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 14px;
-  background: #2a2a2a;
-  color: #cccccc;
-  cursor: pointer;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: var(--secondary);
+  color: var(--foreground);
   transition:
     background 0.15s ease,
-    color 0.15s ease;
-  flex-shrink: 0;
-}
-
-.ap-icon-btn:hover:not(:disabled) {
-  background: #3a3a3a;
-}
-
-.ap-icon-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.ap-icon-btn.ap-toggle-on {
-  color: #ffad66;
-}
-
-.ap-stop {
-  color: #cccccc;
-}
-
-.ap-play {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 18px;
-  background: #ffad66;
-  color: #1a1a1a;
-  cursor: pointer;
-  transition: background 0.15s ease;
-  flex-shrink: 0;
-}
-
-.ap-play:hover:not(:disabled) {
-  background: #ffbe85;
-}
-
-.ap-play:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.ap-progress-wrap {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
-}
-
-.ap-time {
-  font-size: 11px;
-  color: #aaaaaa;
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-}
-
-.ap-progress {
-  flex: 1;
-  height: 6px;
-  border-radius: 3px;
-  background: #2a2a2a;
-  overflow: hidden;
-  cursor: pointer;
-  min-width: 0;
-}
-
-.ap-progress-fill {
-  height: 100%;
-  background: #ffad66;
-  transition: width 0.08s linear;
-}
-
-.ap-speed {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 8px;
-  height: 24px;
-  border-radius: 4px;
-  background: #2a2a2a;
-  color: #cccccc;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  cursor: pointer;
-  transition: background 0.15s ease;
-  flex-shrink: 0;
-}
-
-.ap-speed:hover {
-  background: #3a3a3a;
-}
-
-.ap-volume {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.ap-volume-btn {
-  color: #aaaaaa;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px;
-}
-
-.ap-volume-btn:hover {
-  color: #cccccc;
-}
-
-.ap-volume-bar {
-  width: 64px;
-  height: 4px;
-  border-radius: 2px;
-  background: #2a2a2a;
-  overflow: hidden;
-  cursor: pointer;
-}
-
-.ap-volume-fill {
-  height: 100%;
-  background: #cccccc;
+    color 0.15s ease,
+    opacity 0.15s ease;
 }
 
 .ap-export-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  border-radius: 4px;
-  background: #2a2a2a;
-  color: #cccccc;
-  font-size: 11px;
-  cursor: pointer;
-  transition: background 0.15s ease;
+  gap: 0.25rem;
   flex-shrink: 0;
-}
-
-.ap-export-btn:hover:not(:disabled) {
-  background: #3a3a3a;
-}
-
-.ap-export-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.ap-strip {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 32px;
-  padding: 6px 16px;
-  background: #1a1a1a;
-  border-bottom: 1px solid #2a2a2a;
+  border-radius: 0.25rem;
+  background: var(--secondary);
+  color: var(--foreground);
+  padding: 0.375rem 0.75rem;
   font-size: 11px;
-  flex-shrink: 0;
-  overflow: hidden;
-}
-
-.ap-strip-label {
-  color: #888888;
-}
-
-.ap-strip-index {
-  color: #aaaaaa;
-  font-variant-numeric: tabular-nums;
-}
-
-.ap-strip-name {
-  color: #ffd3a9;
-  font-weight: 600;
-  font-size: 12px;
-}
-
-.ap-strip-sep {
-  color: #555555;
-}
-
-.ap-strip-meta {
-  color: #aaaaaa;
-}
-
-.ap-tbl-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 36px;
-  padding: 6px 12px;
-  background: #1f1f1f;
-  border-bottom: 1px solid #2a2a2a;
-  flex-shrink: 0;
-}
-
-.ap-search {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 240px;
-  padding: 4px 8px;
-  border-radius: 3px;
-  background: #161616;
-  border: 1px solid #2a2a2a;
-}
-
-.ap-search input {
-  flex: 1;
-  background: transparent;
-  outline: none;
-  border: none;
-  color: #cccccc;
-  font-size: 11px;
-  min-width: 0;
-}
-
-.ap-search input::placeholder {
-  color: #666666;
-}
-
-.ap-count-chip {
-  padding: 4px 8px;
-  border-radius: 3px;
-  background: #2a2a2a;
-  color: #aaaaaa;
-  font-size: 11px;
-  flex-shrink: 0;
-}
-
-.ap-tbl-hdr,
-.ap-tbl-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 10px;
-  font-size: 11px;
-  flex-shrink: 0;
-}
-
-.ap-tbl-hdr {
-  height: 30px;
-  background: #161616;
-  border-bottom: 1px solid #2a2a2a;
-  color: #dddddd;
-  font-weight: 600;
-}
-
-.ap-tbl-body {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  background: #1a1a1a;
-}
-
-.ap-tbl-row {
-  height: 28px;
-  border-bottom: 1px solid #1a1a1a;
-  cursor: pointer;
-  color: #aaaaaa;
-  border-left: 2px solid transparent;
   transition:
-    background 0.1s ease,
-    color 0.1s ease;
+    background 0.15s ease,
+    opacity 0.15s ease;
 }
 
-.ap-tbl-row:hover {
-  background: #1d1d1d;
-  color: #cccccc;
+.ap-icon-btn:hover:not(:disabled),
+.ap-export-btn:hover:not(:disabled) {
+  background: var(--accent);
 }
 
-.ap-tbl-row[data-active] {
-  background: #241d14;
-  border-left-color: #ffad66;
+.ap-icon-btn:disabled,
+.ap-export-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
-.ap-tbl-row[data-active] .ap-col-id,
-.ap-tbl-row[data-active] .ap-col-duration {
-  color: #ffd3a9;
-  font-weight: 600;
+.ap-icon-btn:disabled {
+  opacity: 0.4;
 }
 
-.ap-tbl-row[data-active] .ap-col-index {
-  color: #ffad66;
-  font-weight: 600;
+.ap-tbl-grid {
+  display: grid;
+  grid-template-columns: 24px 48px minmax(0, 1fr) 80px 80px;
+  align-items: center;
 }
 
-.ap-tbl-row[data-active] .ap-col-size,
-.ap-tbl-row[data-active] .ap-col-lang {
-  color: #ffd3a9;
+.ap-tbl-grid:has(.ap-col-lang) {
+  grid-template-columns: 24px 48px minmax(0, 1fr) 80px 80px 64px;
 }
 
 .ap-col-marker {
-  width: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
 }
 
 .ap-col-index {
-  width: 48px;
-  text-align: center;
-  color: #888888;
+  color: var(--muted-foreground);
   font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
+  text-align: center;
 }
 
 .ap-col-id {
-  flex: 1;
   min-width: 0;
-  color: #cccccc;
-  font-size: 12px;
   overflow: hidden;
+  color: var(--foreground);
+  font-size: 0.75rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.ap-col-duration {
-  width: 80px;
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-}
-
-.ap-col-size {
-  width: 80px;
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-}
-
+.ap-col-duration,
+.ap-col-size,
 .ap-col-lang {
-  width: 64px;
   font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
 }
 
-.ap-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  padding: 32px;
-  color: #888888;
-  font-size: 12px;
+.ap-tbl-row[data-active] {
+  background: color-mix(in srgb, var(--audio-accent) 14%, transparent);
+  border-left-color: var(--audio-accent);
+}
+
+.ap-tbl-row[data-active] .ap-col-id,
+.ap-tbl-row[data-active] .ap-col-duration,
+.ap-tbl-row[data-active] .ap-col-size,
+.ap-tbl-row[data-active] .ap-col-lang {
+  color: var(--audio-accent-soft);
+  font-weight: 600;
+}
+
+.ap-tbl-row[data-active] .ap-col-index {
+  color: var(--audio-accent);
+  font-weight: 600;
 }
 </style>

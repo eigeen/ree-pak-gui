@@ -83,6 +83,7 @@ export default {
       emptyHintLoadTree: 'Click refresh to load the resource tree.',
       extractingFiles: 'Extracting Files...',
       exportingTextures: 'Exporting Textures...',
+      exportingAudio: 'Exporting Audio...',
       processing: 'Working, please wait.',
       taskStopped: 'Task terminated.',
       done: 'Done!',

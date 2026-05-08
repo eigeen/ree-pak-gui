@@ -83,6 +83,7 @@ export default {
       emptyHintLoadTree: '点击刷新按钮载入资源树。',
       extractingFiles: '正在提取文件...',
       exportingTextures: '正在导出贴图...',
+      exportingAudio: '正在导出音频...',
       processing: '处理中，请稍候。',
       taskStopped: '任务已终止。',
       done: '完成！',

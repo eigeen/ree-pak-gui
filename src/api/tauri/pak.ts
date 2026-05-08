@@ -151,6 +151,13 @@ export interface AudioExtractBatchOptions {
   outputDir?: string
 }
 
+export type AudioExportProgressData = {
+  path: string
+  finishCount: number
+}
+
+export type AudioExportProgressEvent = WorkProgressEvent<AudioExportProgressData>
+
 export type AudioContainerKind = 'bnk' | 'pck'
 
 export interface AudioEntryInfo {
@@ -294,4 +301,15 @@ export function audio_extract_wems(options: AudioExtractBatchOptions): Promise<s
 
 export function audio_extract_wavs(options: AudioExtractBatchOptions): Promise<string[]> {
   return invoke('audio_extract_wavs', { options })
+}
+
+export function audio_extract_wavs_with_progress(
+  options: AudioExtractBatchOptions,
+  onEvent: Channel<AudioExportProgressEvent>
+): Promise<string[]> {
+  return invoke('audio_extract_wavs_with_progress', { options, onEvent })
+}
+
+export function audio_terminate_extract(): Promise<void> {
+  return invoke('audio_terminate_extract')
 }
