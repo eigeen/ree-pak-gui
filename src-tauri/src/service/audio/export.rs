@@ -7,6 +7,8 @@ use std::{
     },
 };
 
+use rayon::prelude::*;
+
 use crate::{
     channel::AudioExportProgressChannel,
     error::{Error, Result},
@@ -14,6 +16,8 @@ use crate::{
 };
 
 use super::{AudioExtractBatchOptions, AudioService};
+
+const MAX_AUDIO_CONVERSION_THREADS: usize = 8;
 
 pub(super) trait AudioExportProgressSink: Clone {
     fn work_start(&self, count: u32);
@@ -84,21 +88,60 @@ struct WavConversionJob<P, F> {
 
 fn convert_wem_batch<P, F>(job: WavConversionJob<P, F>) -> Result<Vec<PathBuf>>
 where
+    P: AudioExportProgressSink + Send + Sync,
+    F: Fn(&Path, &Path) -> Result<()> + Send + Sync,
+{
+    let thread_count = conversion_thread_count(job.wems.len());
+    std::fs::create_dir_all(&job.output_dir)?;
+
+    let pool = build_conversion_thread_pool(thread_count)?;
+    pool.install(|| convert_wems_in_parallel(&job))
+}
+
+fn conversion_thread_count(file_count: usize) -> usize {
+    let available = std::thread::available_parallelism()
+        .map(|count| count.get())
+        .unwrap_or(1);
+    file_count
+        .min(available)
+        .min(MAX_AUDIO_CONVERSION_THREADS)
+        .max(1)
+}
+
+fn build_conversion_thread_pool(thread_count: usize) -> Result<rayon::ThreadPool> {
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(thread_count)
+        .thread_name(|index| format!("audio-export-{index}"))
+        .build()
+        .map_err(|error| Error::Internal(format!("Failed to build audio export pool: {error}")))
+}
+
+fn convert_wems_in_parallel<P, F>(job: &WavConversionJob<P, F>) -> Result<Vec<PathBuf>>
+where
+    P: AudioExportProgressSink + Send + Sync,
+    F: Fn(&Path, &Path) -> Result<()> + Send + Sync,
+{
+    job.wems
+        .par_iter()
+        .enumerate()
+        .map(|(index, wem_path)| convert_wem_entry(job, index, wem_path))
+        .collect()
+}
+
+fn convert_wem_entry<P, F>(
+    job: &WavConversionJob<P, F>,
+    _index: usize,
+    wem_path: &Path,
+) -> Result<PathBuf>
+where
     P: AudioExportProgressSink,
     F: Fn(&Path, &Path) -> Result<()>,
 {
-    std::fs::create_dir_all(&job.output_dir)?;
-    let mut output_paths = Vec::with_capacity(job.wems.len());
-
-    for wem_path in job.wems {
-        stop_if_needed(&job.should_terminate)?;
-        let wav_path = build_wav_path(&wem_path, &job.output_dir)?;
-        (job.convert)(&wem_path, &wav_path)?;
-        report_file_done(&job.progress, &wav_path);
-        output_paths.push(wav_path);
-    }
-
-    Ok(output_paths)
+    stop_if_needed(&job.should_terminate)?;
+    let wav_path = build_wav_path(wem_path, &job.output_dir)?;
+    (job.convert)(wem_path, &wav_path)?;
+    report_file_done(&job.progress, &wav_path);
+    Ok(wav_path)
 }
 
 fn stop_if_needed(should_terminate: &Option<Arc<AtomicBool>>) -> Result<()> {
@@ -245,7 +288,7 @@ mod tests {
     }
 
     #[test]
-    fn wav_conversion_reports_files_in_order() {
+    fn wav_conversion_returns_paths_in_order() {
         let temp_dir = tempfile::tempdir().unwrap();
         let progress = RecordingProgress::default();
         progress.work_start(2);
@@ -260,11 +303,9 @@ mod tests {
         .unwrap();
         progress.work_finished();
 
-        assert_eq!(paths.len(), 2);
-        assert_eq!(
-            progress.events.lock().unwrap().as_slice(),
-            ["start:2", "file:1:b.wav", "file:2:a.wav", "finished"]
-        );
+        assert_eq!(path_file_name(paths[0].to_string_lossy().as_ref()), "b.wav");
+        assert_eq!(path_file_name(paths[1].to_string_lossy().as_ref()), "a.wav");
+        assert_progress_reported_all_files(&progress, &["a.wav", "b.wav"]);
     }
 
     #[test]
@@ -298,6 +339,19 @@ mod tests {
     fn fake_convert(_wem_path: &Path, wav_path: &Path) -> Result<()> {
         std::fs::write(wav_path, b"wav")?;
         Ok(())
+    }
+
+    fn assert_progress_reported_all_files(progress: &RecordingProgress, expected: &[&str]) {
+        let events = progress.events.lock().unwrap();
+        assert_eq!(events.first().map(String::as_str), Some("start:2"));
+        assert_eq!(events.last().map(String::as_str), Some("finished"));
+
+        let mut file_names = events
+            .iter()
+            .filter_map(|event| event.split(':').nth(2))
+            .collect::<Vec<_>>();
+        file_names.sort_unstable();
+        assert_eq!(file_names, expected);
     }
 
     fn path_file_name(path: &str) -> &str {

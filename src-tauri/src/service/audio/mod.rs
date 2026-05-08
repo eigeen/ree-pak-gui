@@ -119,15 +119,13 @@ impl AudioService {
         indices: &[usize],
         output_dir: &Path,
     ) -> Result<Vec<PathBuf>> {
+        let source_hash = source.hash.hash_u64();
         let source_file = self.resolve_source_file(source)?;
-        let container_path = self.ensure_container_file(
-            source.hash.hash_u64(),
-            &source_file.path,
-            source_file.kind,
-        )?;
+        let container_path =
+            self.ensure_container_file(source_hash, &source_file.path, source_file.kind)?;
         let wems = extract_wems_from_file(source_file.kind, &container_path, indices)?;
 
-        write_wems_to_dir(source.hash.hash_u64(), wems, output_dir)
+        write_wems_to_dir(source_hash, wems, output_dir)
     }
 
     fn resolve_source_file(&self, source: AudioSourceRef) -> Result<AudioSourceFile> {
