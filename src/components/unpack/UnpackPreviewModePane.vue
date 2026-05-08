@@ -57,24 +57,37 @@ onUnmounted(() => {
         <span>{{ props.exitLabel }}</span>
       </button>
 
-      <span class="preview-mode-divider" aria-hidden="true" />
-
       <div class="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
         <template
           v-for="(segment, index) in props.parentSegments"
           :key="`${segment.label}-${index}`"
         >
-          <Folder v-if="index === 0" class="size-3 shrink-0 opacity-80" />
-          <span class="truncate text-[11px] opacity-90">{{ segment.label }}</span>
-          <ChevronRight class="size-3 shrink-0 opacity-70" />
+          <Folder v-if="index === 0" class="size-3 shrink-0 opacity-70" />
+          <span class="preview-mode-segment truncate">{{ segment.label }}</span>
+          <ChevronRight class="size-3 shrink-0 opacity-50" />
         </template>
 
-        <component v-if="props.fileIcon" :is="props.fileIcon" class="size-3 shrink-0" />
-        <span class="preview-mode-filename truncate">{{ props.fileName }}</span>
+        <span class="preview-mode-filename-chip">
+          <component
+            v-if="props.fileIcon"
+            :is="props.fileIcon"
+            class="size-3 shrink-0"
+          />
+          <span class="truncate">{{ props.fileName }}</span>
+        </span>
       </div>
 
-      <span v-if="props.kindLabel" class="preview-mode-kind">{{ props.kindLabel }}</span>
+      <span v-if="props.kindLabel" class="preview-mode-kind-badge">
+        <component
+          v-if="props.fileIcon"
+          :is="props.fileIcon"
+          class="size-3 shrink-0"
+        />
+        {{ props.kindLabel }}
+      </span>
     </div>
+
+    <div class="preview-mode-accent-rule" aria-hidden="true" />
 
     <div class="relative min-h-0 flex-1">
       <slot />
@@ -87,50 +100,84 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
-  font-size: 11px;
+  padding: 8px 12px;
+  font-size: 12px;
   line-height: 1.2;
-  background: var(--preview-mode-bg, #0d3a42);
-  color: var(--preview-mode-fg, #a8eef0);
-  border-bottom: 1px solid var(--preview-mode-border, #1a5560);
+  background: var(--preview-mode-bg, #15282d);
+  color: var(--preview-mode-fg, #a8b3b6);
 }
 
-[data-preview-accent='audio'] .preview-mode-breadcrumb {
-  --preview-mode-bg: #0d3a42;
-  --preview-mode-fg: #a8eef0;
-  --preview-mode-border: #1a5560;
-  --preview-mode-accent: #5dccd0;
-  --preview-mode-filename-fg: #ffffff;
+.preview-mode-accent-rule {
+  height: 2px;
+  background: var(--preview-mode-accent, #5dccd0);
+  flex-shrink: 0;
+}
+
+[data-preview-accent='audio'] {
+  --preview-mode-bg: #221912;
+  --preview-mode-fg: #888888;
+  --preview-mode-accent: #ffad66;
+  --preview-mode-chip-bg: #3d2f1c;
+  --preview-mode-filename-fg: #ffd3a9;
+  --preview-mode-separator: #666666;
 }
 
 .preview-mode-exit {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-weight: 600;
-  color: var(--preview-mode-fg);
-  transition: color 0.15s ease;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: normal;
+  color: #cccccc;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .preview-mode-exit:hover {
-  color: var(--preview-mode-accent, var(--preview-mode-fg));
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--preview-mode-accent, #5dccd0);
 }
 
-.preview-mode-divider {
-  width: 1px;
-  height: 16px;
-  background: var(--preview-mode-border);
+.preview-mode-segment {
+  font-size: 12px;
+  color: var(--preview-mode-fg);
 }
 
-.preview-mode-filename {
+.preview-mode-filename-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: var(--preview-mode-chip-bg, transparent);
+  color: var(--preview-mode-filename-fg, #ffffff);
   font-weight: 600;
-  color: var(--preview-mode-filename-fg, var(--preview-mode-fg));
+  min-width: 0;
 }
 
-.preview-mode-kind {
+.preview-mode-filename-chip :deep(svg) {
+  color: var(--preview-mode-accent);
+}
+
+.preview-mode-kind-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: var(--preview-mode-chip-bg, transparent);
+  border: 1px solid var(--preview-mode-accent, #5dccd0);
+  color: var(--preview-mode-filename-fg, #ffffff);
+  font-size: 11px;
+  font-weight: 600;
   flex-shrink: 0;
-  font-weight: 500;
-  opacity: 0.85;
+}
+
+.preview-mode-kind-badge :deep(svg) {
+  color: var(--preview-mode-accent);
 }
 </style>

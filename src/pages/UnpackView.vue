@@ -299,7 +299,7 @@ import {
   LayoutGrid,
   List,
   LocateFixed,
-  Music,
+  FileMusic,
   PackageOpen,
   RefreshCw,
   Wrench
@@ -962,7 +962,7 @@ const previewFileIcon = computed(() => {
   if (!previewState.value) return null
   switch (previewState.value.kind) {
     case 'audioBank':
-      return Music
+      return FileMusic
     default:
       return null
   }
