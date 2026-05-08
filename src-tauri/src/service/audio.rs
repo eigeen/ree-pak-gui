@@ -397,6 +397,10 @@ fn convert_wem_to_wav(wem_path: &Path, wav_path: &Path) -> Result<()> {
     let mut command = Command::new(&cli_path);
     if let Some(parent) = cli_path.parent() {
         command.current_dir(parent);
+        command.env(
+            "DYLD_LIBRARY_PATH",
+            build_child_library_path(parent, std::env::var_os("DYLD_LIBRARY_PATH")),
+        );
     }
 
     let output = command
@@ -420,6 +424,18 @@ fn convert_wem_to_wav(wem_path: &Path, wav_path: &Path) -> Result<()> {
     };
 
     Err(Error::VgmstreamCliFailed(detail))
+}
+
+fn build_child_library_path(
+    tool_dir: &Path,
+    existing: Option<std::ffi::OsString>,
+) -> std::ffi::OsString {
+    let mut paths = vec![tool_dir.join("lib"), tool_dir.to_path_buf()];
+    if let Some(existing) = existing {
+        paths.extend(std::env::split_paths(&existing));
+    }
+
+    std::env::join_paths(paths).unwrap_or_else(|_| tool_dir.as_os_str().to_os_string())
 }
 
 fn audio_container_kind_from_path(path: &str) -> Option<AudioContainerKind> {

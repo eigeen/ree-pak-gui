@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { convertFileSrc } from '@tauri-apps/api/core'
-import { AlertCircle, AudioLines, LoaderCircle, Music, Play } from 'lucide-vue-next'
+import { AudioLines, LoaderCircle, Music, Play } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
@@ -11,6 +11,7 @@ import {
 } from '@/api/tauri/pak'
 import { Button } from '@/components/ui/button'
 import type { ExplorerEntry } from '@/lib/unpackExplorer'
+import { ShowError } from '@/utils/message'
 
 const props = defineProps<{
   entry: ExplorerEntry
@@ -20,7 +21,6 @@ const { t } = useI18n()
 
 const loading = ref(false)
 const loadingIndex = ref<number | null>(null)
-const errorMessage = ref('')
 const containerInfo = ref<AudioContainerInfo | null>(null)
 const wavUrls = ref<Record<number, string>>({})
 
@@ -36,26 +36,28 @@ const source = computed(() => {
 watch(
   () => props.entry.id,
   () => {
-    void loadContainer()
+    void loadContainer(true)
   },
   { immediate: true }
 )
 
-async function loadContainer() {
-  errorMessage.value = ''
-  containerInfo.value = null
-  wavUrls.value = {}
+async function loadContainer(reset: boolean = false) {
+  if (reset) {
+    containerInfo.value = null
+    wavUrls.value = {}
+  }
 
   if (!source.value) {
-    errorMessage.value = t('unpack.audioBankMissingSource')
+    ShowError(t('unpack.audioBankMissingSource'))
     return
   }
 
   loading.value = true
   try {
     containerInfo.value = await audio_list_container(source.value)
+    wavUrls.value = {}
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : String(error)
+    ShowError(error instanceof Error ? error.message : String(error))
   } finally {
     loading.value = false
   }
@@ -65,7 +67,6 @@ async function prepareWav(entry: AudioEntryInfo) {
   if (!source.value || loadingIndex.value !== null) return
   if (wavUrls.value[entry.index]) return
 
-  errorMessage.value = ''
   loadingIndex.value = entry.index
   try {
     const [wavPath] = await audio_extract_wavs({
@@ -79,7 +80,7 @@ async function prepareWav(entry: AudioEntryInfo) {
       }
     }
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : String(error)
+    ShowError(error instanceof Error ? error.message : String(error))
   } finally {
     loadingIndex.value = null
   }
@@ -124,23 +125,17 @@ function formatBytes(size: number) {
         {{ t('unpack.audioBankLoading') }}
       </div>
 
-      <div v-else-if="errorMessage" class="flex h-full items-center justify-center p-8">
-        <div class="flex max-w-lg flex-col items-center gap-3 text-center">
-          <AlertCircle class="size-8 text-destructive" />
-          <p class="text-sm font-semibold text-foreground">
-            {{ t('unpack.audioBankLoadFailed') }}
-          </p>
-          <p class="break-all text-xs leading-5 text-muted-foreground">{{ errorMessage }}</p>
-        </div>
-      </div>
-
       <div v-else-if="!containerInfo?.entries.length" class="flex h-full items-center justify-center p-8">
         <div class="flex max-w-md flex-col items-center gap-3 text-center">
           <div class="flex size-14 items-center justify-center rounded-full bg-[#15282d]">
             <Music class="size-6 text-[#5dccd0]" />
           </div>
           <p class="text-sm text-muted-foreground">
-            {{ t('unpack.audioBankEmpty') }}
+            {{
+              containerInfo
+                ? t('unpack.audioBankEmpty')
+                : t('unpack.audioBankPreviewPlaceholder')
+            }}
           </p>
         </div>
       </div>
