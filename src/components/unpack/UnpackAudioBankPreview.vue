@@ -19,9 +19,14 @@ import {
   type AudioContainerInfo,
   type AudioEntryInfo
 } from '@/api/tauri/pak'
-import { useAudioBankExportProgress } from '@/composables/useAudioBankExportProgress'
+import AppCursorContextMenu from '@/components/context-menu/AppCursorContextMenu.vue'
+import {
+  useAudioBankExportProgress,
+  type AudioExportFormat
+} from '@/composables/useAudioBankExportProgress'
+import { getAudioSourceRef, resolveAudioBankDirectoryName } from '@/lib/audioBank'
+import type { ContextMenuEntry } from '@/lib/contextMenu'
 import type { ExplorerEntry } from '@/lib/unpackExplorer'
-import { getFileName } from '@/utils/path'
 import { ShowError, ShowInfo } from '@/utils/message'
 
 const props = defineProps<{
@@ -31,7 +36,6 @@ const props = defineProps<{
 const { t } = useI18n()
 
 const PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 2]
-const FALLBACK_BANK_DIRECTORY = 'sound-bank'
 
 const audioRef = ref<HTMLAudioElement | null>(null)
 const progressRef = ref<HTMLElement | null>(null)
@@ -52,14 +56,11 @@ const isMuted = ref(false)
 const playbackRate = ref(1)
 const loop = ref(false)
 const searchText = ref('')
+const entryContextMenuTarget = ref<AudioEntryInfo | null>(null)
+const entryContextMenuOpen = ref(false)
+const entryContextMenuPosition = ref({ x: 0, y: 0 })
 
-const source = computed(() => {
-  if (!props.entry.hash || !props.entry.belongsTo) return null
-  return {
-    hash: props.entry.hash,
-    belongsTo: props.entry.belongsTo
-  }
-})
+const source = computed(() => getAudioSourceRef(props.entry))
 
 const filteredEntries = computed(() => {
   const list = containerInfo.value?.entries ?? []
@@ -87,6 +88,49 @@ const currentEntry = computed<AudioEntryInfo | null>(() => {
   if (currentIndex.value === null) return null
   return containerInfo.value?.entries.find((entry) => entry.index === currentIndex.value) ?? null
 })
+
+const entryContextMenuItems = computed(() =>
+  buildEntryContextMenuItems(entryContextMenuTarget.value)
+)
+
+function buildEntryContextMenuItems(entry: AudioEntryInfo | null): ContextMenuEntry[] {
+  if (!entry) return []
+
+  return [
+    buildPlayEntryAction(entry),
+    {
+      type: 'separator',
+      key: 'audio-preview-export-separator'
+    },
+    buildExportEntryAction(entry, 'wem'),
+    buildExportEntryAction(entry, 'wav')
+  ]
+}
+
+function buildPlayEntryAction(entry: AudioEntryInfo): ContextMenuEntry {
+  return {
+    type: 'action',
+    key: 'audio-preview-play',
+    label: t('unpack.audioBankPlay'),
+    icon: Play,
+    disabled: preparingIndex.value !== null,
+    action: () => void playEntry(entry)
+  }
+}
+
+function buildExportEntryAction(
+  entry: AudioEntryInfo,
+  format: AudioExportFormat
+): ContextMenuEntry {
+  return {
+    type: 'action',
+    key: `audio-preview-export-${format}`,
+    label: t(`unpack.exportAudioAs${format === 'wem' ? 'Wem' : 'Wav'}`),
+    icon: Download,
+    disabled: exporting.value,
+    action: () => void exportSingleEntry(entry, format)
+  }
+}
 
 const progressRatio = computed(() => {
   if (!duration.value || !Number.isFinite(duration.value)) return 0
@@ -317,25 +361,12 @@ async function exportAll() {
   await exportEntries(entries, { createBankDirectory: true })
 }
 
+async function exportSingleEntry(entry: AudioEntryInfo, format: AudioExportFormat) {
+  await exportEntries([entry], { format })
+}
+
 function getAudioBankDirectoryName() {
-  const sourcePath = containerInfo.value?.sourcePath || props.entry.name
-  const fileName = getFileName(sourcePath).trim()
-  return sanitizeDirectoryName(fileName || FALLBACK_BANK_DIRECTORY)
-}
-
-function sanitizeDirectoryName(value: string) {
-  const sanitized = value
-    .replace(/[<>:"/\\|?*]/g, '_')
-    .split('')
-    .map(replaceControlCharacter)
-    .join('')
-    .replace(/[. ]+$/g, '')
-    .trim()
-  return sanitized || FALLBACK_BANK_DIRECTORY
-}
-
-function replaceControlCharacter(value: string) {
-  return value.charCodeAt(0) < 32 ? '_' : value
+  return resolveAudioBankDirectoryName(containerInfo.value?.sourcePath, props.entry.name)
 }
 
 function formatBytes(size: number) {
@@ -355,6 +386,16 @@ function formatTime(seconds: number) {
 
 function formatIndex(index: number) {
   return String(index).padStart(3, '0')
+}
+
+function handleEntryContextMenu(entry: AudioEntryInfo, event: MouseEvent) {
+  event.preventDefault()
+  entryContextMenuTarget.value = entry
+  entryContextMenuPosition.value = {
+    x: event.clientX,
+    y: event.clientY
+  }
+  entryContextMenuOpen.value = true
 }
 
 onUnmounted(releaseAudioFileReferences)
@@ -544,6 +585,7 @@ onUnmounted(releaseAudioFileReferences)
         class="ap-tbl-grid ap-tbl-row h-7 shrink-0 cursor-pointer gap-2.5 border-b border-border/40 border-l-2 border-l-transparent px-2.5 text-[11px] text-muted-foreground transition-colors duration-100 hover:bg-secondary/40 hover:text-foreground"
         :data-active="entry.index === currentIndex || null"
         @click="playEntry(entry)"
+        @contextmenu="handleEntryContextMenu(entry, $event)"
       >
         <div class="ap-col-marker">
           <LoaderCircle
@@ -575,6 +617,14 @@ onUnmounted(releaseAudioFileReferences)
       @play="onPlay"
       @pause="onPause"
       @ended="onEnded"
+    />
+
+    <AppCursorContextMenu
+      :items="entryContextMenuItems"
+      :open="entryContextMenuOpen"
+      :x="entryContextMenuPosition.x"
+      :y="entryContextMenuPosition.y"
+      @update:open="entryContextMenuOpen = $event"
     />
   </div>
 </template>

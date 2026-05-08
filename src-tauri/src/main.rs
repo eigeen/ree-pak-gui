@@ -144,6 +144,7 @@ fn main() {
             main_window
                 .set_title(&format!("REE Pak Tool - v{}", env!("CARGO_PKG_VERSION")))
                 .unwrap();
+            disable_default_webview_context_menu(&main_window);
             register_main_window_close_cleanup(&main_window);
             Ok(())
         })
@@ -182,3 +183,23 @@ fn main() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
+#[cfg(windows)]
+fn disable_default_webview_context_menu(window: &tauri::WebviewWindow) {
+    if let Err(error) = window.with_webview(|webview| unsafe {
+        let result = webview
+            .controller()
+            .CoreWebView2()
+            .and_then(|core| core.Settings())
+            .and_then(|settings| settings.SetAreDefaultContextMenusEnabled(false));
+
+        if let Err(error) = result {
+            log::warn!("Failed to disable WebView2 default context menu: {error}");
+        }
+    }) {
+        log::warn!("Failed to access WebView2 for context menu setup: {error}");
+    }
+}
+
+#[cfg(not(windows))]
+fn disable_default_webview_context_menu(_window: &tauri::WebviewWindow) {}

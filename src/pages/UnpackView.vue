@@ -307,6 +307,7 @@ import {
 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import {
+  audio_list_container,
   pak_close,
   pak_extract_all,
   pak_get_header,
@@ -319,6 +320,8 @@ import type {
   ExtractFileInfo,
   ExtractMode,
   ExtractOptions,
+  AudioContainerInfo,
+  AudioSourceRef,
   PakEntry,
   PakHeaderInfo,
   PakId,
@@ -354,13 +357,19 @@ import {
   getExplorerThemeForType,
   resolveExplorerFileTypeKey
 } from '@/lib/explorerTypeTheme'
+import { getAudioSourceRef, resolveAudioBankDirectoryName } from '@/lib/audioBank'
 import {
   canOpenExplorerItemPreview,
   getDefaultExplorerLayoutMode,
   getExplorerPreviewKind,
+  isAudioBankExplorerEntry,
   isTextureExplorerEntry,
   type ExplorerPreviewKind
 } from '@/lib/unpackExplorerPreview'
+import {
+  useAudioBankExportProgress,
+  type AudioExportFormat
+} from '@/composables/useAudioBankExportProgress'
 import type { ContextMenuEntry } from '@/lib/contextMenu'
 import type {
   ExplorerColumnLabels,
@@ -489,6 +498,13 @@ const imageViewerState = ref({
 })
 const previewState = ref<{ kind: ExplorerPreviewKind; entry: ExplorerEntry } | null>(null)
 const taskProgress = useTaskProgressState()
+const audioBankExportSource = ref<AudioSourceRef | null>(null)
+const audioBankExportDirectoryName = ref('')
+const { exporting: exportingAudioBank, exportEntries: exportAudioBankEntries } =
+  useAudioBankExportProgress({
+    source: audioBankExportSource,
+    getBankDirectoryName: () => audioBankExportDirectoryName.value
+  })
 
 const canRenderTree = computed(
   () => Boolean(unpackState.value.fileList) && pakData.value.length > 0 && !loadingTree.value
@@ -705,6 +721,39 @@ function buildDirectoryContextMenuEntries(
   return entries
 }
 
+function buildAudioBankExportSubmenu(
+  item: ExplorerEntry,
+  keyPrefix: string
+): ContextMenuEntry | null {
+  if (!isAudioBankEntry(item) || !getAudioSourceRef(item)) return null
+
+  return {
+    type: 'submenu',
+    key: `${keyPrefix}-audio-export-actions`,
+    label: t('unpack.otherExportActions'),
+    icon: Download,
+    disabled: exportingAudioBank.value,
+    children: [
+      buildAudioBankExportAction(item, keyPrefix, 'wem'),
+      buildAudioBankExportAction(item, keyPrefix, 'wav')
+    ]
+  }
+}
+
+function buildAudioBankExportAction(
+  item: ExplorerEntry,
+  keyPrefix: string,
+  format: AudioExportFormat
+): ContextMenuEntry {
+  return {
+    type: 'action',
+    key: `${keyPrefix}-export-audio-${format}`,
+    label: t(`unpack.exportAllAudioAs${format === 'wem' ? 'Wem' : 'Wav'}`),
+    disabled: exportingAudioBank.value,
+    action: () => void exportAudioBankFile(item, format)
+  }
+}
+
 const explorerContextMenuItems = computed<ContextMenuEntry[]>(() => {
   if (!treeData.value) {
     return []
@@ -855,6 +904,11 @@ const explorerContextMenuItems = computed<ContextMenuEntry[]>(() => {
         }
       ]
     })
+  }
+
+  const audioBankExportMenu = buildAudioBankExportSubmenu(item, 'explorer')
+  if (audioBankExportMenu) {
+    entries.push(audioBankExportMenu)
   }
 
   return entries
@@ -1420,6 +1474,50 @@ async function exportTexturesWithDialog(files: ExtractFileInfo[], format: Textur
   }
 }
 
+async function exportAudioBankFile(item: ExplorerEntry, format: AudioExportFormat) {
+  const source = getAudioSourceRef(item)
+  if (!source) {
+    showNoExportableAudio()
+    return
+  }
+
+  try {
+    const container = await loadExportableAudioBank(source)
+    if (!container) return
+    await exportLoadedAudioBank(item, source, container, format)
+  } catch (error) {
+    ShowError(error)
+  }
+}
+
+async function loadExportableAudioBank(source: AudioSourceRef) {
+  const container = await audio_list_container(source)
+  if (container.entries.length > 0) return container
+  showNoExportableAudio()
+  return null
+}
+
+async function exportLoadedAudioBank(
+  item: ExplorerEntry,
+  source: AudioSourceRef,
+  container: AudioContainerInfo,
+  format: AudioExportFormat
+) {
+  audioBankExportSource.value = source
+  audioBankExportDirectoryName.value = resolveAudioBankDirectoryName(
+    container.sourcePath,
+    item.name
+  )
+  await exportAudioBankEntries(container.entries, {
+    createBankDirectory: true,
+    format
+  })
+}
+
+function showNoExportableAudio() {
+  ShowWarn(t('unpack.noExportableAudio'))
+}
+
 async function dropInAddPaks(filePaths: string[]) {
   try {
     for (const filePath of filePaths) {
@@ -1718,6 +1816,10 @@ function getExplorerDisplayName(item: ExplorerEntry) {
 
 function isTextureEntry(item: ExplorerEntry) {
   return isTextureExplorerEntry(item)
+}
+
+function isAudioBankEntry(item: ExplorerEntry) {
+  return isAudioBankExplorerEntry(item)
 }
 
 function canPreviewExplorerItem(item: ExplorerEntry) {

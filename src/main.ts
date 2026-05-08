@@ -9,6 +9,10 @@ import './styles/global.css'
 // Plugins
 import { registerPlugins } from '@/plugins'
 
+window.addEventListener('contextmenu', (event) => {
+  event.preventDefault()
+})
+
 const app = createApp(App)
 
 registerPlugins(app)

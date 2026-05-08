@@ -4,6 +4,7 @@ import { open as dialogOpen } from '@tauri-apps/plugin-dialog'
 import { ref, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
+  audio_extract_wems,
   audio_extract_wavs_with_progress,
   audio_terminate_extract,
   type AudioEntryInfo,
@@ -19,8 +20,18 @@ import {
 } from '@/service/taskProgress'
 import { ShowError, ShowInfo, ShowWarn } from '@/utils/message'
 
+export type AudioExportFormat = 'wem' | 'wav'
+
 type AudioExportOptions = {
   createBankDirectory?: boolean
+  format?: AudioExportFormat
+}
+
+type AudioExportJob = {
+  entries: AudioEntryInfo[]
+  outputDir: string
+  source: AudioSourceRef
+  format: AudioExportFormat
 }
 
 type AudioBankExportProgressOptions = {
@@ -40,7 +51,12 @@ export function useAudioBankExportProgress(options: AudioBankExportProgressOptio
     const outputDir = await chooseAudioExportOutputDir(exportOptions)
     if (!outputDir) return
 
-    await runAudioExport(entries, outputDir, options.source.value)
+    await runAudioExport({
+      entries,
+      outputDir,
+      source: options.source.value,
+      format: exportOptions.format ?? 'wav'
+    })
   }
 
   async function chooseAudioExportOutputDir(exportOptions: AudioExportOptions) {
@@ -58,11 +74,7 @@ export function useAudioBankExportProgress(options: AudioBankExportProgressOptio
     return await join(target, options.getBankDirectoryName())
   }
 
-  async function runAudioExport(
-    entries: AudioEntryInfo[],
-    outputDir: string,
-    exportSource: AudioSourceRef
-  ) {
+  async function runAudioExport(job: AudioExportJob) {
     exporting.value = true
     const taskId = startAudioExportTask()
     if (!taskId) {
@@ -70,18 +82,8 @@ export function useAudioBankExportProgress(options: AudioBankExportProgressOptio
       return
     }
 
-    const onEvent = new Channel<AudioExportProgressEvent>()
-    bindAudioExportProgress(onEvent, taskId)
-
     try {
-      const paths = await audio_extract_wavs_with_progress(
-        {
-          source: exportSource,
-          indices: entries.map((entry) => entry.index),
-          outputDir
-        },
-        onEvent
-      )
+      const paths = await exportAudioJob(job, taskId)
       finishAudioExport(taskId, paths.length)
       ShowInfo(t('unpack.audioBankExportDone', { count: paths.length }))
     } catch (error) {
@@ -89,6 +91,44 @@ export function useAudioBankExportProgress(options: AudioBankExportProgressOptio
       ShowError(formatAudioExportError(error))
     } finally {
       exporting.value = false
+    }
+  }
+
+  async function exportAudioJob(job: AudioExportJob, taskId: string) {
+    if (job.format === 'wem') {
+      return await exportWems(job, taskId)
+    }
+
+    return await exportWavs(job, taskId)
+  }
+
+  async function exportWems(job: AudioExportJob, taskId: string) {
+    updateTaskProgress(taskId, {
+      totalFileCount: job.entries.length,
+      finishFileCount: 0,
+      currentFile: '',
+      description: t('unpack.processing')
+    })
+
+    const paths = await audio_extract_wems(buildAudioExtractOptions(job))
+    updateTaskProgress(taskId, {
+      finishFileCount: paths.length,
+      currentFile: paths[paths.length - 1] ?? ''
+    })
+    return paths
+  }
+
+  async function exportWavs(job: AudioExportJob, taskId: string) {
+    const onEvent = new Channel<AudioExportProgressEvent>()
+    bindAudioExportProgress(onEvent, taskId)
+    return await audio_extract_wavs_with_progress(buildAudioExtractOptions(job), onEvent)
+  }
+
+  function buildAudioExtractOptions(job: AudioExportJob) {
+    return {
+      source: job.source,
+      indices: job.entries.map((entry) => entry.index),
+      outputDir: job.outputDir
     }
   }
 
