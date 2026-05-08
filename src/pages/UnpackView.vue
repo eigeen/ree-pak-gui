@@ -272,6 +272,7 @@
 <script setup lang="ts">
 import {
   computed,
+  nextTick,
   onMounted,
   onUnmounted,
   ref,
@@ -1442,6 +1443,7 @@ async function reloadData() {
 }
 
 let unlisten: UnlistenFn | undefined
+let releasingPreviewFileReferences = false
 
 function handleToolbarRenderTree() {
   if (!unpackState.value.fileList || pakData.value.length === 0 || loadingTree.value) return
@@ -1461,6 +1463,23 @@ async function startListenToDrop() {
 async function stopListenToDrop() {
   await unlisten?.()
   unlisten = undefined
+}
+
+function releasePreviewFileReferences() {
+  releasingPreviewFileReferences = true
+  closeImageViewer()
+  exitPreviewMode()
+  texturePreviewCache.value = {}
+  texturePreviewPending.clear()
+  visibleExplorerEntries.value = []
+}
+
+function startListenToPreviewRelease() {
+  window.addEventListener('ree-pak:release-preview-files', releasePreviewFileReferences)
+}
+
+function stopListenToPreviewRelease() {
+  window.removeEventListener('ree-pak:release-preview-files', releasePreviewFileReferences)
 }
 
 function handleNodeClick(data: TreeData) {
@@ -2050,6 +2069,10 @@ function getTexturePreview(item: ExplorerEntry) {
 }
 
 async function ensureTexturePreview(item: ExplorerEntry) {
+  if (releasingPreviewFileReferences) {
+    return null
+  }
+
   if (item.isDir || !item.hash || getExplorerTypeKey(item) !== 'texture') {
     return null
   }
@@ -2071,6 +2094,10 @@ async function ensureTexturePreview(item: ExplorerEntry) {
 
   try {
     const previewFile = await getPreviewFile(item.hash)
+    if (releasingPreviewFileReferences) {
+      return null
+    }
+
     const previewUrl = convertFileSrc(previewFile, 'asset')
     texturePreviewCache.value = {
       ...texturePreviewCache.value,
@@ -2285,11 +2312,15 @@ function handlePakShowProperties(pak: Pick<PakInfo, 'id' | 'path'>) {
 }
 
 onMounted(async () => {
+  startListenToPreviewRelease()
   await startListenToDrop()
   await loadWorkRecords()
 })
 
 onUnmounted(async () => {
+  stopListenToPreviewRelease()
+  releasePreviewFileReferences()
+  await nextTick()
   await stopListenToDrop()
 })
 </script>

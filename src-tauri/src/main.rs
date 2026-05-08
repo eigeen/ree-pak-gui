@@ -1,7 +1,14 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{path::PathBuf, sync::OnceLock};
+use std::{
+    path::PathBuf,
+    sync::{
+        OnceLock,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration,
+};
 
 use pak::group::PakGroup;
 use service::pak::PakService;
@@ -24,8 +31,21 @@ mod utility;
 
 const LOCAL_DIR_PATH: &str = "ree-pak-tools";
 const TEMP_DIR_NAME: &str = "temp";
+const RELEASE_PREVIEW_REFERENCES_SCRIPT: &str = r#"
+window.dispatchEvent(new CustomEvent('ree-pak:release-preview-files'));
+document.querySelectorAll('audio, video').forEach((element) => {
+  element.pause();
+  element.removeAttribute('src');
+  element.load();
+});
+document.querySelectorAll('img, source').forEach((element) => {
+  element.removeAttribute('src');
+  element.removeAttribute('srcset');
+});
+"#;
 
 static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
+static MAIN_WINDOW_CLOSING: AtomicBool = AtomicBool::new(false);
 
 fn panic_hook(info: &std::panic::PanicHookInfo) {
     #[cfg(target_os = "windows")]
@@ -36,15 +56,60 @@ fn panic_hook(info: &std::panic::PanicHookInfo) {
 }
 
 // Clean temp files.
-fn clean_temp_files() {
+fn clean_temp_files() -> bool {
     let temp_dir = get_local_dir().join(TEMP_DIR_NAME);
-    if temp_dir.exists() {
-        if let Err(e) = std::fs::remove_dir_all(&temp_dir) {
-            log::warn!("Failed to clean temp files: {}", e);
-        } else {
-            log::info!("Temp files cleaned: {:?}", temp_dir);
-        }
+    if !temp_dir.exists() {
+        return true;
     }
+
+    if let Err(e) = std::fs::remove_dir_all(&temp_dir) {
+        log::warn!("Failed to clean temp files: {}", e);
+        return false;
+    }
+
+    log::info!("Temp files cleaned: {:?}", temp_dir);
+    true
+}
+
+fn release_preview_file_references(window: &tauri::WebviewWindow) {
+    if let Err(e) = window.eval(RELEASE_PREVIEW_REFERENCES_SCRIPT) {
+        log::warn!("Failed to release preview file references: {}", e);
+    }
+}
+
+fn close_main_window_after_temp_cleanup(window: tauri::WebviewWindow) {
+    tauri::async_runtime::spawn(async move {
+        for delay in [150, 300, 600] {
+            tokio::time::sleep(Duration::from_millis(delay)).await;
+            if clean_temp_files() {
+                break;
+            }
+        }
+
+        if let Err(e) = window.destroy() {
+            log::warn!("Failed to close main window after temp cleanup: {}", e);
+        }
+    });
+}
+
+fn handle_main_window_close_requested(window: &tauri::WebviewWindow, api: &tauri::CloseRequestApi) {
+    api.prevent_close();
+
+    if MAIN_WINDOW_CLOSING.swap(true, Ordering::SeqCst) {
+        return;
+    }
+
+    release_preview_file_references(window);
+    close_main_window_after_temp_cleanup(window.clone());
+}
+
+fn register_main_window_close_cleanup(window: &tauri::WebviewWindow) {
+    let main_window = window.clone();
+    window.on_window_event(move |event| {
+        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            handle_main_window_close_requested(&main_window, api);
+        }
+    });
 }
 
 fn get_local_dir() -> PathBuf {
@@ -79,6 +144,7 @@ fn main() {
             main_window
                 .set_title(&format!("REE Pak Tool - v{}", env!("CARGO_PKG_VERSION")))
                 .unwrap();
+            register_main_window_close_cleanup(&main_window);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -111,14 +177,6 @@ fn main() {
             command::murmur32,
             command::murmur32_utf16,
         ])
-        .on_window_event(|window, event| {
-            // Clean temp files when main window is closed.
-            if let tauri::WindowEvent::CloseRequested { .. } = event
-                && window.label() == "main"
-            {
-                clean_temp_files();
-            }
-        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

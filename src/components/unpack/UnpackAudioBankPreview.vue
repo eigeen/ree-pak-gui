@@ -13,7 +13,7 @@ import {
   Volume2,
   VolumeX
 } from 'lucide-vue-next'
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   audio_extract_wavs,
@@ -73,7 +73,7 @@ const filteredEntries = computed(() => {
   const query = searchText.value.trim().toLowerCase()
   if (!query) return list
   return list.filter((entry) => {
-    const indexText = String(entry.index + 1).padStart(3, '0')
+    const indexText = formatIndex(entry.index)
     return (
       indexText.includes(query) ||
       String(entry.wemId).toLowerCase().includes(query) ||
@@ -240,6 +240,16 @@ function stopPlayback() {
   currentTime.value = 0
 }
 
+function releaseAudioFileReferences() {
+  const audio = audioRef.value
+  if (!audio) return
+
+  audio.pause()
+  audio.removeAttribute('src')
+  audio.load()
+  wavUrls.value = {}
+}
+
 function cycleSpeed() {
   const idx = PLAYBACK_RATES.indexOf(playbackRate.value)
   const next = PLAYBACK_RATES[(idx + 1) % PLAYBACK_RATES.length] ?? 1
@@ -403,13 +413,14 @@ function formatTime(seconds: number) {
 }
 
 function formatIndex(index: number) {
-  return String(index + 1).padStart(3, '0')
+  return String(index).padStart(3, '0')
 }
+
+onUnmounted(releaseAudioFileReferences)
 </script>
 
 <template>
   <div class="audio-preview">
-    <!-- Transport -->
     <div class="ap-transport">
       <button
         type="button"
@@ -483,7 +494,6 @@ function formatIndex(index: number) {
       </button>
     </div>
 
-    <!-- Now playing strip -->
     <div v-if="currentEntry" class="ap-strip">
       <Play class="size-3 text-[#ffad66]" />
       <span class="ap-strip-label">{{ t('unpack.audioBankNowPlaying') }}</span>
@@ -503,7 +513,6 @@ function formatIndex(index: number) {
       </template>
     </div>
 
-    <!-- Table toolbar -->
     <div class="ap-tbl-toolbar">
       <div class="ap-search">
         <Search class="size-3 text-[#666666]" />
@@ -529,7 +538,6 @@ function formatIndex(index: number) {
       </button>
     </div>
 
-    <!-- Table header -->
     <div class="ap-tbl-hdr">
       <div class="ap-col-marker" />
       <div class="ap-col-index">{{ t('unpack.audioBankColumnIndex') }}</div>
@@ -541,7 +549,6 @@ function formatIndex(index: number) {
       </div>
     </div>
 
-    <!-- Body -->
     <div class="ap-tbl-body editor-scrollbar">
       <div
         v-if="loadingContainer"
@@ -613,7 +620,6 @@ function formatIndex(index: number) {
   font-family: Inter, system-ui, sans-serif;
 }
 
-/* Transport */
 .ap-transport {
   display: flex;
   align-items: center;
@@ -789,7 +795,6 @@ function formatIndex(index: number) {
   cursor: not-allowed;
 }
 
-/* Now playing strip */
 .ap-strip {
   display: flex;
   align-items: center;
@@ -826,7 +831,6 @@ function formatIndex(index: number) {
   color: #aaaaaa;
 }
 
-/* Table toolbar */
 .ap-tbl-toolbar {
   display: flex;
   align-items: center;
@@ -872,7 +876,6 @@ function formatIndex(index: number) {
   flex-shrink: 0;
 }
 
-/* Table */
 .ap-tbl-hdr,
 .ap-tbl-row {
   display: flex;

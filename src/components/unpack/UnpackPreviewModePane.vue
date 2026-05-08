@@ -100,7 +100,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
+  padding: 5px 12px;
   font-size: 12px;
   line-height: 1.2;
   background: var(--preview-mode-bg, #15282d);
