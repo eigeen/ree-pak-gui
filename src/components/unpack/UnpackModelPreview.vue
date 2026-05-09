@@ -31,6 +31,33 @@
         </div>
         <div v-if="settingsPanelExpanded" class="model-preview-settings-body">
           <div class="model-preview-control-row">
+            <span>{{ t('unpack.modelPreviewTextureResolution') }}</span>
+            <div class="model-preview-segmented" role="radiogroup">
+              <button
+                type="button"
+                class="model-preview-segment"
+                :class="{
+                  'model-preview-segment-active': meshPreviewTextureResolution === 'standard'
+                }"
+                :aria-checked="meshPreviewTextureResolution === 'standard'"
+                role="radio"
+                @click="meshPreviewTextureResolution = 'standard'"
+              >
+                {{ t('unpack.modelPreviewTextureResolutionStandard') }}
+              </button>
+              <button
+                type="button"
+                class="model-preview-segment"
+                :class="{ 'model-preview-segment-active': meshPreviewTextureResolution === 'high' }"
+                :aria-checked="meshPreviewTextureResolution === 'high'"
+                role="radio"
+                @click="meshPreviewTextureResolution = 'high'"
+              >
+                {{ t('unpack.modelPreviewTextureResolutionHigh') }}
+              </button>
+            </div>
+          </div>
+          <div class="model-preview-control-row">
             <span>{{ t('unpack.modelPreviewBackground') }}</span>
             <div class="model-preview-segmented" role="radiogroup">
               <button
@@ -225,7 +252,8 @@ import {
 import {
   useSettingsStore,
   type AppSettings,
-  type MeshPreviewBackgroundStyle
+  type MeshPreviewBackgroundStyle,
+  type MeshPreviewTextureResolution
 } from '@/store/settings'
 
 const props = defineProps<{
@@ -291,6 +319,14 @@ const showMeshPreviewGrid = computed({
   set: (value: boolean) => {
     if (!settings.value?.preview?.meshPreview) return
     settings.value.preview.meshPreview.showGrid = value
+  }
+})
+
+const meshPreviewTextureResolution = computed<MeshPreviewTextureResolution>({
+  get: () => settings.value?.preview?.meshPreview?.textureResolution ?? 'standard',
+  set: (value) => {
+    if (!settings.value?.preview?.meshPreview) return
+    settings.value.preview.meshPreview.textureResolution = value
   }
 })
 
@@ -369,6 +405,11 @@ watch(
   }
 )
 
+watch(meshPreviewTextureResolution, () => {
+  if (!preview.value || loading.value) return
+  void loadPreview()
+})
+
 async function loadPreview() {
   const entry = props.entry
   if (!entry.hash || !entry.belongsTo) {
@@ -410,7 +451,9 @@ async function loadPreviewTextureImages(
   belongsTo?: string
 ) {
   try {
-    const textureUrls = await loadModelTextureUrls(assets, model, belongsTo)
+    const textureUrls = await loadModelTextureUrls(assets, model, belongsTo, {
+      textureResolution: meshPreviewTextureResolution.value
+    })
     return await loadModelTextureImages(textureUrls)
   } catch {
     return {}

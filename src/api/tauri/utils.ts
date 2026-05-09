@@ -38,7 +38,10 @@ export interface ModelInsightLoadTexturePreviewsOptions {
   belongsTo?: string
   baseEntryPath: string
   texturePaths: string[]
+  textureResolution?: ModelTextureResolution
 }
+
+export type ModelTextureResolution = 'standard' | 'high'
 
 export interface ModelInsightTexturePreview {
   texturePath: string

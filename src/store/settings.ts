@@ -11,6 +11,7 @@ const SETTINGS_FILE_NAME = 'settings.json'
 
 export type ThemeMode = 'system' | 'light' | 'dark'
 export type MeshPreviewBackgroundStyle = 'dark' | 'light'
+export type MeshPreviewTextureResolution = 'standard' | 'high'
 
 export type AppSettings = {
   version: string
@@ -20,6 +21,7 @@ export type AppSettings = {
     showTexturePreview: boolean
     meshPreview: {
       backgroundStyle: MeshPreviewBackgroundStyle
+      textureResolution: MeshPreviewTextureResolution
       showGrid: boolean
     }
   }
@@ -35,6 +37,7 @@ const defaultSettings: AppSettings = {
     showTexturePreview: true,
     meshPreview: {
       backgroundStyle: 'dark',
+      textureResolution: 'standard',
       showGrid: true
     }
   },
@@ -61,6 +64,11 @@ function normalizeSettings(raw: Partial<AppSettings> | null | undefined): AppSet
           raw?.preview?.meshPreview?.backgroundStyle === 'dark'
             ? raw.preview.meshPreview.backgroundStyle
             : defaultSettings.preview.meshPreview.backgroundStyle,
+        textureResolution:
+          raw?.preview?.meshPreview?.textureResolution === 'high' ||
+          raw?.preview?.meshPreview?.textureResolution === 'standard'
+            ? raw.preview.meshPreview.textureResolution
+            : defaultSettings.preview.meshPreview.textureResolution,
         showGrid:
           raw?.preview?.meshPreview?.showGrid ?? defaultSettings.preview.meshPreview.showGrid
       }

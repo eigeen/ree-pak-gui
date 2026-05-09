@@ -1,13 +1,21 @@
-import { modelInsightLoadTexturePreviews, type ModelInsightMeshAssets } from '@/api/tauri/utils'
+import {
+  modelInsightLoadTexturePreviews,
+  type ModelInsightMeshAssets,
+  type ModelTextureResolution
+} from '@/api/tauri/utils'
 import type { PreviewModel } from './wasm'
 
 export type ModelTextureUrls = Record<string, string>
 export type ModelTextureImages = Record<string, HTMLImageElement>
+export type ModelTextureLoadOptions = {
+  textureResolution?: ModelTextureResolution
+}
 
 export async function loadModelTextureUrls(
   assets: ModelInsightMeshAssets,
   model: PreviewModel,
-  belongsTo?: string
+  belongsTo?: string,
+  options: ModelTextureLoadOptions = {}
 ): Promise<ModelTextureUrls> {
   const texturePaths = collectAlbedoTexturePaths(model)
   const baseEntryPath = assets.mdfEntryPath ?? assets.meshEntryPath
@@ -16,7 +24,8 @@ export async function loadModelTextureUrls(
   const previews = await modelInsightLoadTexturePreviews({
     belongsTo,
     baseEntryPath,
-    texturePaths
+    texturePaths,
+    textureResolution: options.textureResolution
   })
 
   return Object.fromEntries(

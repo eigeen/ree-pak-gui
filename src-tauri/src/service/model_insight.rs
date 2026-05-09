@@ -38,6 +38,14 @@ pub struct ModelInsightLoadTexturePreviewsOptions {
     pub belongs_to: Option<PakId>,
     pub base_entry_path: String,
     pub texture_paths: Vec<String>,
+    pub texture_resolution: Option<ModelTextureResolution>,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ModelTextureResolution {
+    Standard,
+    High,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -116,6 +124,9 @@ impl ModelInsightService {
         options: ModelInsightLoadTexturePreviewsOptions,
     ) -> Result<Vec<ModelInsightTexturePreview>> {
         let base_entry_path = normalize_entry_path(&options.base_entry_path);
+        let texture_resolution = options
+            .texture_resolution
+            .unwrap_or(ModelTextureResolution::Standard);
         let asset_dir = self.temp_dir.join("wasm-assets");
         std::fs::create_dir_all(&asset_dir)?;
 
@@ -131,6 +142,7 @@ impl ModelInsightService {
                 &base_entry_path,
                 &texture_path,
                 options.belongs_to,
+                texture_resolution,
             ) {
                 Ok(resolved) => resolved,
                 Err(error) => {
@@ -252,8 +264,9 @@ fn resolve_texture_entry(
     base_entry_path: &str,
     texture_path: &str,
     preferred_pak: Option<PakId>,
+    texture_resolution: ModelTextureResolution,
 ) -> Result<ResolvedPakEntry> {
-    let candidates = texture_entry_candidates(base_entry_path, texture_path);
+    let candidates = texture_entry_candidates(base_entry_path, texture_path, texture_resolution);
     for candidate in candidates {
         let matches = collect_named_candidates(pak_service, |path| {
             is_versioned_tex_entry_for(path, &candidate)
@@ -268,7 +281,11 @@ fn resolve_texture_entry(
     )))
 }
 
-fn texture_entry_candidates(base_entry_path: &str, texture_path: &str) -> Vec<String> {
+fn texture_entry_candidates(
+    base_entry_path: &str,
+    texture_path: &str,
+    texture_resolution: ModelTextureResolution,
+) -> Vec<String> {
     let normalized = normalize_material_texture_path(texture_path);
     if normalized.is_empty() {
         return Vec::new();
@@ -288,6 +305,19 @@ fn texture_entry_candidates(base_entry_path: &str, texture_path: &str) -> Vec<St
             && !parent.is_empty()
         {
             push_unique_candidate(&mut candidates, join_entry_path(parent, &normalized));
+        }
+    }
+
+    if texture_resolution == ModelTextureResolution::High {
+        let standard_candidates = candidates.clone();
+        candidates.clear();
+        for candidate in &standard_candidates {
+            if let Some(streaming_candidate) = streaming_texture_candidate(candidate) {
+                push_unique_candidate(&mut candidates, streaming_candidate);
+            }
+        }
+        for candidate in standard_candidates {
+            push_unique_candidate(&mut candidates, candidate);
         }
     }
 
@@ -313,11 +343,34 @@ fn natives_root_entry(path: &str) -> Option<String> {
         .filter(|component| !component.is_empty())
         .collect::<Vec<_>>();
     components
-        .windows(2)
-        .position(|window| {
-            window[0].eq_ignore_ascii_case("natives") && window[1].eq_ignore_ascii_case("stm")
+        .iter()
+        .position(|component| component.eq_ignore_ascii_case("natives"))
+        .and_then(|index| {
+            (index + 1 < components.len()).then(|| components[..=index + 1].join("/"))
         })
-        .map(|index| components[..=index + 1].join("/"))
+}
+
+fn streaming_texture_candidate(path: &str) -> Option<String> {
+    let mut components = path
+        .split('/')
+        .filter(|component| !component.is_empty())
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    let natives_index = components
+        .iter()
+        .position(|component| component.eq_ignore_ascii_case("natives"))?;
+    let streaming_index = natives_index + 2;
+    if streaming_index > components.len() {
+        return None;
+    }
+    if components
+        .get(streaming_index)
+        .is_some_and(|component| component.eq_ignore_ascii_case("streaming"))
+    {
+        return Some(components.join("/"));
+    }
+    components.insert(streaming_index, "streaming".to_string());
+    Some(components.join("/"))
 }
 
 fn is_versioned_tex_entry_for(entry_path: &str, path_without_version: &str) -> bool {
@@ -471,6 +524,7 @@ mod tests {
         let candidates = texture_entry_candidates(
             "natives/STM/Art/Model/ch000/foo.mesh.2109148288",
             "@Art/Model/ch000/textures/foo_ALBD.tex",
+            ModelTextureResolution::Standard,
         );
         assert_eq!(
             candidates,
@@ -480,6 +534,52 @@ mod tests {
                 "natives/STM/Art/Model/ch000/Art/Model/ch000/textures/foo_ALBD".to_string()
             ]
         );
+    }
+
+    #[test]
+    fn resolves_high_model_texture_candidates_from_streaming_root() {
+        let candidates = texture_entry_candidates(
+            "natives/STM/Art/Model/ch000/foo.mesh.2109148288",
+            "@Art/Model/ch000/textures/foo_ALBD.tex",
+            ModelTextureResolution::High,
+        );
+        assert_eq!(
+            candidates,
+            vec![
+                "natives/STM/streaming/Art/Model/ch000/textures/foo_ALBD".to_string(),
+                "natives/STM/streaming/Art/Model/ch000/Art/Model/ch000/textures/foo_ALBD"
+                    .to_string(),
+                "Art/Model/ch000/textures/foo_ALBD".to_string(),
+                "natives/STM/Art/Model/ch000/textures/foo_ALBD".to_string(),
+                "natives/STM/Art/Model/ch000/Art/Model/ch000/textures/foo_ALBD".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn resolves_high_model_texture_candidates_with_any_natives_platform() {
+        let candidates = texture_entry_candidates(
+            "natives/X64/Art/Model/ch000/foo.mesh.2109148288",
+            "@Art/Model/ch000/textures/foo_ALBD.tex",
+            ModelTextureResolution::High,
+        );
+        assert!(
+            candidates
+                .contains(&"natives/X64/streaming/Art/Model/ch000/textures/foo_ALBD".to_string())
+        );
+    }
+
+    #[test]
+    fn inserts_streaming_after_natives_platform() {
+        assert_eq!(
+            streaming_texture_candidate("natives/STM/Art/foo_ALBD"),
+            Some("natives/STM/streaming/Art/foo_ALBD".to_string())
+        );
+        assert_eq!(
+            streaming_texture_candidate("natives/STM/streaming/Art/foo_ALBD"),
+            Some("natives/STM/streaming/Art/foo_ALBD".to_string())
+        );
+        assert_eq!(streaming_texture_candidate("Art/foo_ALBD"), None);
     }
 
     #[test]
