@@ -3,12 +3,15 @@ import {
   type ModelInsightMeshAssets,
   type ModelTextureResolution
 } from '@/api/tauri/utils'
+import { logFrontendWarn } from '@/utils/frontendLog'
 import type { PreviewModel } from './wasm'
 
 export type ModelTextureUrls = Record<string, string>
 export type ModelTextureImages = Record<string, HTMLImageElement>
 export type ModelTextureLoadOptions = {
   textureResolution?: ModelTextureResolution
+  warnScope?: string
+  warnBasePath?: string
 }
 
 export async function loadModelTextureUrls(
@@ -21,12 +24,24 @@ export async function loadModelTextureUrls(
   const baseEntryPath = assets.mdfEntryPath ?? assets.meshEntryPath
   if (!baseEntryPath || texturePaths.length === 0) return {}
 
-  const previews = await modelInsightLoadTexturePreviews({
-    belongsTo,
-    baseEntryPath,
-    texturePaths,
-    textureResolution: options.textureResolution
-  })
+  const previews = await loadTexturePreviewsWithWarning(
+    {
+      belongsTo,
+      baseEntryPath,
+      texturePaths,
+      textureResolution: options.textureResolution
+    },
+    options
+  )
+  const previewTexturePaths = new Set(previews.map((preview) => preview.texturePath))
+  for (const texturePath of texturePaths) {
+    if (!previewTexturePaths.has(texturePath)) {
+      logModelTextureWarn(
+        options,
+        `texture preview missing base=${baseEntryPath} texture=${texturePath}`
+      )
+    }
+  }
 
   return Object.fromEntries(
     previews.map((preview) => [
@@ -39,13 +54,18 @@ export async function loadModelTextureUrls(
 }
 
 export async function loadModelTextureImages(
-  textureUrls: ModelTextureUrls
+  textureUrls: ModelTextureUrls,
+  options: ModelTextureLoadOptions = {}
 ): Promise<ModelTextureImages> {
   const entries = await Promise.all(
     Object.entries(textureUrls).map(async ([texturePath, url]) => {
       try {
         return [texturePath, await loadImage(url)] as const
-      } catch {
+      } catch (error) {
+        logModelTextureWarn(
+          options,
+          `texture image failed texture=${texturePath} error=${error instanceof Error ? error.message : String(error)}`
+        )
         return null
       } finally {
         URL.revokeObjectURL(url)
@@ -54,6 +74,26 @@ export async function loadModelTextureImages(
   )
 
   return Object.fromEntries(entries.filter((entry) => entry !== null))
+}
+
+async function loadTexturePreviewsWithWarning(
+  options: Parameters<typeof modelInsightLoadTexturePreviews>[0],
+  loadOptions: ModelTextureLoadOptions
+) {
+  try {
+    return await modelInsightLoadTexturePreviews(options)
+  } catch (error) {
+    logModelTextureWarn(
+      loadOptions,
+      `texture preview request failed base=${options.baseEntryPath} textures=${options.texturePaths.length} error=${error instanceof Error ? error.message : String(error)}`
+    )
+    throw error
+  }
+}
+
+function logModelTextureWarn(options: ModelTextureLoadOptions, message: string) {
+  const context = options.warnBasePath ? `entry=${options.warnBasePath} ${message}` : message
+  logFrontendWarn(options.warnScope ?? 'modelInsight.textures', context)
 }
 
 function collectAlbedoTexturePaths(model: PreviewModel) {

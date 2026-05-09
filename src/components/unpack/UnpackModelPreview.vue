@@ -143,20 +143,34 @@
         </div>
         <div v-if="objectsPanelExpanded" class="model-preview-object-list">
           <div v-for="group in meshGroups" :key="group.key" class="model-preview-object-group">
-            <button
-              type="button"
-              class="model-preview-group-row"
-              :aria-expanded="!collapsedMeshGroupKeys.has(group.key)"
-              @click="toggleMeshGroup(group.key)"
-            >
-              <ChevronRight
-                class="model-preview-chevron size-3.5"
-                :class="{
-                  'model-preview-chevron-expanded': !collapsedMeshGroupKeys.has(group.key)
-                }"
-              />
-              <span class="model-preview-group-name">{{ group.name }}</span>
-            </button>
+            <div class="model-preview-group-header">
+              <Checkbox
+                :model-value="group.visibility"
+                class="model-preview-group-checkbox"
+                :aria-label="
+                  t('unpack.modelPreviewToggleMeshGroupVisibility', { group: group.name })
+                "
+                @click.stop
+                @update:model-value="toggleMeshGroupVisibility(group, $event === true)"
+              >
+                <Minus v-if="group.visibility === 'indeterminate'" class="size-3.5" />
+                <Check v-else class="size-3.5" />
+              </Checkbox>
+              <button
+                type="button"
+                class="model-preview-group-row"
+                :aria-expanded="!collapsedMeshGroupKeys.has(group.key)"
+                @click="toggleMeshGroup(group.key)"
+              >
+                <ChevronRight
+                  class="model-preview-chevron size-3.5"
+                  :class="{
+                    'model-preview-chevron-expanded': !collapsedMeshGroupKeys.has(group.key)
+                  }"
+                />
+                <span class="model-preview-group-name">{{ group.name }}</span>
+              </button>
+            </div>
             <div v-if="!collapsedMeshGroupKeys.has(group.key)" class="model-preview-group-children">
               <label
                 v-for="mesh in group.meshes"
@@ -215,11 +229,13 @@ import { useI18n } from 'vue-i18n'
 import {
   AlertTriangle,
   Box,
+  Check,
   ChevronRight,
   Eye,
   EyeOff,
   Layers,
   Loader2,
+  Minus,
   RotateCcw,
   Share2,
   Triangle
@@ -235,6 +251,7 @@ import {
   loadModelTextureUrls,
   type ModelTextureImages
 } from '@/lib/modelInsight/textures'
+import { logFrontendWarn } from '@/utils/frontendLog'
 import {
   addVec3,
   createDefaultModelPreviewCamera,
@@ -283,15 +300,19 @@ type MeshPreviewItem = {
   visible: boolean
 }
 
+type MeshPreviewVisibility = boolean | 'indeterminate'
+
 type MeshPreviewGroup = {
   key: string
   name: string
   meshes: MeshPreviewItem[]
+  visibility: MeshPreviewVisibility
 }
 
 let glState: ModelPreviewRenderState | null = null
 let resizeObserver: ResizeObserver | null = null
 let animationFrame = 0
+let previewLoadToken = 0
 let pointerState: {
   id: number
   x: number
@@ -367,10 +388,14 @@ const meshGroups = computed<MeshPreviewGroup[]>(() => {
     groups.set(mesh.groupKey, {
       key: mesh.groupKey,
       name: mesh.groupName,
-      meshes: [mesh]
+      meshes: [mesh],
+      visibility: false
     })
   }
-  return Array.from(groups.values())
+  return Array.from(groups.values()).map((group) => ({
+    ...group,
+    visibility: resolveMeshGroupVisibility(group.meshes)
+  }))
 })
 
 const statusText = computed(() => {
@@ -412,6 +437,7 @@ watch(meshPreviewTextureResolution, () => {
 
 async function loadPreview() {
   const entry = props.entry
+  const loadToken = ++previewLoadToken
   if (!entry.hash || !entry.belongsTo) {
     error.value = t('unpack.modelInsightMissingSource')
     return
@@ -432,17 +458,34 @@ async function loadPreview() {
       mdfBytes: assets.mdfData ? toUint8Array(assets.mdfData) : null,
       mdfFileVersion: assets.mdfFileVersion ?? null
     })
-    const textureImages = await loadPreviewTextureImages(assets, result.preview, entry.belongsTo)
+    if (loadToken !== previewLoadToken) return
     preview.value = result.preview
     resetVisibleMeshes(result.preview)
-    buildRenderState(result.preview, textureImages)
+    buildRenderState(result.preview)
     resetCamera()
+    loading.value = false
+    void loadPreviewTextures(loadToken, assets, result.preview, entry.belongsTo)
   } catch (caught) {
+    if (loadToken !== previewLoadToken) return
     const message = caught instanceof Error ? caught.message : String(caught)
     error.value = message
   } finally {
-    loading.value = false
+    if (loadToken === previewLoadToken) {
+      loading.value = false
+    }
   }
+}
+
+async function loadPreviewTextures(
+  loadToken: number,
+  assets: ModelInsightMeshAssets,
+  model: PreviewModel,
+  belongsTo?: string
+) {
+  const textureImages = await loadPreviewTextureImages(assets, model, belongsTo)
+  if (loadToken !== previewLoadToken || preview.value !== model) return
+  if (Object.keys(textureImages).length === 0) return
+  buildRenderState(model, textureImages)
 }
 
 async function loadPreviewTextureImages(
@@ -452,10 +495,19 @@ async function loadPreviewTextureImages(
 ) {
   try {
     const textureUrls = await loadModelTextureUrls(assets, model, belongsTo, {
-      textureResolution: meshPreviewTextureResolution.value
+      textureResolution: meshPreviewTextureResolution.value,
+      warnScope: 'unpack.modelPreview',
+      warnBasePath: assets.mdfEntryPath ?? assets.meshEntryPath
     })
-    return await loadModelTextureImages(textureUrls)
-  } catch {
+    return await loadModelTextureImages(textureUrls, {
+      warnScope: 'unpack.modelPreview',
+      warnBasePath: assets.mdfEntryPath ?? assets.meshEntryPath
+    })
+  } catch (caught) {
+    logFrontendWarn(
+      'unpack.modelPreview',
+      `texture load failed path=${assets.mdfEntryPath ?? assets.meshEntryPath} error=${caught instanceof Error ? caught.message : String(caught)}`
+    )
     return {}
   }
 }
@@ -528,6 +580,19 @@ function toggleMeshVisibility(index: number, visible: boolean) {
   applyMeshVisibility()
 }
 
+function toggleMeshGroupVisibility(group: MeshPreviewGroup, visible: boolean) {
+  const nextVisibleIndexes = new Set(visibleMeshIndexes.value)
+  for (const mesh of group.meshes) {
+    if (visible) {
+      nextVisibleIndexes.add(mesh.index)
+    } else {
+      nextVisibleIndexes.delete(mesh.index)
+    }
+  }
+  visibleMeshIndexes.value = nextVisibleIndexes
+  applyMeshVisibility()
+}
+
 function showAllMeshes() {
   const model = preview.value
   if (!model) return
@@ -548,6 +613,13 @@ function toggleMeshGroup(key: string) {
     nextCollapsedKeys.add(key)
   }
   collapsedMeshGroupKeys.value = nextCollapsedKeys
+}
+
+function resolveMeshGroupVisibility(meshes: MeshPreviewItem[]): MeshPreviewVisibility {
+  const visibleCount = meshes.filter((mesh) => mesh.visible).length
+  if (visibleCount === 0) return false
+  if (visibleCount === meshes.length) return true
+  return 'indeterminate'
 }
 
 function resolveMeshGroup(name: string) {
@@ -746,6 +818,7 @@ function toUint8Array(value: number[] | Uint8Array) {
 .model-preview-switch-row,
 .model-preview-object-actions,
 .model-preview-action-button,
+.model-preview-group-header,
 .model-preview-group-row,
 .model-preview-object-row {
   display: flex;
@@ -888,9 +961,19 @@ function toUint8Array(value: number[] | Uint8Array) {
   gap: 2px;
 }
 
+.model-preview-group-header {
+  min-width: 0;
+  gap: 6px;
+  border-radius: 6px;
+}
+
+.model-preview-group-checkbox {
+  margin-left: 6px;
+}
+
 .model-preview-group-row {
   min-width: 0;
-  width: 100%;
+  flex: 1;
   gap: 6px;
   border-radius: 6px;
   padding: 6px;

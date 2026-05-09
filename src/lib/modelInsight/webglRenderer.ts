@@ -44,9 +44,10 @@ export interface ModelPreviewRenderState {
 
 export type Vec3 = [number, number, number]
 
-const DEFAULT_CAMERA_YAW = -0.65
+const DEFAULT_CAMERA_YAW = Math.PI - 0.65
 const DEFAULT_CAMERA_PITCH = -0.48
 const DEFAULT_CAMERA_DISTANCE_SCALE = 2.1
+const OUTLINE_COLOR = new Float32Array([0.055, 0.05, 0.047])
 
 const DEFAULT_MESSAGES: Required<ModelPreviewRenderMessages> = {
   indexUnavailable: 'This WebView does not support 32-bit mesh indices.',
@@ -139,31 +140,42 @@ export function renderModelPreviewFrame(
   gl.uniformMatrix4fv(state.uniforms.view, false, view)
   gl.uniform3f(state.uniforms.lightDir, 0.45, 0.75, 0.35)
 
-  for (const mesh of state.meshes) {
-    if (!mesh.visible) continue
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.positions)
-    gl.enableVertexAttribArray(state.attributes.position)
-    gl.vertexAttribPointer(state.attributes.position, 3, gl.FLOAT, false, 0, 0)
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.normals)
-    gl.enableVertexAttribArray(state.attributes.normal)
-    gl.vertexAttribPointer(state.attributes.normal, 3, gl.FLOAT, false, 0, 0)
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.uvs)
-    gl.enableVertexAttribArray(state.attributes.uv)
-    gl.vertexAttribPointer(state.attributes.uv, 2, gl.FLOAT, false, 0, 0)
-
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indices)
-    gl.uniform3fv(state.uniforms.color, mesh.color)
-    gl.uniform1i(state.uniforms.useTexture, mesh.texture ? 1 : 0)
-    if (mesh.texture) {
-      gl.activeTexture(gl.TEXTURE0)
-      gl.bindTexture(gl.TEXTURE_2D, mesh.texture)
-      gl.uniform1i(state.uniforms.texture, 0)
-    }
-    gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0)
+  gl.depthMask(false)
+  for (const mesh of state.meshes.filter((mesh) => mesh.outline)) {
+    drawRenderableMesh(state, mesh)
   }
+
+  gl.depthMask(true)
+  for (const mesh of state.meshes.filter((mesh) => !mesh.outline)) {
+    drawRenderableMesh(state, mesh)
+  }
+}
+
+function drawRenderableMesh(state: ModelPreviewRenderState, mesh: RenderableMesh) {
+  const gl = state.gl
+  if (!mesh.visible) return
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, mesh.positions)
+  gl.enableVertexAttribArray(state.attributes.position)
+  gl.vertexAttribPointer(state.attributes.position, 3, gl.FLOAT, false, 0, 0)
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, mesh.normals)
+  gl.enableVertexAttribArray(state.attributes.normal)
+  gl.vertexAttribPointer(state.attributes.normal, 3, gl.FLOAT, false, 0, 0)
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, mesh.uvs)
+  gl.enableVertexAttribArray(state.attributes.uv)
+  gl.vertexAttribPointer(state.attributes.uv, 2, gl.FLOAT, false, 0, 0)
+
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indices)
+  gl.uniform3fv(state.uniforms.color, mesh.color)
+  gl.uniform1i(state.uniforms.useTexture, mesh.texture ? 1 : 0)
+  if (mesh.texture) {
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, mesh.texture)
+    gl.uniform1i(state.uniforms.texture, 0)
+  }
+  gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0)
 }
 
 export function createDefaultModelPreviewCamera(
@@ -257,6 +269,7 @@ function createRenderableMesh(
   const textureImage = material?.albedoTexturePath
     ? textureImages[material.albedoTexturePath]
     : null
+  const outline = isOutlineMesh(mesh, material?.name)
   return {
     sourceIndex,
     positions,
@@ -264,10 +277,17 @@ function createRenderableMesh(
     uvs,
     indices,
     indexCount: mesh.indices.length,
-    color: materialColor(material?.name ?? mesh.name),
-    texture: textureImage ? createTexture(gl, textureImage) : null,
+    color: outline ? OUTLINE_COLOR : materialColor(material?.name ?? mesh.name),
+    texture: !outline && textureImage ? createTexture(gl, textureImage) : null,
+    outline,
     visible: true
   }
+}
+
+function isOutlineMesh(mesh: PreviewSubmesh, materialName?: string | null) {
+  return [mesh.name, materialName ?? ''].some((name) =>
+    /(?:^|[_\-. ])outline(?:$|[_\-. ])/i.test(name)
+  )
 }
 
 function validNormals(mesh: PreviewSubmesh) {
@@ -446,6 +466,7 @@ interface RenderableMesh {
   indexCount: number
   color: Float32Array
   texture: WebGLTexture | null
+  outline: boolean
   visible: boolean
 }
 

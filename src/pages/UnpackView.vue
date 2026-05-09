@@ -2057,9 +2057,19 @@ async function loadHoverPreviewTextureImages(
   belongsTo?: string
 ) {
   try {
-    const textureUrls = await loadModelTextureUrls(assets, model, belongsTo)
-    return await loadModelTextureImages(textureUrls)
-  } catch {
+    const textureUrls = await loadModelTextureUrls(assets, model, belongsTo, {
+      warnScope: 'unpack.modelPreview',
+      warnBasePath: assets.mdfEntryPath ?? assets.meshEntryPath
+    })
+    return await loadModelTextureImages(textureUrls, {
+      warnScope: 'unpack.modelPreview',
+      warnBasePath: assets.mdfEntryPath ?? assets.meshEntryPath
+    })
+  } catch (error) {
+    logFrontendWarn(
+      'unpack.modelPreview',
+      `hover texture load failed path=${assets.mdfEntryPath ?? assets.meshEntryPath} error=${error instanceof Error ? error.message : String(error)}`
+    )
     return {}
   }
 }

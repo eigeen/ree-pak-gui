@@ -1,4 +1,9 @@
-use std::{collections::HashSet, path::PathBuf, sync::OnceLock};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+    sync::OnceLock,
+    time::Instant,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -105,7 +110,12 @@ impl ModelInsightService {
                     )?;
                     Some((resolved.entry_path, mdf_file_version, mdf_data))
                 }
-                Err(Error::PakEntryNotFound(_)) => None,
+                Err(Error::PakEntryNotFound(missing)) => {
+                    log::warn!(
+                        "model insight mdf not found: mesh={mesh_entry_path} missing={missing}"
+                    );
+                    None
+                }
                 Err(error) => return Err(error),
             };
 
@@ -129,6 +139,14 @@ impl ModelInsightService {
             .unwrap_or(ModelTextureResolution::Standard);
         let asset_dir = self.temp_dir.join("wasm-assets");
         std::fs::create_dir_all(&asset_dir)?;
+        let resolve_context_started_at = Instant::now();
+        let resolve_context = TextureResolveContext::new(self.pak_service)?;
+        log::info!(
+            "model insight texture resolve index ready: tex_bases={} paks={} elapsed={} ms",
+            resolve_context.tex_candidates_by_base.len(),
+            resolve_context.loaded_hashes_by_pak.len(),
+            resolve_context_started_at.elapsed().as_millis()
+        );
 
         let mut seen = HashSet::new();
         let mut previews = Vec::new();
@@ -137,11 +155,13 @@ impl ModelInsightService {
                 continue;
             }
 
+            let started_at = Instant::now();
+            let resolve_started_at = Instant::now();
             let resolved = match resolve_texture_entry(
-                self.pak_service,
+                &resolve_context,
                 &base_entry_path,
                 &texture_path,
-                options.belongs_to,
+                &options.belongs_to,
                 texture_resolution,
             ) {
                 Ok(resolved) => resolved,
@@ -155,9 +175,11 @@ impl ModelInsightService {
                     continue;
                 }
             };
+            let resolve_elapsed_ms = resolve_started_at.elapsed().as_millis();
 
             let raw_path =
                 self.materialized_asset_path(resolved.hash, &resolved.entry_path, &asset_dir);
+            let raw_cached = raw_path.exists();
             if !raw_path.exists() {
                 self.pak_service.unpack_file_by_hash(
                     resolved.hash,
@@ -171,21 +193,42 @@ impl ModelInsightService {
                 resolved.hash,
                 sanitize_file_name(&file_stem(&resolved.entry_path))
             ));
-            if !preview_path.exists()
-                && let Err(error) = crate::service::preview::tex_to_png(&raw_path, &preview_path)
-            {
-                log::warn!(
-                    "model insight texture conversion skipped: entry={} error={}",
+            let preview_cached = preview_path.exists();
+            if !preview_cached {
+                let convert_started_at = Instant::now();
+                if let Err(error) = crate::service::preview::tex_to_png(&raw_path, &preview_path) {
+                    log::warn!(
+                        "model insight texture conversion skipped: entry={} error={}",
+                        resolved.entry_path,
+                        error
+                    );
+                    continue;
+                }
+                log::info!(
+                    "model insight texture converted: entry={} elapsed={} ms",
                     resolved.entry_path,
-                    error
+                    convert_started_at.elapsed().as_millis()
                 );
-                continue;
             }
+
+            let read_started_at = Instant::now();
+            let preview_data = std::fs::read(&preview_path)?;
+            log::info!(
+                "model insight texture preview ready: texture={} entry={} raw_cached={} preview_cached={} bytes={} resolve_elapsed={} ms read_elapsed={} ms total_elapsed={} ms",
+                texture_path,
+                resolved.entry_path,
+                raw_cached,
+                preview_cached,
+                preview_data.len(),
+                resolve_elapsed_ms,
+                read_started_at.elapsed().as_millis(),
+                started_at.elapsed().as_millis()
+            );
 
             previews.push(ModelInsightTexturePreview {
                 texture_path,
                 entry_path: resolved.entry_path,
-                preview_data: std::fs::read(&preview_path)?,
+                preview_data,
                 preview_path,
             });
         }
@@ -231,6 +274,71 @@ struct ResolvedPakEntry {
     version: u64,
 }
 
+struct TextureResolveContext {
+    tex_candidates_by_base: HashMap<String, Vec<ResolvedPakEntry>>,
+    loaded_hashes_by_pak: Vec<(PakId, HashSet<u64>)>,
+}
+
+impl TextureResolveContext {
+    fn new(pak_service: &PakService) -> Result<Self> {
+        let pak_group = pak_service.pak_group();
+        let pak_group = pak_group.lock();
+        let Some(file_name_table) = pak_group.file_name_table() else {
+            return Err(Error::MissingFileList);
+        };
+
+        let mut tex_candidates_by_base = HashMap::<String, Vec<ResolvedPakEntry>>::new();
+        for (hash, path) in file_name_table.file_names() {
+            let Some(path) = path.to_string().ok().map(|path| path.replace('\\', "/")) else {
+                continue;
+            };
+            let normalized = normalize_entry_path(&path);
+            let lowered = normalized.to_ascii_lowercase();
+
+            if let Some((base, _)) = lowered.split_once(".tex.") {
+                tex_candidates_by_base
+                    .entry(base.to_string())
+                    .or_default()
+                    .push(ResolvedPakEntry {
+                        hash: *hash,
+                        version: version_suffix(&normalized),
+                        entry_path: normalized,
+                        belongs_to: None,
+                    });
+            }
+        }
+
+        let loaded_hashes_by_pak = pak_group
+            .paks()
+            .iter()
+            .map(|pak| {
+                (
+                    pak.id,
+                    pak.pakfile
+                        .metadata()
+                        .entries()
+                        .iter()
+                        .map(|entry| entry.hash())
+                        .collect::<HashSet<_>>(),
+                )
+            })
+            .collect();
+
+        Ok(Self {
+            tex_candidates_by_base,
+            loaded_hashes_by_pak,
+        })
+    }
+
+    fn candidates_for(&self, path_without_version: &str) -> Vec<ResolvedPakEntry> {
+        let candidate = normalize_entry_path(path_without_version).to_ascii_lowercase();
+        self.tex_candidates_by_base
+            .get(&candidate)
+            .cloned()
+            .unwrap_or_default()
+    }
+}
+
 fn find_adjacent_mdf_entry(
     pak_service: &PakService,
     mesh_entry_path: &str,
@@ -260,18 +368,18 @@ fn find_adjacent_mdf_entry(
 }
 
 fn resolve_texture_entry(
-    pak_service: &PakService,
+    context: &TextureResolveContext,
     base_entry_path: &str,
     texture_path: &str,
-    preferred_pak: Option<PakId>,
+    preferred_pak: &Option<PakId>,
     texture_resolution: ModelTextureResolution,
 ) -> Result<ResolvedPakEntry> {
     let candidates = texture_entry_candidates(base_entry_path, texture_path, texture_resolution);
     for candidate in candidates {
-        let matches = collect_named_candidates(pak_service, |path| {
-            is_versioned_tex_entry_for(path, &candidate)
-        })?;
-        if let Some(resolved) = select_loaded_candidate(pak_service, matches, preferred_pak) {
+        let matches = context.candidates_for(&candidate);
+        if let Some(resolved) =
+            select_loaded_candidate_from_hashes(context, matches, *preferred_pak)
+        {
             return Ok(resolved);
         }
     }
@@ -373,12 +481,6 @@ fn streaming_texture_candidate(path: &str) -> Option<String> {
     Some(components.join("/"))
 }
 
-fn is_versioned_tex_entry_for(entry_path: &str, path_without_version: &str) -> bool {
-    let entry = normalize_entry_path(entry_path).to_ascii_lowercase();
-    let candidate = normalize_entry_path(path_without_version).to_ascii_lowercase();
-    entry == candidate || entry.starts_with(&format!("{candidate}.tex."))
-}
-
 fn join_entry_path(parent: &str, child: &str) -> String {
     if parent.is_empty() {
         return child.trim_start_matches('/').to_string();
@@ -439,6 +541,44 @@ fn select_loaded_candidate(
         .iter()
         .rev()
         .find_map(|pak| newest_candidate_in_pak(&candidates, pak, pak.id))
+}
+
+fn select_loaded_candidate_from_hashes(
+    context: &TextureResolveContext,
+    candidates: Vec<ResolvedPakEntry>,
+    preferred_pak: Option<PakId>,
+) -> Option<ResolvedPakEntry> {
+    if let Some(pak_id) = preferred_pak
+        && let Some((_, hashes)) = context
+            .loaded_hashes_by_pak
+            .iter()
+            .find(|(candidate_pak_id, _)| *candidate_pak_id == pak_id)
+        && let Some(candidate) = newest_candidate_in_hash_set(&candidates, hashes, pak_id)
+    {
+        return Some(candidate);
+    }
+
+    context
+        .loaded_hashes_by_pak
+        .iter()
+        .rev()
+        .find_map(|(pak_id, hashes)| newest_candidate_in_hash_set(&candidates, hashes, *pak_id))
+}
+
+fn newest_candidate_in_hash_set(
+    candidates: &[ResolvedPakEntry],
+    hashes: &HashSet<u64>,
+    pak_id: PakId,
+) -> Option<ResolvedPakEntry> {
+    candidates
+        .iter()
+        .filter(|candidate| hashes.contains(&candidate.hash))
+        .max_by_key(|candidate| candidate.version)
+        .map(|candidate| {
+            let mut candidate = candidate.clone();
+            candidate.belongs_to = Some(pak_id);
+            candidate
+        })
 }
 
 fn newest_candidate_in_pak(
@@ -580,13 +720,5 @@ mod tests {
             Some("natives/STM/streaming/Art/foo_ALBD".to_string())
         );
         assert_eq!(streaming_texture_candidate("Art/foo_ALBD"), None);
-    }
-
-    #[test]
-    fn matches_versioned_tex_entries_case_insensitively() {
-        assert!(is_versioned_tex_entry_for(
-            "natives/STM/Art/foo_ALBD.tex.241106027",
-            "natives/stm/art/foo_albd"
-        ));
     }
 }

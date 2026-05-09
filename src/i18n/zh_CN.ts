@@ -66,6 +66,7 @@ export default {
       modelPreviewObjects: '对象',
       modelPreviewShowAllMeshes: '全部显示',
       modelPreviewHideAllMeshes: '全部隐藏',
+      modelPreviewToggleMeshGroupVisibility: '切换 {group} 分组显示',
       modelPreviewUnnamedSubmesh: 'Submesh {index}',
       modelPreviewUngroupedMeshes: '未分组',
       modelPreviewWebglUnavailable: '当前 WebView 不支持 WebGL。',

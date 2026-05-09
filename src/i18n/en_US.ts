@@ -66,6 +66,7 @@ export default {
       modelPreviewObjects: 'Objects',
       modelPreviewShowAllMeshes: 'Show All',
       modelPreviewHideAllMeshes: 'Hide All',
+      modelPreviewToggleMeshGroupVisibility: 'Toggle visibility for {group}',
       modelPreviewUnnamedSubmesh: 'Submesh {index}',
       modelPreviewUngroupedMeshes: 'Ungrouped',
       modelPreviewWebglUnavailable: 'This WebView does not support WebGL.',
