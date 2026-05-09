@@ -199,6 +199,7 @@ pub struct ModelInsightService {
 }
 
 const DEFAULT_RENDER_PREVIEW_SIZE: u32 = 256;
+const MODEL_PREVIEW_CACHE_VERSION: &str = "v2";
 
 impl ModelInsightService {
     pub fn initialize() -> Result<&'static Self> {
@@ -392,7 +393,7 @@ impl ModelInsightService {
             .unwrap_or_else(|| "unknown".to_string());
         let file_key = sanitize_file_name(file_name(entry_path));
         self.temp_dir.join("previews").join(format!(
-            "{hash:016X}-{pak_key}-{width}x{height}-{file_key}.png"
+            "{MODEL_PREVIEW_CACHE_VERSION}-{hash:016X}-{pak_key}-{width}x{height}-{file_key}.png"
         ))
     }
 
