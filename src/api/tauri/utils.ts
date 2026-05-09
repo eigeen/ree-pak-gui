@@ -37,6 +37,7 @@ export interface ModelInsightOpenMeshOptions {
 export interface ModelInsightRenderMeshOptions extends ModelInsightOpenMeshOptions {
   width?: number
   height?: number
+  startResidentViewer?: boolean
 }
 
 export interface ModelInsightLaunchInfo {

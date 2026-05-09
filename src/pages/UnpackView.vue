@@ -2014,7 +2014,8 @@ async function ensureModelHoverPreview(item: ExplorerEntry) {
       belongsTo: item.belongsTo,
       entryPath: item.path,
       width: 256,
-      height: 256
+      height: 256,
+      startResidentViewer: true
     })
     const previewUrl = convertFileSrc(previewFile, 'asset')
     modelPreviewCache.value = {

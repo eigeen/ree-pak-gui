@@ -7,6 +7,7 @@ use std::{
     process::Command,
     sync::{Arc, OnceLock},
     thread,
+    time::{Duration, Instant},
 };
 
 use serde::{Deserialize, Serialize};
@@ -40,6 +41,7 @@ pub struct ModelInsightRenderMeshOptions {
     pub entry_path: String,
     pub width: Option<u32>,
     pub height: Option<u32>,
+    pub start_resident_viewer: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -116,9 +118,26 @@ struct ControlLoadMeshRequest {
 }
 
 #[derive(Debug, Clone, Serialize)]
+struct ControlRenderMeshPreviewRequest {
+    jsonrpc: &'static str,
+    id: u64,
+    method: &'static str,
+    params: ControlRenderMeshPreviewParams,
+}
+
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ControlLoadMeshParams {
     manifest_path: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ControlRenderMeshPreviewParams {
+    manifest_path: String,
+    output_path: String,
+    width: u32,
+    height: u32,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -176,6 +195,7 @@ pub struct ModelInsightService {
     sessions: Arc<parking_lot::Mutex<HashMap<String, ModelInsightSession>>>,
     viewer: Arc<parking_lot::Mutex<Option<ModelInsightInstance>>>,
     broker: parking_lot::Mutex<Option<BrokerRuntime>>,
+    resident_viewer_start: parking_lot::Mutex<Option<Instant>>,
 }
 
 const DEFAULT_RENDER_PREVIEW_SIZE: u32 = 256;
@@ -191,6 +211,7 @@ impl ModelInsightService {
             sessions: Arc::new(parking_lot::Mutex::new(HashMap::new())),
             viewer: Arc::new(parking_lot::Mutex::new(None)),
             broker: parking_lot::Mutex::new(None),
+            resident_viewer_start: parking_lot::Mutex::new(None),
         }))
     }
 
@@ -262,6 +283,21 @@ impl ModelInsightService {
         }
 
         let request = self.create_request(options.hash, options.belongs_to, &options.entry_path)?;
+        if self
+            .send_render_to_existing_viewer(&request.manifest_path, &output_path, width, height)
+            .is_ok()
+        {
+            return Ok(output_path.to_string_lossy().to_string());
+        }
+
+        if options.start_resident_viewer.unwrap_or(false)
+            && self
+                .render_with_resident_viewer(&request.manifest_path, &output_path, width, height)
+                .is_ok()
+        {
+            return Ok(output_path.to_string_lossy().to_string());
+        }
+
         let executable_path = external_tools::find_model_insight_cli().ok_or_else(|| {
             Error::Internal(format!(
                 "model-insight not found. Place it under: {}",
@@ -415,6 +451,112 @@ impl ModelInsightService {
         Err(Error::Internal(
             "model-insight load response missing ok result".to_string(),
         ))
+    }
+
+    fn send_render_to_existing_viewer(
+        &self,
+        manifest_path: &PathBuf,
+        output_path: &PathBuf,
+        width: u32,
+        height: u32,
+    ) -> Result<()> {
+        let Some(instance) = self.viewer.lock().clone() else {
+            return Err(Error::Internal(
+                "model-insight viewer is not registered".to_string(),
+            ));
+        };
+
+        let request = ControlRenderMeshPreviewRequest {
+            jsonrpc: "2.0",
+            id: 1,
+            method: "renderMeshPreview",
+            params: ControlRenderMeshPreviewParams {
+                manifest_path: manifest_path.to_string_lossy().to_string(),
+                output_path: output_path.to_string_lossy().to_string(),
+                width,
+                height,
+            },
+        };
+        let mut stream = TcpStream::connect(&instance.control_addr).map_err(|error| {
+            *self.viewer.lock() = None;
+            Error::Internal(format!("registered model-insight is offline: {error}"))
+        })?;
+        write_json_packet(&mut stream, &request)?;
+        let response: ControlLoadMeshResponse = read_json_packet(&mut stream).map_err(|error| {
+            *self.viewer.lock() = None;
+            error
+        })?;
+        if let Some(error) = response.error {
+            return Err(Error::Internal(format!(
+                "model-insight render failed: {} {}",
+                error.code, error.message
+            )));
+        }
+        if response.result.is_some_and(|result| result.ok) {
+            return Ok(());
+        }
+        Err(Error::Internal(
+            "model-insight render response missing ok result".to_string(),
+        ))
+    }
+
+    fn render_with_resident_viewer(
+        &self,
+        manifest_path: &PathBuf,
+        output_path: &PathBuf,
+        width: u32,
+        height: u32,
+    ) -> Result<()> {
+        self.launch_resident_viewer(manifest_path)?;
+
+        let deadline = Instant::now() + Duration::from_millis(1800);
+        let mut last_error = None;
+        while Instant::now() < deadline {
+            match self.send_render_to_existing_viewer(manifest_path, output_path, width, height) {
+                Ok(()) => return Ok(()),
+                Err(error) => {
+                    last_error = Some(error);
+                    thread::sleep(Duration::from_millis(50));
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| {
+            Error::Internal("resident model-insight viewer did not become ready".to_string())
+        }))
+    }
+
+    fn launch_resident_viewer(&self, manifest_path: &PathBuf) -> Result<String> {
+        let now = Instant::now();
+        {
+            let mut started_at = self.resident_viewer_start.lock();
+            if started_at.is_some_and(|started_at| {
+                now.saturating_duration_since(started_at) < Duration::from_secs(5)
+            }) {
+                return Ok(self.viewer_executable_hint().unwrap_or_default());
+            }
+            *started_at = Some(now);
+        }
+
+        let executable_path = external_tools::find_model_insight_cli().ok_or_else(|| {
+            Error::Internal(format!(
+                "model-insight not found. Place it under: {}",
+                external_tools::model_insight_status().expected_path
+            ))
+        })?;
+
+        if let Err(error) = Command::new(&executable_path)
+            .args(["view", "--resident", "--request"])
+            .arg(manifest_path)
+            .spawn()
+        {
+            *self.resident_viewer_start.lock() = None;
+            return Err(Error::Internal(format!(
+                "failed to start model-insight: {error}"
+            )));
+        }
+
+        Ok(executable_path.to_string_lossy().to_string())
     }
 
     fn viewer_executable_hint(&self) -> Option<String> {
