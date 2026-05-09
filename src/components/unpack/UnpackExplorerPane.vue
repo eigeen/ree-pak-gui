@@ -39,6 +39,9 @@ const emit = defineEmits<{
   (e: 'item-check', item: ExplorerEntry, checked: boolean): void
   (e: 'item-open', item: ExplorerEntry, event: MouseEvent): void
   (e: 'item-contextmenu', item: ExplorerEntry, event: MouseEvent): void
+  (e: 'item-hover-start', item: ExplorerEntry, event: PointerEvent): void
+  (e: 'item-hover-move', item: ExplorerEntry, event: PointerEvent): void
+  (e: 'item-hover-end', item: ExplorerEntry, event: PointerEvent): void
   (e: 'background-click', event: MouseEvent): void
   (e: 'background-contextmenu', event: MouseEvent): void
   (e: 'visible-items-change', items: ExplorerEntry[]): void
@@ -64,6 +67,18 @@ function handleItemCheck(item: ExplorerEntry, checked: boolean) {
 
 function handleItemOpen(item: ExplorerEntry, event: MouseEvent) {
   emit('item-open', item, event)
+}
+
+function handleItemHoverStart(item: ExplorerEntry, event: PointerEvent) {
+  emit('item-hover-start', item, event)
+}
+
+function handleItemHoverMove(item: ExplorerEntry, event: PointerEvent) {
+  emit('item-hover-move', item, event)
+}
+
+function handleItemHoverEnd(item: ExplorerEntry, event: PointerEvent) {
+  emit('item-hover-end', item, event)
 }
 </script>
 
@@ -156,6 +171,9 @@ function handleItemOpen(item: ExplorerEntry, event: MouseEvent) {
           @item-click="handleItemClick"
           @item-open="handleItemOpen"
           @item-contextmenu="handleItemContextMenu"
+          @item-hover-start="handleItemHoverStart"
+          @item-hover-move="handleItemHoverMove"
+          @item-hover-end="handleItemHoverEnd"
           @background-click="emit('background-click', $event)"
           @background-contextmenu="emit('background-contextmenu', $event)"
           @visible-items-change="emit('visible-items-change', $event)"
@@ -173,6 +191,9 @@ function handleItemOpen(item: ExplorerEntry, event: MouseEvent) {
           @item-check="handleItemCheck"
           @item-open="handleItemOpen"
           @item-contextmenu="handleItemContextMenu"
+          @item-hover-start="handleItemHoverStart"
+          @item-hover-move="handleItemHoverMove"
+          @item-hover-end="handleItemHoverEnd"
           @background-click="emit('background-click', $event)"
           @background-contextmenu="emit('background-contextmenu', $event)"
           @visible-items-change="emit('visible-items-change', $event)"

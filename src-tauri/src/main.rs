@@ -177,6 +177,7 @@ fn main() {
             command::vgmstream_get_status,
             command::model_insight_get_status,
             command::model_insight_open_mesh,
+            command::model_insight_render_mesh_preview,
             command::vgmstream_install_from_archive,
             command::export_texture_files,
             command::terminate_texture_export,

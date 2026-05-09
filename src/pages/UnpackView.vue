@@ -193,6 +193,9 @@
                 @item-check="handleExplorerItemCheck"
                 @item-open="handleExplorerItemOpen"
                 @item-contextmenu="handleExplorerItemContextMenu"
+                @item-hover-start="handleExplorerItemHoverStart"
+                @item-hover-move="handleExplorerItemHoverMove"
+                @item-hover-end="handleExplorerItemHoverEnd"
                 @background-click="handleExplorerBackgroundClick"
                 @background-contextmenu="handleExplorerBackgroundContextMenu"
                 @visible-items-change="handleVisibleExplorerItemsChange"
@@ -242,6 +245,29 @@
       :teleported="true"
       @close="closeImageViewer"
     />
+
+    <div
+      v-if="modelHoverPreview"
+      class="model-hover-preview fixed z-50 overflow-hidden rounded-md border border-border/70 bg-background/92 shadow-2xl backdrop-blur-md"
+      :class="{ 'is-loading': modelHoverPreview.loading }"
+      :style="modelHoverPreviewStyle"
+    >
+      <div class="model-hover-preview-stage">
+        <img
+          v-if="modelHoverPreview.url"
+          :src="modelHoverPreview.url"
+          :alt="modelHoverPreview.fileName"
+          class="model-hover-preview-image"
+          draggable="false"
+        />
+        <div v-else class="model-hover-preview-loading">
+          <Box class="size-7" />
+        </div>
+      </div>
+      <div class="model-hover-preview-name">
+        {{ modelHoverPreview.fileName }}
+      </div>
+    </div>
 
     <FileNameTable
       ref="fileNameTable"
@@ -334,6 +360,7 @@ import {
   exportTextureFiles,
   getPreviewFile,
   modelInsightOpenMesh,
+  modelInsightRenderMeshPreview,
   terminateTextureExport,
   type TextureExportFormat,
   type TextureExportProgressEvent
@@ -478,6 +505,18 @@ const selectionAnchorKey = ref('')
 const visibleExplorerEntries = ref<ExplorerEntry[]>([])
 const texturePreviewCache = ref<Record<string, string | null>>({})
 const texturePreviewPending = new Set<string>()
+const modelPreviewCache = ref<Record<string, string | null>>({})
+const modelPreviewPending = new Set<string>()
+const modelHoverPreview = ref<{
+  itemId: string
+  fileName: string
+  x: number
+  y: number
+  url: string | null
+  loading: boolean
+} | null>(null)
+let modelHoverTimer: ReturnType<typeof window.setTimeout> | null = null
+let modelHoverRequestId = 0
 const explorerLayoutMode = ref<ExplorerLayoutMode>('details')
 const explorerContextMenuKind = ref<ExplorerContextMenuKind>('background')
 const explorerContextMenuTarget = ref<ExplorerEntry | null>(null)
@@ -622,6 +661,30 @@ const explorerColumnLabels = computed<ExplorerColumnLabels>(() => ({
   size: t('unpack.columnSize'),
   details: t('unpack.columnDetails')
 }))
+const modelHoverPreviewStyle = computed<CSSProperties>(() => {
+  const preview = modelHoverPreview.value
+  if (!preview) return {}
+
+  const width = 260
+  const height = 218
+  const offset = 18
+  const margin = 12
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+  const left =
+    preview.x + width + offset > viewportWidth
+      ? Math.max(margin, preview.x - width - offset)
+      : preview.x + offset
+  const top = Math.min(
+    Math.max(margin, preview.y + offset),
+    Math.max(margin, viewportHeight - height - margin)
+  )
+
+  return {
+    left: `${left}px`,
+    top: `${top}px`
+  }
+})
 
 function buildDirectoryContextMenuEntries(
   item: ExplorerEntry,
@@ -1123,6 +1186,9 @@ watch(pakData, async () => {
   visibleExplorerEntries.value = []
   texturePreviewCache.value = {}
   texturePreviewPending.clear()
+  modelPreviewCache.value = {}
+  modelPreviewPending.clear()
+  clearModelHoverPreview()
   if (initialLoaded.value) {
     unpackState.value.paks = pakData.value.map((pak) => pak.path)
   }
@@ -1570,6 +1636,9 @@ function releasePreviewFileReferences() {
   exitPreviewMode()
   texturePreviewCache.value = {}
   texturePreviewPending.clear()
+  modelPreviewCache.value = {}
+  modelPreviewPending.clear()
+  clearModelHoverPreview()
   visibleExplorerEntries.value = []
 }
 
@@ -1764,6 +1833,7 @@ function handleExplorerBackgroundClick() {
   treeContextMenuOpen.value = false
   explorerContextMenuOpen.value = false
   clearExplorerSelection()
+  clearModelHoverPreview()
 }
 
 function handleExplorerBackgroundContextMenu(event: MouseEvent) {
@@ -1780,6 +1850,47 @@ function handleExplorerBackgroundContextMenu(event: MouseEvent) {
 
 function handleVisibleExplorerItemsChange(items: ExplorerEntry[]) {
   visibleExplorerEntries.value = items
+}
+
+function handleExplorerItemHoverStart(item: ExplorerEntry, event: PointerEvent) {
+  modelHoverRequestId += 1
+  const requestId = modelHoverRequestId
+  if (!isModelEntry(item) || !item.hash || !item.belongsTo) {
+    clearModelHoverPreview()
+    return
+  }
+
+  updateModelHoverPosition(event)
+  const cached = modelPreviewCache.value[item.id]
+  modelHoverPreview.value = {
+    itemId: item.id,
+    fileName: item.displayName ?? item.name,
+    x: event.clientX,
+    y: event.clientY,
+    url: cached ?? null,
+    loading: cached === undefined
+  }
+
+  if (cached !== undefined) return
+
+  if (modelHoverTimer) {
+    window.clearTimeout(modelHoverTimer)
+  }
+  modelHoverTimer = window.setTimeout(() => {
+    modelHoverTimer = null
+    if (modelHoverRequestId !== requestId || modelHoverPreview.value?.itemId !== item.id) return
+    void ensureModelHoverPreview(item)
+  }, 140)
+}
+
+function handleExplorerItemHoverMove(item: ExplorerEntry, event: PointerEvent) {
+  if (modelHoverPreview.value?.itemId !== item.id) return
+  updateModelHoverPosition(event)
+}
+
+function handleExplorerItemHoverEnd(item: ExplorerEntry) {
+  if (modelHoverPreview.value?.itemId !== item.id) return
+  clearModelHoverPreview()
 }
 
 async function handleExplorerItemOpen(item: ExplorerEntry) {
@@ -1860,6 +1971,95 @@ async function openModelInsightPreview(item: ExplorerEntry) {
     }
     ShowError(t('unpack.modelInsightLaunchFailed', { error: message }))
   }
+}
+
+function updateModelHoverPosition(event: PointerEvent) {
+  if (!modelHoverPreview.value) return
+  modelHoverPreview.value = {
+    ...modelHoverPreview.value,
+    x: event.clientX,
+    y: event.clientY
+  }
+}
+
+function clearModelHoverPreview() {
+  modelHoverRequestId += 1
+  if (modelHoverTimer) {
+    window.clearTimeout(modelHoverTimer)
+    modelHoverTimer = null
+  }
+  modelHoverPreview.value = null
+}
+
+async function ensureModelHoverPreview(item: ExplorerEntry) {
+  if (!item.hash || !item.belongsTo || !isModelEntry(item)) return null
+
+  const cached = modelPreviewCache.value[item.id]
+  if (cached !== undefined) {
+    applyModelHoverPreview(item, cached)
+    return cached
+  }
+
+  if (modelPreviewPending.has(item.id)) {
+    const url = await waitForModelPreview(item.id)
+    applyModelHoverPreview(item, url)
+    return url
+  }
+
+  modelPreviewPending.add(item.id)
+
+  try {
+    const previewFile = await modelInsightRenderMeshPreview({
+      hash: item.hash,
+      belongsTo: item.belongsTo,
+      entryPath: item.path,
+      width: 256,
+      height: 256
+    })
+    const previewUrl = convertFileSrc(previewFile, 'asset')
+    modelPreviewCache.value = {
+      ...modelPreviewCache.value,
+      [item.id]: previewUrl
+    }
+    applyModelHoverPreview(item, previewUrl)
+    return previewUrl
+  } catch (error) {
+    logFrontendWarn(
+      'unpack.modelPreview',
+      `model preview render failed path=${item.path} error=${error instanceof Error ? error.message : String(error)}`
+    )
+    modelPreviewCache.value = {
+      ...modelPreviewCache.value,
+      [item.id]: null
+    }
+    applyModelHoverPreview(item, null)
+    return null
+  } finally {
+    modelPreviewPending.delete(item.id)
+  }
+}
+
+function applyModelHoverPreview(item: ExplorerEntry, url: string | null) {
+  if (modelHoverPreview.value?.itemId !== item.id) return
+  modelHoverPreview.value = {
+    ...modelHoverPreview.value,
+    url,
+    loading: false
+  }
+}
+
+function waitForModelPreview(itemId: string) {
+  return new Promise<string | null>((resolve) => {
+    const stop = watch(
+      modelPreviewCache,
+      (cache) => {
+        if (!(itemId in cache)) return
+        stop()
+        resolve(cache[itemId] ?? null)
+      },
+      { flush: 'sync' }
+    )
+  })
 }
 
 function getDefaultExplorerLayout(directory: ExplorerEntry | null): ExplorerLayoutMode {
@@ -2463,3 +2663,58 @@ onUnmounted(async () => {
   await stopListenToDrop()
 })
 </script>
+
+<style scoped>
+.model-hover-preview {
+  pointer-events: none;
+  width: 260px;
+}
+
+.model-hover-preview-stage {
+  display: grid;
+  height: 180px;
+  place-items: center;
+  background: var(--color-background);
+}
+
+.model-hover-preview-image {
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.model-hover-preview-loading {
+  display: grid;
+  height: 100%;
+  width: 100%;
+  place-items: center;
+  color: color-mix(in srgb, var(--color-foreground) 54%, transparent);
+}
+
+.model-hover-preview.is-loading .model-hover-preview-loading :deep(svg) {
+  animation: model-hover-preview-pulse 1.2s ease-in-out infinite;
+}
+
+.model-hover-preview-name {
+  overflow: hidden;
+  padding: 8px 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+@keyframes model-hover-preview-pulse {
+  0%,
+  100% {
+    opacity: 0.36;
+    transform: scale(0.96);
+  }
+
+  50% {
+    opacity: 0.86;
+    transform: scale(1);
+  }
+}
+</style>

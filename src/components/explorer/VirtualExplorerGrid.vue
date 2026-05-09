@@ -28,6 +28,9 @@ const emit = defineEmits<{
   (e: 'item-click', item: TItem, event: MouseEvent): void
   (e: 'item-open', item: TItem, event: MouseEvent): void
   (e: 'item-contextmenu', item: TItem, event: MouseEvent): void
+  (e: 'item-hover-start', item: TItem, event: PointerEvent): void
+  (e: 'item-hover-move', item: TItem, event: PointerEvent): void
+  (e: 'item-hover-end', item: TItem, event: PointerEvent): void
   (e: 'background-click', event: MouseEvent): void
   (e: 'background-contextmenu', event: MouseEvent): void
   (e: 'visible-items-change', items: TItem[]): void
@@ -188,6 +191,9 @@ function handleBackgroundContextMenu(event: MouseEvent) {
             @click="emit('item-click', item, $event)"
             @dblclick="emit('item-open', item, $event)"
             @contextmenu.prevent="emit('item-contextmenu', item, $event)"
+            @pointerenter="emit('item-hover-start', item, $event)"
+            @pointermove="emit('item-hover-move', item, $event)"
+            @pointerleave="emit('item-hover-end', item, $event)"
           >
             <slot name="item" :item="item" />
           </button>

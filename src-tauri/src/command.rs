@@ -18,7 +18,10 @@ use crate::{
     },
     service::{
         audio::{AudioContainerInfo, AudioExtractBatchOptions, AudioService, AudioSourceRef},
-        model_insight::{ModelInsightLaunchInfo, ModelInsightOpenMeshOptions, ModelInsightService},
+        model_insight::{
+            ModelInsightLaunchInfo, ModelInsightOpenMeshOptions, ModelInsightRenderMeshOptions,
+            ModelInsightService,
+        },
         pak::{PackConflictInfo, PakHeaderInfo, PakService},
         preview::{PreviewService, TextureExportFormat},
     },
@@ -346,6 +349,22 @@ pub fn model_insight_open_mesh(
                 .map_err(|error| error.to_string())
         },
     )
+}
+
+#[tauri::command]
+pub async fn model_insight_render_mesh_preview(
+    options: ModelInsightRenderMeshOptions,
+) -> Result<String, String> {
+    let detail = Some(format!("entry_path={}", options.entry_path));
+    tokio::task::spawn_blocking(move || {
+        log_sync_command("model_insight_render_mesh_preview", detail, || {
+            ModelInsightService::get()
+                .render_mesh_preview(options)
+                .map_err(|error| error.to_string())
+        })
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]

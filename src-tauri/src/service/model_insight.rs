@@ -32,6 +32,16 @@ pub struct ModelInsightOpenMeshOptions {
     pub entry_path: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelInsightRenderMeshOptions {
+    pub hash: JsSafeHash,
+    pub belongs_to: Option<PakId>,
+    pub entry_path: String,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelInsightLaunchInfo {
@@ -168,6 +178,8 @@ pub struct ModelInsightService {
     broker: parking_lot::Mutex<Option<BrokerRuntime>>,
 }
 
+const DEFAULT_RENDER_PREVIEW_SIZE: u32 = 256;
+
 impl ModelInsightService {
     pub fn initialize() -> Result<&'static Self> {
         let temp_dir = get_local_dir().join(TEMP_DIR_NAME).join("model-insight");
@@ -190,39 +202,16 @@ impl ModelInsightService {
         &self,
         options: ModelInsightOpenMeshOptions,
     ) -> Result<ModelInsightLaunchInfo> {
-        let port = self.ensure_broker()?;
-        let session_id = Uuid::new_v4().to_string();
-        let token = Uuid::new_v4().to_string();
-        let session_dir = self.temp_dir.join(&session_id);
-        std::fs::create_dir_all(&session_dir)?;
+        let request = self.create_request(options.hash, options.belongs_to, &options.entry_path)?;
 
-        let session = ModelInsightSession {
-            token: token.clone(),
-            temp_dir: session_dir.clone(),
-            mesh_hash: options.hash.hash_u64(),
-            mesh_belongs_to: options.belongs_to,
-            mesh_entry_path: normalize_entry_path(&options.entry_path),
-        };
-        self.sessions.lock().insert(session_id.clone(), session);
-
-        let rpc_addr = format!("127.0.0.1:{port}");
-        let manifest = ModelInsightRequestManifest {
-            session_id: session_id.clone(),
-            rpc_addr: rpc_addr.clone(),
-            token,
-            mesh_entry_path: normalize_entry_path(&options.entry_path),
-            mesh_hash: options.hash,
-        };
-        let manifest_path = self.temp_dir.join(format!("{session_id}.json"));
-        let manifest_file = File::create(&manifest_path)?;
-        serde_json::to_writer_pretty(manifest_file, &manifest)
-            .map_err(|error| Error::Internal(error.to_string()))?;
-
-        if self.send_load_to_existing_viewer(&manifest_path).is_ok() {
+        if self
+            .send_load_to_existing_viewer(&request.manifest_path)
+            .is_ok()
+        {
             return Ok(ModelInsightLaunchInfo {
-                session_id,
-                manifest_path: manifest_path.to_string_lossy().to_string(),
-                rpc_addr,
+                session_id: request.session_id,
+                manifest_path: request.manifest_path.to_string_lossy().to_string(),
+                rpc_addr: request.rpc_addr,
                 executable_path: self.viewer_executable_hint().unwrap_or_default(),
             });
         }
@@ -236,16 +225,139 @@ impl ModelInsightService {
 
         Command::new(&executable_path)
             .args(["view", "--request"])
-            .arg(&manifest_path)
+            .arg(&request.manifest_path)
             .spawn()
             .map_err(|error| Error::Internal(format!("failed to start model-insight: {error}")))?;
 
         Ok(ModelInsightLaunchInfo {
-            session_id,
-            manifest_path: manifest_path.to_string_lossy().to_string(),
-            rpc_addr,
+            session_id: request.session_id,
+            manifest_path: request.manifest_path.to_string_lossy().to_string(),
+            rpc_addr: request.rpc_addr,
             executable_path: executable_path.to_string_lossy().to_string(),
         })
+    }
+
+    pub fn render_mesh_preview(&self, options: ModelInsightRenderMeshOptions) -> Result<String> {
+        let width = options.width.unwrap_or(DEFAULT_RENDER_PREVIEW_SIZE);
+        let height = options.height.unwrap_or(DEFAULT_RENDER_PREVIEW_SIZE);
+        if width == 0 || height == 0 {
+            return Err(Error::Internal(
+                "render width and height must be greater than 0".to_string(),
+            ));
+        }
+
+        let output_path = self.preview_output_path(
+            options.hash.hash_u64(),
+            options.belongs_to.as_ref(),
+            &options.entry_path,
+            width,
+            height,
+        );
+        if output_path.exists() {
+            return Ok(output_path.to_string_lossy().to_string());
+        }
+
+        if let Some(parent) = output_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+
+        let request = self.create_request(options.hash, options.belongs_to, &options.entry_path)?;
+        let executable_path = external_tools::find_model_insight_cli().ok_or_else(|| {
+            Error::Internal(format!(
+                "model-insight not found. Place it under: {}",
+                external_tools::model_insight_status().expected_path
+            ))
+        })?;
+        let width_arg = width.to_string();
+        let height_arg = height.to_string();
+
+        let output = Command::new(&executable_path)
+            .args([
+                "render",
+                "--width",
+                width_arg.as_str(),
+                "--height",
+                height_arg.as_str(),
+                "--request",
+            ])
+            .arg(&request.manifest_path)
+            .arg(&output_path)
+            .output()
+            .map_err(|error| Error::Internal(format!("failed to start model-insight: {error}")))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let detail = if stderr.trim().is_empty() {
+                stdout.trim()
+            } else {
+                stderr.trim()
+            };
+            return Err(Error::Internal(format!(
+                "model-insight render failed: {detail}"
+            )));
+        }
+
+        Ok(output_path.to_string_lossy().to_string())
+    }
+
+    fn create_request(
+        &self,
+        hash: JsSafeHash,
+        belongs_to: Option<PakId>,
+        entry_path: &str,
+    ) -> Result<ModelInsightRequest> {
+        let port = self.ensure_broker()?;
+        let session_id = Uuid::new_v4().to_string();
+        let token = Uuid::new_v4().to_string();
+        let session_dir = self.temp_dir.join(&session_id);
+        std::fs::create_dir_all(&session_dir)?;
+        let mesh_entry_path = normalize_entry_path(entry_path);
+
+        let session = ModelInsightSession {
+            token: token.clone(),
+            temp_dir: session_dir,
+            mesh_hash: hash.hash_u64(),
+            mesh_belongs_to: belongs_to,
+            mesh_entry_path: mesh_entry_path.clone(),
+        };
+        self.sessions.lock().insert(session_id.clone(), session);
+
+        let rpc_addr = format!("127.0.0.1:{port}");
+        let manifest = ModelInsightRequestManifest {
+            session_id: session_id.clone(),
+            rpc_addr: rpc_addr.clone(),
+            token,
+            mesh_entry_path,
+            mesh_hash: hash,
+        };
+        let manifest_path = self.temp_dir.join(format!("{session_id}.json"));
+        let manifest_file = File::create(&manifest_path)?;
+        serde_json::to_writer_pretty(manifest_file, &manifest)
+            .map_err(|error| Error::Internal(error.to_string()))?;
+
+        Ok(ModelInsightRequest {
+            session_id,
+            manifest_path,
+            rpc_addr,
+        })
+    }
+
+    fn preview_output_path(
+        &self,
+        hash: u64,
+        belongs_to: Option<&PakId>,
+        entry_path: &str,
+        width: u32,
+        height: u32,
+    ) -> PathBuf {
+        let pak_key = belongs_to
+            .map(|value| sanitize_file_name(&format!("{value:?}")))
+            .unwrap_or_else(|| "unknown".to_string());
+        let file_key = sanitize_file_name(file_name(entry_path));
+        self.temp_dir.join("previews").join(format!(
+            "{hash:016X}-{pak_key}-{width}x{height}-{file_key}.png"
+        ))
     }
 
     fn ensure_broker(&self) -> Result<u16> {
@@ -308,6 +420,12 @@ impl ModelInsightService {
     fn viewer_executable_hint(&self) -> Option<String> {
         external_tools::find_model_insight_cli().map(|path| path.to_string_lossy().to_string())
     }
+}
+
+struct ModelInsightRequest {
+    session_id: String,
+    manifest_path: PathBuf,
+    rpc_addr: String,
 }
 
 fn run_broker(listener: TcpListener, state: BrokerState) {

@@ -34,6 +34,11 @@ export interface ModelInsightOpenMeshOptions {
   entryPath: string
 }
 
+export interface ModelInsightRenderMeshOptions extends ModelInsightOpenMeshOptions {
+  width?: number
+  height?: number
+}
+
 export interface ModelInsightLaunchInfo {
   sessionId: string
   manifestPath: string
@@ -95,6 +100,12 @@ export function modelInsightOpenMesh(
   options: ModelInsightOpenMeshOptions
 ): Promise<ModelInsightLaunchInfo> {
   return invoke('model_insight_open_mesh', { options })
+}
+
+export function modelInsightRenderMeshPreview(
+  options: ModelInsightRenderMeshOptions
+): Promise<string> {
+  return invoke('model_insight_render_mesh_preview', { options })
 }
 
 export function vgmstreamInstallFromArchive(archivePath: string): Promise<VgmstreamStatus> {
