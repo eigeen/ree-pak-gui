@@ -1,0 +1,378 @@
+import type { PreviewModel, PreviewSubmesh } from './wasm'
+
+export interface ModelPreviewRenderOptions {
+  width?: number
+  height?: number
+  cameraYaw?: number
+  cameraPitch?: number
+  cameraDistanceScale?: number
+  frameY?: number
+}
+
+const DEFAULT_CAMERA_YAW = -0.65
+const DEFAULT_CAMERA_PITCH = -0.28
+const DEFAULT_CAMERA_DISTANCE_SCALE = 2.6
+
+export function renderModelPreviewToDataUrl(
+  model: PreviewModel,
+  options: ModelPreviewRenderOptions = {}
+) {
+  const width = Math.max(1, Math.floor(options.width ?? 256))
+  const height = Math.max(1, Math.floor(options.height ?? 256))
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+
+  const gl = canvas.getContext('webgl', {
+    antialias: true,
+    alpha: true,
+    preserveDrawingBuffer: true
+  })
+  if (!gl) {
+    throw new Error('This WebView does not support WebGL.')
+  }
+
+  const state = createRenderState(gl)
+  try {
+    state.meshes = model.meshes
+      .filter((mesh) => mesh.positions.length > 0 && mesh.indices.length > 0)
+      .map((mesh) => createRenderableMesh(gl, model, mesh))
+    renderModelPreview(state, model, options)
+    return canvas.toDataURL('image/png')
+  } finally {
+    disposeRenderState(state)
+  }
+}
+
+function renderModelPreview(
+  state: RenderState,
+  model: PreviewModel,
+  options: ModelPreviewRenderOptions
+) {
+  const gl = state.gl
+  const canvas = gl.canvas as HTMLCanvasElement
+  const camera = createCamera(model, options)
+
+  gl.viewport(0, 0, canvas.width, canvas.height)
+  gl.clearColor(0.02, 0.023, 0.028, 0)
+  gl.clearDepth(1)
+  gl.enable(gl.DEPTH_TEST)
+  gl.enable(gl.CULL_FACE)
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+
+  const aspect = canvas.width / Math.max(canvas.height, 1)
+  const projection = perspective(Math.PI / 4, aspect, 0.01, Math.max(camera.distance * 20, 100))
+  const vectors = cameraVectors(camera)
+  const eye = add3(camera.target, scale3(vectors.forward, -camera.distance))
+  const view = lookAt(eye, camera.target, [0, 1, 0])
+
+  gl.useProgram(state.program)
+  gl.uniformMatrix4fv(state.uniforms.projection, false, projection)
+  gl.uniformMatrix4fv(state.uniforms.view, false, view)
+  gl.uniform3f(state.uniforms.lightDir, 0.45, 0.75, 0.35)
+
+  for (const mesh of state.meshes) {
+    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.positions)
+    gl.enableVertexAttribArray(state.attributes.position)
+    gl.vertexAttribPointer(state.attributes.position, 3, gl.FLOAT, false, 0, 0)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.normals)
+    gl.enableVertexAttribArray(state.attributes.normal)
+    gl.vertexAttribPointer(state.attributes.normal, 3, gl.FLOAT, false, 0, 0)
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indices)
+    gl.uniform3fv(state.uniforms.color, mesh.color)
+    gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0)
+  }
+}
+
+function createCamera(model: PreviewModel, options: ModelPreviewRenderOptions): ModelPreviewCamera {
+  const radius = Number.isFinite(model.bounds.sphereRadius)
+    ? Math.max(model.bounds.sphereRadius, 0.5)
+    : 0.5
+  const camera: ModelPreviewCamera = {
+    target: [...model.bounds.sphereCenter] as Vec3,
+    yaw: options.cameraYaw ?? DEFAULT_CAMERA_YAW,
+    pitch: options.cameraPitch ?? DEFAULT_CAMERA_PITCH,
+    distance: radius * (options.cameraDistanceScale ?? DEFAULT_CAMERA_DISTANCE_SCALE)
+  }
+  const frameY = options.frameY ?? 0
+  if (frameY !== 0) {
+    camera.target = sub3(camera.target, scale3(cameraVectors(camera).up, radius * frameY))
+  }
+  return camera
+}
+
+function createRenderState(gl: WebGLRenderingContext): RenderState {
+  const extension = gl.getExtension('OES_element_index_uint')
+  if (!extension) {
+    throw new Error('This WebView does not support 32-bit mesh indices.')
+  }
+
+  const program = createProgram(gl, VERTEX_SHADER, FRAGMENT_SHADER)
+  const attributes = {
+    position: gl.getAttribLocation(program, 'aPosition'),
+    normal: gl.getAttribLocation(program, 'aNormal')
+  }
+  const uniforms = {
+    projection: requiredUniform(gl, program, 'uProjection'),
+    view: requiredUniform(gl, program, 'uView'),
+    color: requiredUniform(gl, program, 'uColor'),
+    lightDir: requiredUniform(gl, program, 'uLightDir')
+  }
+
+  return {
+    gl,
+    program,
+    attributes,
+    uniforms,
+    meshes: []
+  }
+}
+
+function createRenderableMesh(
+  gl: WebGLRenderingContext,
+  model: PreviewModel,
+  mesh: PreviewSubmesh
+): RenderableMesh {
+  const positions = gl.createBuffer()
+  const normals = gl.createBuffer()
+  const indices = gl.createBuffer()
+  if (!positions || !normals || !indices) {
+    throw new Error('Failed to create model render buffers.')
+  }
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, positions)
+  gl.bufferData(gl.ARRAY_BUFFER, flatten3(mesh.positions), gl.STATIC_DRAW)
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, normals)
+  gl.bufferData(gl.ARRAY_BUFFER, flatten3(validNormals(mesh)), gl.STATIC_DRAW)
+
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indices)
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(mesh.indices), gl.STATIC_DRAW)
+
+  const material = model.materials[mesh.materialIndex]
+  return {
+    positions,
+    normals,
+    indices,
+    indexCount: mesh.indices.length,
+    color: materialColor(material?.name ?? mesh.name)
+  }
+}
+
+function disposeRenderState(state: RenderState) {
+  for (const mesh of state.meshes) {
+    state.gl.deleteBuffer(mesh.positions)
+    state.gl.deleteBuffer(mesh.normals)
+    state.gl.deleteBuffer(mesh.indices)
+  }
+  state.gl.deleteProgram(state.program)
+}
+
+function validNormals(mesh: PreviewSubmesh) {
+  if (mesh.normals.length === mesh.positions.length) return mesh.normals
+  return mesh.positions.map(() => [0, 1, 0] as [number, number, number])
+}
+
+function flatten3(values: Array<[number, number, number]>) {
+  const result = new Float32Array(values.length * 3)
+  values.forEach((value, index) => {
+    result[index * 3] = value[0]
+    result[index * 3 + 1] = value[1]
+    result[index * 3 + 2] = value[2]
+  })
+  return result
+}
+
+function materialColor(name: string): Float32Array {
+  let hash = 2166136261
+  for (let index = 0; index < name.length; index += 1) {
+    hash ^= name.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  const hue = (hash >>> 0) % 360
+  return new Float32Array(hslToRgb(hue / 360, 0.45, 0.62))
+}
+
+function hslToRgb(hue: number, saturation: number, lightness: number): Vec3 {
+  if (saturation === 0) return [lightness, lightness, lightness]
+  const q =
+    lightness < 0.5 ? lightness * (1 + saturation) : lightness + saturation - lightness * saturation
+  const p = 2 * lightness - q
+  return [hueToRgb(p, q, hue + 1 / 3), hueToRgb(p, q, hue), hueToRgb(p, q, hue - 1 / 3)]
+}
+
+function hueToRgb(p: number, q: number, value: number) {
+  let t = value
+  if (t < 0) t += 1
+  if (t > 1) t -= 1
+  if (t < 1 / 6) return p + (q - p) * 6 * t
+  if (t < 1 / 2) return q
+  if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6
+  return p
+}
+
+function createProgram(gl: WebGLRenderingContext, vertexSource: string, fragmentSource: string) {
+  const vertex = compileShader(gl, gl.VERTEX_SHADER, vertexSource)
+  const fragment = compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource)
+  const program = gl.createProgram()
+  if (!program) throw new Error('Failed to create model render program.')
+  gl.attachShader(program, vertex)
+  gl.attachShader(program, fragment)
+  gl.linkProgram(program)
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    const detail = gl.getProgramInfoLog(program) ?? 'unknown link error'
+    gl.deleteProgram(program)
+    throw new Error(detail)
+  }
+  gl.deleteShader(vertex)
+  gl.deleteShader(fragment)
+  return program
+}
+
+function compileShader(gl: WebGLRenderingContext, type: number, source: string) {
+  const shader = gl.createShader(type)
+  if (!shader) throw new Error('Failed to create model render shader.')
+  gl.shaderSource(shader, source)
+  gl.compileShader(shader)
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    const detail = gl.getShaderInfoLog(shader) ?? 'unknown shader error'
+    gl.deleteShader(shader)
+    throw new Error(detail)
+  }
+  return shader
+}
+
+function requiredUniform(gl: WebGLRenderingContext, program: WebGLProgram, name: string) {
+  const uniform = gl.getUniformLocation(program, name)
+  if (!uniform) throw new Error(`missing shader uniform ${name}`)
+  return uniform
+}
+
+function cameraVectors(camera: ModelPreviewCamera) {
+  const cosPitch = Math.cos(camera.pitch)
+  const forward: Vec3 = [
+    Math.sin(camera.yaw) * cosPitch,
+    Math.sin(camera.pitch),
+    Math.cos(camera.yaw) * cosPitch
+  ]
+  const right = normalize3(cross3(forward, [0, 1, 0]))
+  const up = normalize3(cross3(right, forward))
+  return { forward, right, up }
+}
+
+function perspective(fovy: number, aspect: number, near: number, far: number) {
+  const f = 1 / Math.tan(fovy / 2)
+  const out = new Float32Array(16)
+  out[0] = f / aspect
+  out[5] = f
+  out[10] = (far + near) / (near - far)
+  out[11] = -1
+  out[14] = (2 * far * near) / (near - far)
+  return out
+}
+
+function lookAt(eye: Vec3, target: Vec3, up: Vec3) {
+  const z = normalize3(sub3(eye, target))
+  const x = normalize3(cross3(up, z))
+  const y = cross3(z, x)
+  const out = new Float32Array(16)
+  out[0] = x[0]
+  out[1] = y[0]
+  out[2] = z[0]
+  out[4] = x[1]
+  out[5] = y[1]
+  out[6] = z[1]
+  out[8] = x[2]
+  out[9] = y[2]
+  out[10] = z[2]
+  out[12] = -dot3(x, eye)
+  out[13] = -dot3(y, eye)
+  out[14] = -dot3(z, eye)
+  out[15] = 1
+  return out
+}
+
+function add3(a: Vec3, b: Vec3): Vec3 {
+  return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
+}
+
+function sub3(a: Vec3, b: Vec3): Vec3 {
+  return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
+}
+
+function scale3(value: Vec3, scalar: number): Vec3 {
+  return [value[0] * scalar, value[1] * scalar, value[2] * scalar]
+}
+
+function cross3(a: Vec3, b: Vec3): Vec3 {
+  return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
+}
+
+function dot3(a: Vec3, b: Vec3) {
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+}
+
+function normalize3(value: Vec3): Vec3 {
+  const length = Math.hypot(value[0], value[1], value[2]) || 1
+  return [value[0] / length, value[1] / length, value[2] / length]
+}
+
+type Vec3 = [number, number, number]
+
+interface ModelPreviewCamera {
+  target: Vec3
+  yaw: number
+  pitch: number
+  distance: number
+}
+
+interface RenderableMesh {
+  positions: WebGLBuffer
+  normals: WebGLBuffer
+  indices: WebGLBuffer
+  indexCount: number
+  color: Float32Array
+}
+
+interface RenderState {
+  gl: WebGLRenderingContext
+  program: WebGLProgram
+  attributes: {
+    position: number
+    normal: number
+  }
+  uniforms: {
+    projection: WebGLUniformLocation
+    view: WebGLUniformLocation
+    color: WebGLUniformLocation
+    lightDir: WebGLUniformLocation
+  }
+  meshes: RenderableMesh[]
+}
+
+const VERTEX_SHADER = `
+attribute vec3 aPosition;
+attribute vec3 aNormal;
+uniform mat4 uProjection;
+uniform mat4 uView;
+varying vec3 vNormal;
+
+void main() {
+  vNormal = aNormal;
+  gl_Position = uProjection * uView * vec4(aPosition, 1.0);
+}
+`
+
+const FRAGMENT_SHADER = `
+precision mediump float;
+uniform vec3 uColor;
+uniform vec3 uLightDir;
+varying vec3 vNormal;
+
+void main() {
+  float light = max(dot(normalize(vNormal), normalize(uLightDir)), 0.0) * 0.65 + 0.35;
+  gl_FragColor = vec4(uColor * light, 1.0);
+}
+`

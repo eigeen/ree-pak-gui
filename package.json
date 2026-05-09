@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "bun run type-check && bun run build-only",
+    "build:model-insight-wasm": "node scripts/buildModelInsightWasm.js",
     "preview": "vite preview",
     "build-only": "vite build",
     "build:tauri": "bun tauri build --verbose",

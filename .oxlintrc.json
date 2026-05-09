@@ -12,5 +12,5 @@
   "env": {
     "builtin": true
   },
-  "ignorePatterns": [".agents/**"]
+  "ignorePatterns": [".agents/**", "src/wasm/**", "extensions/model-insight/pkg/**"]
 }

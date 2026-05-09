@@ -162,11 +162,15 @@
                 :file-name="previewState.entry.name"
                 :file-icon="previewFileIcon"
                 :parent-segments="previewParentSegments"
-                accent="audio"
+                :accent="previewState.kind === 'audioBank' ? 'audio' : 'model'"
                 @exit="exitPreviewMode"
               >
                 <UnpackAudioBankPreview
                   v-if="previewState.kind === 'audioBank'"
+                  :entry="previewState.entry"
+                />
+                <UnpackModelPreview
+                  v-else-if="previewState.kind === 'model'"
                   :entry="previewState.entry"
                 />
               </UnpackPreviewModePane>
@@ -359,8 +363,7 @@ import type {
 import {
   exportTextureFiles,
   getPreviewFile,
-  modelInsightOpenMesh,
-  modelInsightRenderMeshPreview,
+  modelInsightLoadMeshAssets,
   terminateTextureExport,
   type TextureExportFormat,
   type TextureExportProgressEvent
@@ -377,6 +380,7 @@ import UnpackSidebarTabs, {
 } from '@/components/unpack/UnpackSidebarTabs.vue'
 import UnpackAudioBankPreview from '@/components/unpack/UnpackAudioBankPreview.vue'
 import UnpackExplorerPane from '@/components/unpack/UnpackExplorerPane.vue'
+import UnpackModelPreview from '@/components/unpack/UnpackModelPreview.vue'
 import UnpackPreviewModePane from '@/components/unpack/UnpackPreviewModePane.vue'
 import UnpackPropertiesDialog, {
   type PropertySection
@@ -396,6 +400,8 @@ import {
   isTextureExplorerEntry,
   type ExplorerPreviewKind
 } from '@/lib/unpackExplorerPreview'
+import { renderModelPreviewToDataUrl } from '@/lib/modelInsight/previewRenderer'
+import { meshToPreviewModel } from '@/lib/modelInsight/wasm'
 import {
   useAudioBankExportProgress,
   type AudioExportFormat
@@ -1080,6 +1086,8 @@ const previewKindLabel = computed(() => {
   switch (previewState.value.kind) {
     case 'audioBank':
       return t('unpack.audioBankKind')
+    case 'model':
+      return t('unpack.modelPreviewKind')
     default:
       return ''
   }
@@ -1090,6 +1098,8 @@ const previewFileIcon = computed(() => {
   switch (previewState.value.kind) {
     case 'audioBank':
       return FileMusic
+    case 'model':
+      return Box
     default:
       return null
   }
@@ -1112,7 +1122,7 @@ const previewParentSegments = computed(() => {
 
 function enterPreviewMode(item: ExplorerEntry) {
   const kind = getExplorerPreviewKind(item)
-  if (kind !== 'audioBank') return
+  if (kind !== 'audioBank' && kind !== 'model') return
   previewState.value = { kind, entry: item }
 }
 
@@ -1907,7 +1917,7 @@ async function handleExplorerItemOpen(item: ExplorerEntry) {
 
   const previewKind = getExplorerPreviewKind(item)
   if (previewKind === 'model') {
-    await openModelInsightPreview(item)
+    enterPreviewMode(item)
     return
   }
 
@@ -1950,29 +1960,6 @@ function canPreviewExplorerItem(item: ExplorerEntry) {
   return canOpenExplorerItemPreview(item)
 }
 
-async function openModelInsightPreview(item: ExplorerEntry) {
-  if (!item.hash || !item.belongsTo) {
-    ShowWarn(t('unpack.modelInsightMissingSource'))
-    return
-  }
-
-  try {
-    await modelInsightOpenMesh({
-      hash: item.hash,
-      belongsTo: item.belongsTo,
-      entryPath: item.path
-    })
-    ShowInfo(t('unpack.modelInsightStarted', { file: item.name }))
-  } catch (error) {
-    const message = String(error)
-    if (message.includes('model-insight not found')) {
-      ShowError(t('unpack.modelInsightMissing', { error: message }))
-      return
-    }
-    ShowError(t('unpack.modelInsightLaunchFailed', { error: message }))
-  }
-}
-
 function updateModelHoverPosition(event: PointerEvent) {
   if (!modelHoverPreview.value) return
   modelHoverPreview.value = {
@@ -2009,16 +1996,22 @@ async function ensureModelHoverPreview(item: ExplorerEntry) {
   modelPreviewPending.add(item.id)
 
   try {
-    const previewFile = await modelInsightRenderMeshPreview({
+    const assets = await modelInsightLoadMeshAssets({
       hash: item.hash,
       belongsTo: item.belongsTo,
-      entryPath: item.path,
+      entryPath: item.path
+    })
+    const result = await meshToPreviewModel({
+      meshBytes: toUint8Array(assets.meshData),
+      meshFileVersion: assets.meshFileVersion,
+      mdfBytes: assets.mdfData ? toUint8Array(assets.mdfData) : null,
+      mdfFileVersion: assets.mdfFileVersion ?? null
+    })
+    const previewUrl = renderModelPreviewToDataUrl(result.preview, {
       width: 256,
       height: 256,
-      frameY: 0.16,
-      startResidentViewer: true
+      frameY: 0.16
     })
-    const previewUrl = convertFileSrc(previewFile, 'asset')
     modelPreviewCache.value = {
       ...modelPreviewCache.value,
       [item.id]: previewUrl
@@ -2039,6 +2032,10 @@ async function ensureModelHoverPreview(item: ExplorerEntry) {
   } finally {
     modelPreviewPending.delete(item.id)
   }
+}
+
+function toUint8Array(value: number[] | Uint8Array) {
+  return value instanceof Uint8Array ? value : Uint8Array.from(value)
 }
 
 function applyModelHoverPreview(item: ExplorerEntry, url: string | null) {

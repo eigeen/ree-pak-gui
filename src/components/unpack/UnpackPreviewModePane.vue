@@ -14,7 +14,7 @@ const props = withDefaults(
     fileName: string
     fileIcon?: Component | null
     parentSegments?: Segment[]
-    accent?: 'audio' | 'default'
+    accent?: 'audio' | 'model' | 'default'
   }>(),
   {
     fileIcon: null,
@@ -112,6 +112,15 @@ onUnmounted(() => {
   --preview-mode-chip-bg: #3d2f1c;
   --preview-mode-filename-fg: #ffd3a9;
   --preview-mode-separator: #666666;
+}
+
+[data-preview-accent='model'] {
+  --preview-mode-bg: #111e22;
+  --preview-mode-fg: #9ca8ac;
+  --preview-mode-accent: #65d4bf;
+  --preview-mode-chip-bg: #172b2d;
+  --preview-mode-filename-fg: #c8fff4;
+  --preview-mode-separator: #607076;
 }
 
 .preview-mode-exit {

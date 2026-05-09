@@ -1,0 +1,1 @@
+../../../extensions/model-insight/pkg/model_insight.d.ts

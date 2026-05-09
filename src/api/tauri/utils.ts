@@ -19,36 +19,19 @@ export interface VgmstreamStatus {
   executablePath?: string
 }
 
-export interface ModelInsightStatus {
-  installed: boolean
-  platform: string
-  arch: string
-  installDir: string
-  expectedPath: string
-  executablePath?: string
-}
-
-export interface ModelInsightOpenMeshOptions {
+export interface ModelInsightLoadMeshAssetsOptions {
   hash: JsSafeHash
   belongsTo?: string
   entryPath: string
 }
 
-export interface ModelInsightRenderMeshOptions extends ModelInsightOpenMeshOptions {
-  width?: number
-  height?: number
-  cameraYaw?: number
-  cameraPitch?: number
-  cameraDistanceScale?: number
-  frameY?: number
-  startResidentViewer?: boolean
-}
-
-export interface ModelInsightLaunchInfo {
-  sessionId: string
-  manifestPath: string
-  rpcAddr: string
-  executablePath: string
+export interface ModelInsightMeshAssets {
+  meshEntryPath: string
+  meshFileVersion: number
+  meshData: number[] | Uint8Array
+  mdfEntryPath?: string | null
+  mdfFileVersion?: number | null
+  mdfData?: number[] | Uint8Array | null
 }
 
 export type TextureExportFormat = 'dds' | 'png'
@@ -97,20 +80,10 @@ export function vgmstreamGetStatus(): Promise<VgmstreamStatus> {
   return invoke('vgmstream_get_status')
 }
 
-export function modelInsightGetStatus(): Promise<ModelInsightStatus> {
-  return invoke('model_insight_get_status')
-}
-
-export function modelInsightOpenMesh(
-  options: ModelInsightOpenMeshOptions
-): Promise<ModelInsightLaunchInfo> {
-  return invoke('model_insight_open_mesh', { options })
-}
-
-export function modelInsightRenderMeshPreview(
-  options: ModelInsightRenderMeshOptions
-): Promise<string> {
-  return invoke('model_insight_render_mesh_preview', { options })
+export function modelInsightLoadMeshAssets(
+  options: ModelInsightLoadMeshAssetsOptions
+): Promise<ModelInsightMeshAssets> {
+  return invoke('model_insight_load_mesh_assets', { options })
 }
 
 export function vgmstreamInstallFromArchive(archivePath: string): Promise<VgmstreamStatus> {
