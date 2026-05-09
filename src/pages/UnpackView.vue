@@ -365,6 +365,7 @@ import {
   getPreviewFile,
   modelInsightLoadMeshAssets,
   terminateTextureExport,
+  type ModelInsightMeshAssets,
   type TextureExportFormat,
   type TextureExportProgressEvent
 } from '@/api/tauri/utils'
@@ -401,7 +402,8 @@ import {
   type ExplorerPreviewKind
 } from '@/lib/unpackExplorerPreview'
 import { renderModelPreviewToDataUrl } from '@/lib/modelInsight/previewRenderer'
-import { meshToPreviewModel } from '@/lib/modelInsight/wasm'
+import { loadModelTextureImages, loadModelTextureUrls } from '@/lib/modelInsight/textures'
+import { meshToPreviewModel, type PreviewModel } from '@/lib/modelInsight/wasm'
 import {
   useAudioBankExportProgress,
   type AudioExportFormat
@@ -1123,6 +1125,7 @@ const previewParentSegments = computed(() => {
 function enterPreviewMode(item: ExplorerEntry) {
   const kind = getExplorerPreviewKind(item)
   if (kind !== 'audioBank' && kind !== 'model') return
+  clearModelHoverPreview()
   previewState.value = { kind, entry: item }
 }
 
@@ -1904,6 +1907,7 @@ function handleExplorerItemHoverEnd(item: ExplorerEntry) {
 }
 
 async function handleExplorerItemOpen(item: ExplorerEntry) {
+  clearModelHoverPreview()
   setExplorerFocus(item.id)
   if (!checkedEntryKeySet.value.has(item.id)) {
     checkedEntryKeys.value = [...checkedEntryKeys.value, item.id]
@@ -2007,11 +2011,20 @@ async function ensureModelHoverPreview(item: ExplorerEntry) {
       mdfBytes: assets.mdfData ? toUint8Array(assets.mdfData) : null,
       mdfFileVersion: assets.mdfFileVersion ?? null
     })
-    const previewUrl = renderModelPreviewToDataUrl(result.preview, {
-      width: 256,
-      height: 256,
-      frameY: 0.16
-    })
+    const textureImages = await loadHoverPreviewTextureImages(
+      assets,
+      result.preview,
+      item.belongsTo
+    )
+    const previewUrl = renderModelPreviewToDataUrl(
+      result.preview,
+      {
+        width: 256,
+        height: 256,
+        frameY: 0.16
+      },
+      textureImages
+    )
     modelPreviewCache.value = {
       ...modelPreviewCache.value,
       [item.id]: previewUrl
@@ -2036,6 +2049,19 @@ async function ensureModelHoverPreview(item: ExplorerEntry) {
 
 function toUint8Array(value: number[] | Uint8Array) {
   return value instanceof Uint8Array ? value : Uint8Array.from(value)
+}
+
+async function loadHoverPreviewTextureImages(
+  assets: ModelInsightMeshAssets,
+  model: PreviewModel,
+  belongsTo?: string
+) {
+  try {
+    const textureUrls = await loadModelTextureUrls(assets, model, belongsTo)
+    return await loadModelTextureImages(textureUrls)
+  } catch {
+    return {}
+  }
 }
 
 function applyModelHoverPreview(item: ExplorerEntry, url: string | null) {

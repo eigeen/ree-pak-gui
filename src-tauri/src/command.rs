@@ -19,7 +19,8 @@ use crate::{
     service::{
         audio::{AudioContainerInfo, AudioExtractBatchOptions, AudioService, AudioSourceRef},
         model_insight::{
-            ModelInsightLoadMeshAssetsOptions, ModelInsightMeshAssets, ModelInsightService,
+            ModelInsightLoadMeshAssetsOptions, ModelInsightLoadTexturePreviewsOptions,
+            ModelInsightMeshAssets, ModelInsightService, ModelInsightTexturePreview,
         },
         pak::{PackConflictInfo, PakHeaderInfo, PakService},
         preview::{PreviewService, TextureExportFormat},
@@ -339,6 +340,26 @@ pub async fn model_insight_load_mesh_assets(
         log_sync_command("model_insight_load_mesh_assets", detail, || {
             ModelInsightService::get()
                 .load_mesh_assets(options)
+                .map_err(|error| error.to_string())
+        })
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn model_insight_load_texture_previews(
+    options: ModelInsightLoadTexturePreviewsOptions,
+) -> Result<Vec<ModelInsightTexturePreview>, String> {
+    let detail = Some(format!(
+        "base_entry_path={}, textures={}",
+        options.base_entry_path,
+        options.texture_paths.len()
+    ));
+    tokio::task::spawn_blocking(move || {
+        log_sync_command("model_insight_load_texture_previews", detail, || {
+            ModelInsightService::get()
+                .load_texture_previews(options)
                 .map_err(|error| error.to_string())
         })
     })

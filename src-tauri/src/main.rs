@@ -176,6 +176,7 @@ fn main() {
             command::audio_terminate_extract,
             command::vgmstream_get_status,
             command::model_insight_load_mesh_assets,
+            command::model_insight_load_texture_previews,
             command::vgmstream_install_from_archive,
             command::export_texture_files,
             command::terminate_texture_export,

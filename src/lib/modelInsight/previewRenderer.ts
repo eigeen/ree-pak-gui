@@ -1,4 +1,5 @@
 import type { PreviewModel, PreviewSubmesh } from './wasm'
+import type { ModelTextureImages } from './textures'
 
 export interface ModelPreviewRenderOptions {
   width?: number
@@ -15,7 +16,8 @@ const DEFAULT_CAMERA_DISTANCE_SCALE = 2.6
 
 export function renderModelPreviewToDataUrl(
   model: PreviewModel,
-  options: ModelPreviewRenderOptions = {}
+  options: ModelPreviewRenderOptions = {},
+  textureImages: ModelTextureImages = {}
 ) {
   const width = Math.max(1, Math.floor(options.width ?? 256))
   const height = Math.max(1, Math.floor(options.height ?? 256))
@@ -36,7 +38,7 @@ export function renderModelPreviewToDataUrl(
   try {
     state.meshes = model.meshes
       .filter((mesh) => mesh.positions.length > 0 && mesh.indices.length > 0)
-      .map((mesh) => createRenderableMesh(gl, model, mesh))
+      .map((mesh) => createRenderableMesh(gl, model, mesh, textureImages))
     renderModelPreview(state, model, options)
     return canvas.toDataURL('image/png')
   } finally {
@@ -57,7 +59,7 @@ function renderModelPreview(
   gl.clearColor(0.02, 0.023, 0.028, 0)
   gl.clearDepth(1)
   gl.enable(gl.DEPTH_TEST)
-  gl.enable(gl.CULL_FACE)
+  gl.disable(gl.CULL_FACE)
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
   const aspect = canvas.width / Math.max(canvas.height, 1)
@@ -80,8 +82,18 @@ function renderModelPreview(
     gl.enableVertexAttribArray(state.attributes.normal)
     gl.vertexAttribPointer(state.attributes.normal, 3, gl.FLOAT, false, 0, 0)
 
+    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.uvs)
+    gl.enableVertexAttribArray(state.attributes.uv)
+    gl.vertexAttribPointer(state.attributes.uv, 2, gl.FLOAT, false, 0, 0)
+
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indices)
     gl.uniform3fv(state.uniforms.color, mesh.color)
+    gl.uniform1i(state.uniforms.useTexture, mesh.texture ? 1 : 0)
+    if (mesh.texture) {
+      gl.activeTexture(gl.TEXTURE0)
+      gl.bindTexture(gl.TEXTURE_2D, mesh.texture)
+      gl.uniform1i(state.uniforms.texture, 0)
+    }
     gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0)
   }
 }
@@ -112,13 +124,16 @@ function createRenderState(gl: WebGLRenderingContext): RenderState {
   const program = createProgram(gl, VERTEX_SHADER, FRAGMENT_SHADER)
   const attributes = {
     position: gl.getAttribLocation(program, 'aPosition'),
-    normal: gl.getAttribLocation(program, 'aNormal')
+    normal: gl.getAttribLocation(program, 'aNormal'),
+    uv: gl.getAttribLocation(program, 'aUv')
   }
   const uniforms = {
     projection: requiredUniform(gl, program, 'uProjection'),
     view: requiredUniform(gl, program, 'uView'),
     color: requiredUniform(gl, program, 'uColor'),
-    lightDir: requiredUniform(gl, program, 'uLightDir')
+    lightDir: requiredUniform(gl, program, 'uLightDir'),
+    texture: requiredUniform(gl, program, 'uTexture'),
+    useTexture: requiredUniform(gl, program, 'uUseTexture')
   }
 
   return {
@@ -133,12 +148,14 @@ function createRenderState(gl: WebGLRenderingContext): RenderState {
 function createRenderableMesh(
   gl: WebGLRenderingContext,
   model: PreviewModel,
-  mesh: PreviewSubmesh
+  mesh: PreviewSubmesh,
+  textureImages: ModelTextureImages
 ): RenderableMesh {
   const positions = gl.createBuffer()
   const normals = gl.createBuffer()
+  const uvs = gl.createBuffer()
   const indices = gl.createBuffer()
-  if (!positions || !normals || !indices) {
+  if (!positions || !normals || !uvs || !indices) {
     throw new Error('Failed to create model render buffers.')
   }
 
@@ -148,16 +165,24 @@ function createRenderableMesh(
   gl.bindBuffer(gl.ARRAY_BUFFER, normals)
   gl.bufferData(gl.ARRAY_BUFFER, flatten3(validNormals(mesh)), gl.STATIC_DRAW)
 
+  gl.bindBuffer(gl.ARRAY_BUFFER, uvs)
+  gl.bufferData(gl.ARRAY_BUFFER, flatten2(validUvs(mesh)), gl.STATIC_DRAW)
+
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indices)
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(mesh.indices), gl.STATIC_DRAW)
 
   const material = model.materials[mesh.materialIndex]
+  const textureImage = material?.albedoTexturePath
+    ? textureImages[material.albedoTexturePath]
+    : null
   return {
     positions,
     normals,
+    uvs,
     indices,
     indexCount: mesh.indices.length,
-    color: materialColor(material?.name ?? mesh.name)
+    color: materialColor(material?.name ?? mesh.name),
+    texture: textureImage ? createTexture(gl, textureImage) : null
   }
 }
 
@@ -165,7 +190,9 @@ function disposeRenderState(state: RenderState) {
   for (const mesh of state.meshes) {
     state.gl.deleteBuffer(mesh.positions)
     state.gl.deleteBuffer(mesh.normals)
+    state.gl.deleteBuffer(mesh.uvs)
     state.gl.deleteBuffer(mesh.indices)
+    if (mesh.texture) state.gl.deleteTexture(mesh.texture)
   }
   state.gl.deleteProgram(state.program)
 }
@@ -173,6 +200,11 @@ function disposeRenderState(state: RenderState) {
 function validNormals(mesh: PreviewSubmesh) {
   if (mesh.normals.length === mesh.positions.length) return mesh.normals
   return mesh.positions.map(() => [0, 1, 0] as [number, number, number])
+}
+
+function validUvs(mesh: PreviewSubmesh) {
+  if (mesh.uvs.length === mesh.positions.length) return mesh.uvs
+  return mesh.positions.map(() => [0, 0] as [number, number])
 }
 
 function flatten3(values: Array<[number, number, number]>) {
@@ -183,6 +215,29 @@ function flatten3(values: Array<[number, number, number]>) {
     result[index * 3 + 2] = value[2]
   })
   return result
+}
+
+function flatten2(values: Array<[number, number]>) {
+  const result = new Float32Array(values.length * 2)
+  values.forEach((value, index) => {
+    result[index * 2] = value[0]
+    result[index * 2 + 1] = value[1]
+  })
+  return result
+}
+
+function createTexture(gl: WebGLRenderingContext, image: HTMLImageElement) {
+  const texture = gl.createTexture()
+  if (!texture) return null
+  gl.bindTexture(gl.TEXTURE_2D, texture)
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+  gl.bindTexture(gl.TEXTURE_2D, null)
+  return texture
 }
 
 function materialColor(name: string): Float32Array {
@@ -331,9 +386,11 @@ interface ModelPreviewCamera {
 interface RenderableMesh {
   positions: WebGLBuffer
   normals: WebGLBuffer
+  uvs: WebGLBuffer
   indices: WebGLBuffer
   indexCount: number
   color: Float32Array
+  texture: WebGLTexture | null
 }
 
 interface RenderState {
@@ -342,12 +399,15 @@ interface RenderState {
   attributes: {
     position: number
     normal: number
+    uv: number
   }
   uniforms: {
     projection: WebGLUniformLocation
     view: WebGLUniformLocation
     color: WebGLUniformLocation
     lightDir: WebGLUniformLocation
+    texture: WebGLUniformLocation
+    useTexture: WebGLUniformLocation
   }
   meshes: RenderableMesh[]
 }
@@ -355,12 +415,15 @@ interface RenderState {
 const VERTEX_SHADER = `
 attribute vec3 aPosition;
 attribute vec3 aNormal;
+attribute vec2 aUv;
 uniform mat4 uProjection;
 uniform mat4 uView;
 varying vec3 vNormal;
+varying vec2 vUv;
 
 void main() {
   vNormal = aNormal;
+  vUv = aUv;
   gl_Position = uProjection * uView * vec4(aPosition, 1.0);
 }
 `
@@ -369,10 +432,14 @@ const FRAGMENT_SHADER = `
 precision mediump float;
 uniform vec3 uColor;
 uniform vec3 uLightDir;
+uniform sampler2D uTexture;
+uniform bool uUseTexture;
 varying vec3 vNormal;
+varying vec2 vUv;
 
 void main() {
   float light = max(dot(normalize(vNormal), normalize(uLightDir)), 0.0) * 0.65 + 0.35;
-  gl_FragColor = vec4(uColor * light, 1.0);
+  vec3 baseColor = uUseTexture ? texture2D(uTexture, vUv).rgb : uColor;
+  gl_FragColor = vec4(baseColor * light, 1.0);
 }
 `

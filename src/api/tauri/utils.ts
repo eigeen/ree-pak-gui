@@ -34,6 +34,19 @@ export interface ModelInsightMeshAssets {
   mdfData?: number[] | Uint8Array | null
 }
 
+export interface ModelInsightLoadTexturePreviewsOptions {
+  belongsTo?: string
+  baseEntryPath: string
+  texturePaths: string[]
+}
+
+export interface ModelInsightTexturePreview {
+  texturePath: string
+  entryPath: string
+  previewPath: string
+  previewData: number[] | Uint8Array
+}
+
 export type TextureExportFormat = 'dds' | 'png'
 
 export interface TextureExportOptions {
@@ -84,6 +97,12 @@ export function modelInsightLoadMeshAssets(
   options: ModelInsightLoadMeshAssetsOptions
 ): Promise<ModelInsightMeshAssets> {
   return invoke('model_insight_load_mesh_assets', { options })
+}
+
+export function modelInsightLoadTexturePreviews(
+  options: ModelInsightLoadTexturePreviewsOptions
+): Promise<ModelInsightTexturePreview[]> {
+  return invoke('model_insight_load_texture_previews', { options })
 }
 
 export function vgmstreamInstallFromArchive(archivePath: string): Promise<VgmstreamStatus> {

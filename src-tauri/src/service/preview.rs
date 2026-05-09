@@ -401,7 +401,7 @@ fn build_texture_output_path(
     output_path
 }
 
-fn tex_to_png(tex_path: impl AsRef<Path>, png_path: impl AsRef<Path>) -> Result<()> {
+pub(crate) fn tex_to_png(tex_path: impl AsRef<Path>, png_path: impl AsRef<Path>) -> Result<()> {
     let tex_path = tex_path.as_ref();
     let png_path = png_path.as_ref();
 
