@@ -1,5 +1,5 @@
 <template>
-  <div ref="rootRef" class="model-preview">
+  <div ref="rootRef" :class="modelPreviewRootClass">
     <canvas
       ref="canvasRef"
       class="model-preview-canvas"
@@ -10,6 +10,157 @@
       @pointercancel="handlePointerUp"
       @wheel.prevent="handleWheel"
     />
+
+    <div class="model-preview-left-ui" @pointerdown.stop @wheel.stop>
+      <section class="model-preview-panel model-preview-settings-panel">
+        <div class="model-preview-panel-header">
+          <button
+            type="button"
+            class="model-preview-panel-title-button"
+            :aria-expanded="settingsPanelExpanded"
+            @click="settingsPanelExpanded = !settingsPanelExpanded"
+          >
+            <ChevronRight
+              class="model-preview-chevron size-3.5"
+              :class="{ 'model-preview-chevron-expanded': settingsPanelExpanded }"
+            />
+            <span class="model-preview-panel-title">
+              {{ t('unpack.modelPreviewSettings') }}
+            </span>
+          </button>
+        </div>
+        <div v-if="settingsPanelExpanded" class="model-preview-settings-body">
+          <div class="model-preview-control-row">
+            <span>{{ t('unpack.modelPreviewBackground') }}</span>
+            <div class="model-preview-segmented" role="radiogroup">
+              <button
+                type="button"
+                class="model-preview-segment"
+                :class="{ 'model-preview-segment-active': meshPreviewBackgroundStyle === 'dark' }"
+                :aria-checked="meshPreviewBackgroundStyle === 'dark'"
+                role="radio"
+                @click="meshPreviewBackgroundStyle = 'dark'"
+              >
+                <span class="model-preview-swatch model-preview-swatch-dark" />
+                {{ t('unpack.modelPreviewBackgroundDark') }}
+              </button>
+              <button
+                type="button"
+                class="model-preview-segment"
+                :class="{ 'model-preview-segment-active': meshPreviewBackgroundStyle === 'light' }"
+                :aria-checked="meshPreviewBackgroundStyle === 'light'"
+                role="radio"
+                @click="meshPreviewBackgroundStyle = 'light'"
+              >
+                <span class="model-preview-swatch model-preview-swatch-light" />
+                {{ t('unpack.modelPreviewBackgroundLight') }}
+              </button>
+            </div>
+          </div>
+          <label class="model-preview-control-row model-preview-switch-row">
+            <span>{{ t('unpack.modelPreviewGrid') }}</span>
+            <Switch v-model="showMeshPreviewGrid" />
+          </label>
+        </div>
+      </section>
+
+      <section v-if="meshItems.length > 0" class="model-preview-panel model-preview-objects-panel">
+        <div class="model-preview-panel-header">
+          <button
+            type="button"
+            class="model-preview-panel-title-button"
+            :aria-expanded="objectsPanelExpanded"
+            @click="objectsPanelExpanded = !objectsPanelExpanded"
+          >
+            <ChevronRight
+              class="model-preview-chevron size-3.5"
+              :class="{ 'model-preview-chevron-expanded': objectsPanelExpanded }"
+            />
+            <Layers class="size-3.5" />
+            <span class="model-preview-panel-title">
+              {{ t('unpack.modelPreviewObjects') }}
+            </span>
+          </button>
+          <div class="model-preview-object-actions">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger as-child>
+                  <button
+                    type="button"
+                    class="model-preview-action-button"
+                    :aria-label="t('unpack.modelPreviewShowAllMeshes')"
+                    @click="showAllMeshes"
+                  >
+                    <Eye class="size-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>{{ t('unpack.modelPreviewShowAllMeshes') }}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger as-child>
+                  <button
+                    type="button"
+                    class="model-preview-action-button"
+                    :aria-label="t('unpack.modelPreviewHideAllMeshes')"
+                    @click="hideAllMeshes"
+                  >
+                    <EyeOff class="size-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>{{ t('unpack.modelPreviewHideAllMeshes') }}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </div>
+        <div v-if="objectsPanelExpanded" class="model-preview-object-list">
+          <div v-for="group in meshGroups" :key="group.key" class="model-preview-object-group">
+            <button
+              type="button"
+              class="model-preview-group-row"
+              :aria-expanded="!collapsedMeshGroupKeys.has(group.key)"
+              @click="toggleMeshGroup(group.key)"
+            >
+              <ChevronRight
+                class="model-preview-chevron size-3.5"
+                :class="{
+                  'model-preview-chevron-expanded': !collapsedMeshGroupKeys.has(group.key)
+                }"
+              />
+              <span class="model-preview-group-name">{{ group.name }}</span>
+            </button>
+            <div v-if="!collapsedMeshGroupKeys.has(group.key)" class="model-preview-group-children">
+              <label
+                v-for="mesh in group.meshes"
+                :key="mesh.index"
+                class="model-preview-object-row"
+                :class="{ 'model-preview-object-row-hidden': !mesh.visible }"
+              >
+                <Checkbox
+                  :model-value="mesh.visible"
+                  @update:model-value="toggleMeshVisibility(mesh.index, $event === true)"
+                />
+                <span class="model-preview-object-text">
+                  <span class="model-preview-object-name">{{ mesh.name }}</span>
+                  <span class="model-preview-object-stats">
+                    <span class="model-preview-object-stat">
+                      {{ mesh.vertices }}
+                      <Share2 class="size-3" aria-hidden="true" />
+                    </span>
+                    <span class="model-preview-object-stat-separator">/</span>
+                    <span class="model-preview-object-stat">
+                      {{ mesh.triangles }}
+                      <Triangle class="size-3" aria-hidden="true" />
+                    </span>
+                  </span>
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
 
     <div class="model-preview-toolbar">
       <button
@@ -32,30 +183,85 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, shallowRef, unref, watch, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { AlertTriangle, Box, Loader2, RotateCcw } from 'lucide-vue-next'
+import {
+  AlertTriangle,
+  Box,
+  ChevronRight,
+  Eye,
+  EyeOff,
+  Layers,
+  Loader2,
+  RotateCcw,
+  Share2,
+  Triangle
+} from 'lucide-vue-next'
 import { modelInsightLoadMeshAssets, type ModelInsightMeshAssets } from '@/api/tauri/utils'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Switch } from '@/components/ui/switch'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { ExplorerEntry } from '@/lib/unpackExplorer'
-import { meshToPreviewModel, type PreviewModel, type PreviewSubmesh } from '@/lib/modelInsight/wasm'
+import { meshToPreviewModel, type PreviewModel } from '@/lib/modelInsight/wasm'
 import {
   loadModelTextureImages,
   loadModelTextureUrls,
   type ModelTextureImages
 } from '@/lib/modelInsight/textures'
+import {
+  addVec3,
+  createDefaultModelPreviewCamera,
+  createModelPreviewRenderState,
+  disposeModelPreviewRenderState,
+  modelPreviewCameraVectors,
+  renderModelPreviewFrame,
+  scaleVec3,
+  setModelPreviewMeshVisibility,
+  setModelPreviewRenderMeshes,
+  type ModelPreviewCamera,
+  type ModelPreviewRenderState,
+  type Vec3
+} from '@/lib/modelInsight/webglRenderer'
+import {
+  useSettingsStore,
+  type AppSettings,
+  type MeshPreviewBackgroundStyle
+} from '@/store/settings'
 
 const props = defineProps<{
   entry: ExplorerEntry
 }>()
 
 const { t } = useI18n()
+const settingsStore = useSettingsStore()
+const settings = computed(() => unref(settingsStore.settings as unknown as Ref<AppSettings>))
 const rootRef = ref<HTMLDivElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
 const preview = shallowRef<PreviewModel | null>(null)
+const visibleMeshIndexes = ref<Set<number>>(new Set())
+const settingsPanelExpanded = ref(false)
+const objectsPanelExpanded = ref(true)
+const collapsedMeshGroupKeys = ref<Set<string>>(new Set())
 
-let glState: RenderState | null = null
+type MeshPreviewItem = {
+  index: number
+  groupKey: string
+  groupName: string
+  name: string
+  vertices: number
+  triangles: number
+  visible: boolean
+}
+
+type MeshPreviewGroup = {
+  key: string
+  name: string
+  meshes: MeshPreviewItem[]
+}
+
+let glState: ModelPreviewRenderState | null = null
 let resizeObserver: ResizeObserver | null = null
 let animationFrame = 0
 let pointerState: {
@@ -65,12 +271,71 @@ let pointerState: {
   button: number
 } | null = null
 
-const camera = {
+const camera: ModelPreviewCamera = {
   target: [0, 0, 0] as Vec3,
   yaw: -0.65,
-  pitch: -0.28,
+  pitch: -0.48,
   distance: 1
 }
+
+const meshPreviewBackgroundStyle = computed<MeshPreviewBackgroundStyle>({
+  get: () => settings.value?.preview?.meshPreview?.backgroundStyle ?? 'dark',
+  set: (value) => {
+    if (!settings.value?.preview?.meshPreview) return
+    settings.value.preview.meshPreview.backgroundStyle = value
+  }
+})
+
+const showMeshPreviewGrid = computed({
+  get: () => settings.value?.preview?.meshPreview?.showGrid ?? true,
+  set: (value: boolean) => {
+    if (!settings.value?.preview?.meshPreview) return
+    settings.value.preview.meshPreview.showGrid = value
+  }
+})
+
+const modelPreviewRootClass = computed(() => [
+  'model-preview',
+  `model-preview-background-${meshPreviewBackgroundStyle.value}`,
+  { 'model-preview-grid': showMeshPreviewGrid.value }
+])
+
+const meshItems = computed(() => {
+  const model = preview.value
+  if (!model) return []
+
+  return model.meshes.map((mesh, index) => {
+    const trimmedName = mesh.name.trim()
+    const name = trimmedName || t('unpack.modelPreviewUnnamedSubmesh', { index: index + 1 })
+    const group = resolveMeshGroup(name)
+    return {
+      index,
+      groupKey: group.key,
+      groupName: group.name,
+      name: group.itemName,
+      vertices: mesh.positions.length,
+      triangles: Math.floor(mesh.indices.length / 3),
+      visible: visibleMeshIndexes.value.has(index)
+    }
+  })
+})
+
+const meshGroups = computed<MeshPreviewGroup[]>(() => {
+  const groups = new Map<string, MeshPreviewGroup>()
+  for (const mesh of meshItems.value) {
+    const existing = groups.get(mesh.groupKey)
+    if (existing) {
+      existing.meshes.push(mesh)
+      continue
+    }
+    groups.set(mesh.groupKey, {
+      key: mesh.groupKey,
+      name: mesh.groupName,
+      meshes: [mesh]
+    })
+  }
+  return Array.from(groups.values())
+})
 
 const statusText = computed(() => {
   if (loading.value) return t('unpack.modelPreviewLoading')
@@ -128,6 +393,7 @@ async function loadPreview() {
     })
     const textureImages = await loadPreviewTextureImages(assets, result.preview, entry.belongsTo)
     preview.value = result.preview
+    resetVisibleMeshes(result.preview)
     buildRenderState(result.preview, textureImages)
     resetCamera()
   } catch (caught) {
@@ -166,7 +432,12 @@ function setupCanvas() {
   }
 
   try {
-    glState = createRenderState(gl)
+    glState = createModelPreviewRenderState(gl, {
+      indexUnavailable: t('unpack.modelPreviewIndexUnavailable'),
+      bufferFailed: t('unpack.modelPreviewBufferFailed'),
+      programFailed: t('unpack.modelPreviewProgramFailed'),
+      shaderFailed: t('unpack.modelPreviewShaderFailed')
+    })
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : String(caught)
     return
@@ -179,29 +450,98 @@ function setupCanvas() {
 
 function buildRenderState(model: PreviewModel, textureImages: ModelTextureImages = {}) {
   if (!glState) return
-  const gl = glState.gl
-  for (const mesh of glState.meshes) {
-    gl.deleteBuffer(mesh.positions)
-    gl.deleteBuffer(mesh.normals)
-    gl.deleteBuffer(mesh.uvs)
-    gl.deleteBuffer(mesh.indices)
-    if (mesh.texture) gl.deleteTexture(mesh.texture)
-  }
-  glState.meshes = model.meshes
-    .filter((mesh) => mesh.positions.length > 0 && mesh.indices.length > 0)
-    .map((mesh) => createRenderableMesh(gl, model, mesh, textureImages))
+  setModelPreviewRenderMeshes(glState, model, textureImages)
+  applyMeshVisibility()
 }
 
 function resetCamera() {
   const model = preview.value
   if (!model) return
-  const radius = Number.isFinite(model.bounds.sphereRadius)
-    ? Math.max(model.bounds.sphereRadius, 0.5)
-    : 0.5
-  camera.target = [...model.bounds.sphereCenter] as Vec3
-  camera.yaw = -0.65
-  camera.pitch = -0.28
-  camera.distance = radius * 2.6
+  const nextCamera = createDefaultModelPreviewCamera(model)
+  camera.target = nextCamera.target
+  camera.yaw = nextCamera.yaw
+  camera.pitch = nextCamera.pitch
+  camera.distance = nextCamera.distance
+}
+
+function resetVisibleMeshes(model: PreviewModel) {
+  visibleMeshIndexes.value = new Set(model.meshes.map((_, index) => index))
+  collapsedMeshGroupKeys.value = new Set()
+}
+
+function applyMeshVisibility() {
+  if (!glState) return
+  setModelPreviewMeshVisibility(glState, visibleMeshIndexes.value)
+}
+
+function toggleMeshVisibility(index: number, visible: boolean) {
+  const nextVisibleIndexes = new Set(visibleMeshIndexes.value)
+  if (visible) {
+    nextVisibleIndexes.add(index)
+  } else {
+    nextVisibleIndexes.delete(index)
+  }
+  visibleMeshIndexes.value = nextVisibleIndexes
+  applyMeshVisibility()
+}
+
+function showAllMeshes() {
+  const model = preview.value
+  if (!model) return
+  resetVisibleMeshes(model)
+  applyMeshVisibility()
+}
+
+function hideAllMeshes() {
+  visibleMeshIndexes.value = new Set()
+  applyMeshVisibility()
+}
+
+function toggleMeshGroup(key: string) {
+  const nextCollapsedKeys = new Set(collapsedMeshGroupKeys.value)
+  if (nextCollapsedKeys.has(key)) {
+    nextCollapsedKeys.delete(key)
+  } else {
+    nextCollapsedKeys.add(key)
+  }
+  collapsedMeshGroupKeys.value = nextCollapsedKeys
+}
+
+function resolveMeshGroup(name: string) {
+  const submeshMatch = name.match(/^(.+?)[_. -]+(sub(?:mesh)?\d+(?:[_. -].*)?)$/i)
+  if (submeshMatch?.[1] && submeshMatch[2]) {
+    const groupName = trimMeshGroupName(submeshMatch[1])
+    return {
+      key: `name:${groupName}`,
+      name: groupName,
+      itemName: trimMeshItemName(submeshMatch[2])
+    }
+  }
+
+  const doubleSeparatorIndex = name.indexOf('__')
+  if (doubleSeparatorIndex > 0) {
+    const groupName = trimMeshGroupName(name.slice(0, doubleSeparatorIndex))
+    return {
+      key: `name:${groupName}`,
+      name: groupName,
+      itemName: trimMeshItemName(name.slice(doubleSeparatorIndex + 2))
+    }
+  }
+
+  return {
+    key: 'ungrouped',
+    name: t('unpack.modelPreviewUngroupedMeshes'),
+    itemName: name
+  }
+}
+
+function trimMeshGroupName(value: string) {
+  return value.replace(/[_. -]+$/g, '') || value
+}
+
+function trimMeshItemName(value: string) {
+  const trimmed = value.replace(/^[_. -]+/g, '').trim()
+  return trimmed || value
 }
 
 function handlePointerDown(event: PointerEvent) {
@@ -244,10 +584,10 @@ function handleWheel(event: WheelEvent) {
 }
 
 function panCamera(dx: number, dy: number) {
-  const view = cameraVectors()
+  const view = modelPreviewCameraVectors(camera)
   const scale = camera.distance * 0.0015
-  camera.target = add3(camera.target, scale3(view.right, -dx * scale))
-  camera.target = add3(camera.target, scale3(view.up, dy * scale))
+  camera.target = addVec3(camera.target, scaleVec3(view.right, -dx * scale))
+  camera.target = addVec3(camera.target, scaleVec3(view.up, dy * scale))
 }
 
 function resizeCanvas() {
@@ -275,312 +615,15 @@ function renderLoop() {
 function render() {
   const state = glState
   if (!state) return
-  const gl = state.gl
-  const canvas = gl.canvas as HTMLCanvasElement
   resizeCanvas()
-
-  gl.clearColor(0.02, 0.023, 0.028, 0)
-  gl.clearDepth(1)
-  gl.enable(gl.DEPTH_TEST)
-  gl.disable(gl.CULL_FACE)
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-
-  const aspect = canvas.width / Math.max(canvas.height, 1)
-  const projection = perspective(Math.PI / 4, aspect, 0.01, Math.max(camera.distance * 20, 100))
-  const vectors = cameraVectors()
-  const eye = add3(camera.target, scale3(vectors.forward, -camera.distance))
-  const view = lookAt(eye, camera.target, [0, 1, 0])
-
-  gl.useProgram(state.program)
-  gl.uniformMatrix4fv(state.uniforms.projection, false, projection)
-  gl.uniformMatrix4fv(state.uniforms.view, false, view)
-  gl.uniform3f(state.uniforms.lightDir, 0.45, 0.75, 0.35)
-
-  for (const mesh of state.meshes) {
-    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.positions)
-    gl.enableVertexAttribArray(state.attributes.position)
-    gl.vertexAttribPointer(state.attributes.position, 3, gl.FLOAT, false, 0, 0)
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.normals)
-    gl.enableVertexAttribArray(state.attributes.normal)
-    gl.vertexAttribPointer(state.attributes.normal, 3, gl.FLOAT, false, 0, 0)
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.uvs)
-    gl.enableVertexAttribArray(state.attributes.uv)
-    gl.vertexAttribPointer(state.attributes.uv, 2, gl.FLOAT, false, 0, 0)
-
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indices)
-    gl.uniform3fv(state.uniforms.color, mesh.color)
-    gl.uniform1i(state.uniforms.useTexture, mesh.texture ? 1 : 0)
-    if (mesh.texture) {
-      gl.activeTexture(gl.TEXTURE0)
-      gl.bindTexture(gl.TEXTURE_2D, mesh.texture)
-      gl.uniform1i(state.uniforms.texture, 0)
-    }
-    gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_INT, 0)
-  }
-}
-
-function createRenderState(gl: WebGLRenderingContext): RenderState {
-  const extension = gl.getExtension('OES_element_index_uint')
-  if (!extension) {
-    throw new Error(t('unpack.modelPreviewIndexUnavailable'))
-  }
-
-  const program = createProgram(gl, VERTEX_SHADER, FRAGMENT_SHADER)
-  const attributes = {
-    position: gl.getAttribLocation(program, 'aPosition'),
-    normal: gl.getAttribLocation(program, 'aNormal'),
-    uv: gl.getAttribLocation(program, 'aUv')
-  }
-  const uniforms = {
-    projection: requiredUniform(gl, program, 'uProjection'),
-    view: requiredUniform(gl, program, 'uView'),
-    color: requiredUniform(gl, program, 'uColor'),
-    lightDir: requiredUniform(gl, program, 'uLightDir'),
-    texture: requiredUniform(gl, program, 'uTexture'),
-    useTexture: requiredUniform(gl, program, 'uUseTexture')
-  }
-
-  return {
-    gl,
-    program,
-    attributes,
-    uniforms,
-    meshes: []
-  }
-}
-
-function createRenderableMesh(
-  gl: WebGLRenderingContext,
-  model: PreviewModel,
-  mesh: PreviewSubmesh,
-  textureImages: ModelTextureImages
-): RenderableMesh {
-  const positions = gl.createBuffer()
-  const normals = gl.createBuffer()
-  const uvs = gl.createBuffer()
-  const indices = gl.createBuffer()
-  if (!positions || !normals || !uvs || !indices) {
-    throw new Error(t('unpack.modelPreviewBufferFailed'))
-  }
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, positions)
-  gl.bufferData(gl.ARRAY_BUFFER, flatten3(mesh.positions), gl.STATIC_DRAW)
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, normals)
-  gl.bufferData(gl.ARRAY_BUFFER, flatten3(validNormals(mesh)), gl.STATIC_DRAW)
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, uvs)
-  gl.bufferData(gl.ARRAY_BUFFER, flatten2(validUvs(mesh)), gl.STATIC_DRAW)
-
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indices)
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(mesh.indices), gl.STATIC_DRAW)
-
-  const material = model.materials[mesh.materialIndex]
-  const textureImage = material?.albedoTexturePath
-    ? textureImages[material.albedoTexturePath]
-    : null
-  return {
-    positions,
-    normals,
-    uvs,
-    indices,
-    indexCount: mesh.indices.length,
-    color: materialColor(material?.name ?? mesh.name),
-    texture: textureImage ? createTexture(gl, textureImage) : null
-  }
+  renderModelPreviewFrame(state, camera)
 }
 
 function disposeRenderState() {
   const state = glState
   if (!state) return
-  for (const mesh of state.meshes) {
-    state.gl.deleteBuffer(mesh.positions)
-    state.gl.deleteBuffer(mesh.normals)
-    state.gl.deleteBuffer(mesh.uvs)
-    state.gl.deleteBuffer(mesh.indices)
-    if (mesh.texture) state.gl.deleteTexture(mesh.texture)
-  }
-  state.gl.deleteProgram(state.program)
+  disposeModelPreviewRenderState(state)
   glState = null
-}
-
-function validNormals(mesh: PreviewSubmesh) {
-  if (mesh.normals.length === mesh.positions.length) return mesh.normals
-  return mesh.positions.map(() => [0, 1, 0] as [number, number, number])
-}
-
-function validUvs(mesh: PreviewSubmesh) {
-  if (mesh.uvs.length === mesh.positions.length) return mesh.uvs
-  return mesh.positions.map(() => [0, 0] as [number, number])
-}
-
-function flatten3(values: Array<[number, number, number]>) {
-  const result = new Float32Array(values.length * 3)
-  values.forEach((value, index) => {
-    result[index * 3] = value[0]
-    result[index * 3 + 1] = value[1]
-    result[index * 3 + 2] = value[2]
-  })
-  return result
-}
-
-function flatten2(values: Array<[number, number]>) {
-  const result = new Float32Array(values.length * 2)
-  values.forEach((value, index) => {
-    result[index * 2] = value[0]
-    result[index * 2 + 1] = value[1]
-  })
-  return result
-}
-
-function createTexture(gl: WebGLRenderingContext, image: HTMLImageElement) {
-  const texture = gl.createTexture()
-  if (!texture) return null
-  gl.bindTexture(gl.TEXTURE_2D, texture)
-  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-  gl.bindTexture(gl.TEXTURE_2D, null)
-  return texture
-}
-
-function materialColor(name: string): Float32Array {
-  let hash = 2166136261
-  for (let index = 0; index < name.length; index += 1) {
-    hash ^= name.charCodeAt(index)
-    hash = Math.imul(hash, 16777619)
-  }
-  const hue = (hash >>> 0) % 360
-  return new Float32Array(hslToRgb(hue / 360, 0.45, 0.62))
-}
-
-function hslToRgb(hue: number, saturation: number, lightness: number): Vec3 {
-  if (saturation === 0) return [lightness, lightness, lightness]
-  const q =
-    lightness < 0.5 ? lightness * (1 + saturation) : lightness + saturation - lightness * saturation
-  const p = 2 * lightness - q
-  return [hueToRgb(p, q, hue + 1 / 3), hueToRgb(p, q, hue), hueToRgb(p, q, hue - 1 / 3)]
-}
-
-function hueToRgb(p: number, q: number, value: number) {
-  let t = value
-  if (t < 0) t += 1
-  if (t > 1) t -= 1
-  if (t < 1 / 6) return p + (q - p) * 6 * t
-  if (t < 1 / 2) return q
-  if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6
-  return p
-}
-
-function createProgram(gl: WebGLRenderingContext, vertexSource: string, fragmentSource: string) {
-  const vertex = compileShader(gl, gl.VERTEX_SHADER, vertexSource)
-  const fragment = compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource)
-  const program = gl.createProgram()
-  if (!program) throw new Error(t('unpack.modelPreviewProgramFailed'))
-  gl.attachShader(program, vertex)
-  gl.attachShader(program, fragment)
-  gl.linkProgram(program)
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    const detail = gl.getProgramInfoLog(program) ?? 'unknown link error'
-    gl.deleteProgram(program)
-    throw new Error(detail)
-  }
-  gl.deleteShader(vertex)
-  gl.deleteShader(fragment)
-  return program
-}
-
-function compileShader(gl: WebGLRenderingContext, type: number, source: string) {
-  const shader = gl.createShader(type)
-  if (!shader) throw new Error(t('unpack.modelPreviewShaderFailed'))
-  gl.shaderSource(shader, source)
-  gl.compileShader(shader)
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    const detail = gl.getShaderInfoLog(shader) ?? 'unknown shader error'
-    gl.deleteShader(shader)
-    throw new Error(detail)
-  }
-  return shader
-}
-
-function requiredUniform(gl: WebGLRenderingContext, program: WebGLProgram, name: string) {
-  const uniform = gl.getUniformLocation(program, name)
-  if (!uniform) throw new Error(`missing shader uniform ${name}`)
-  return uniform
-}
-
-function cameraVectors() {
-  const cosPitch = Math.cos(camera.pitch)
-  const forward: Vec3 = [
-    Math.sin(camera.yaw) * cosPitch,
-    Math.sin(camera.pitch),
-    Math.cos(camera.yaw) * cosPitch
-  ]
-  const right = normalize3(cross3(forward, [0, 1, 0]))
-  const up = normalize3(cross3(right, forward))
-  return { forward, right, up }
-}
-
-function perspective(fovy: number, aspect: number, near: number, far: number) {
-  const f = 1 / Math.tan(fovy / 2)
-  const out = new Float32Array(16)
-  out[0] = f / aspect
-  out[5] = f
-  out[10] = (far + near) / (near - far)
-  out[11] = -1
-  out[14] = (2 * far * near) / (near - far)
-  return out
-}
-
-function lookAt(eye: Vec3, target: Vec3, up: Vec3) {
-  const z = normalize3(sub3(eye, target))
-  const x = normalize3(cross3(up, z))
-  const y = cross3(z, x)
-  const out = new Float32Array(16)
-  out[0] = x[0]
-  out[1] = y[0]
-  out[2] = z[0]
-  out[4] = x[1]
-  out[5] = y[1]
-  out[6] = z[1]
-  out[8] = x[2]
-  out[9] = y[2]
-  out[10] = z[2]
-  out[12] = -dot3(x, eye)
-  out[13] = -dot3(y, eye)
-  out[14] = -dot3(z, eye)
-  out[15] = 1
-  return out
-}
-
-function add3(a: Vec3, b: Vec3): Vec3 {
-  return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
-}
-
-function sub3(a: Vec3, b: Vec3): Vec3 {
-  return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
-}
-
-function scale3(value: Vec3, scalar: number): Vec3 {
-  return [value[0] * scalar, value[1] * scalar, value[2] * scalar]
-}
-
-function cross3(a: Vec3, b: Vec3): Vec3 {
-  return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
-}
-
-function dot3(a: Vec3, b: Vec3) {
-  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-}
-
-function normalize3(value: Vec3): Vec3 {
-  const length = Math.hypot(value[0], value[1], value[2]) || 1
-  return [value[0] / length, value[1] / length, value[2] / length]
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -590,69 +633,6 @@ function clamp(value: number, min: number, max: number) {
 function toUint8Array(value: number[] | Uint8Array) {
   return value instanceof Uint8Array ? value : Uint8Array.from(value)
 }
-
-type Vec3 = [number, number, number]
-
-interface RenderableMesh {
-  positions: WebGLBuffer
-  normals: WebGLBuffer
-  uvs: WebGLBuffer
-  indices: WebGLBuffer
-  indexCount: number
-  color: Float32Array
-  texture: WebGLTexture | null
-}
-
-interface RenderState {
-  gl: WebGLRenderingContext
-  program: WebGLProgram
-  attributes: {
-    position: number
-    normal: number
-    uv: number
-  }
-  uniforms: {
-    projection: WebGLUniformLocation
-    view: WebGLUniformLocation
-    color: WebGLUniformLocation
-    lightDir: WebGLUniformLocation
-    texture: WebGLUniformLocation
-    useTexture: WebGLUniformLocation
-  }
-  meshes: RenderableMesh[]
-}
-
-const VERTEX_SHADER = `
-attribute vec3 aPosition;
-attribute vec3 aNormal;
-attribute vec2 aUv;
-uniform mat4 uProjection;
-uniform mat4 uView;
-varying vec3 vNormal;
-varying vec2 vUv;
-
-void main() {
-  vNormal = aNormal;
-  vUv = aUv;
-  gl_Position = uProjection * uView * vec4(aPosition, 1.0);
-}
-`
-
-const FRAGMENT_SHADER = `
-precision mediump float;
-uniform vec3 uColor;
-uniform vec3 uLightDir;
-uniform sampler2D uTexture;
-uniform bool uUseTexture;
-varying vec3 vNormal;
-varying vec2 vUv;
-
-void main() {
-  float light = max(dot(normalize(vNormal), normalize(uLightDir)), 0.0) * 0.65 + 0.35;
-  vec3 baseColor = uUseTexture ? texture2D(uTexture, vUv).rgb : uColor;
-  gl_FragColor = vec4(baseColor * light, 1.0);
-}
-`
 </script>
 
 <style scoped>
@@ -662,10 +642,27 @@ void main() {
   height: 100%;
   min-height: 0;
   overflow: hidden;
+}
+
+.model-preview-background-dark {
+  background: #101215;
+}
+
+.model-preview-background-light {
+  background: #dce1e7;
+}
+
+.model-preview-grid {
   background:
     linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
     linear-gradient(0deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px), #101215;
   background-size: 28px 28px;
+}
+
+.model-preview-background-light.model-preview-grid {
+  background:
+    linear-gradient(90deg, rgba(49, 55, 66, 0.105) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(49, 55, 66, 0.105) 1px, transparent 1px), #dce1e7;
 }
 
 .model-preview-canvas {
@@ -678,6 +675,257 @@ void main() {
 
 .model-preview-canvas:active {
   cursor: grabbing;
+}
+
+.model-preview-left-ui {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: grid;
+  width: min(280px, calc(100% - 24px));
+  gap: 8px;
+}
+
+.model-preview-panel {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(14, 16, 20, 0.74);
+  color: rgba(236, 241, 245, 0.9);
+  font-size: 12px;
+  line-height: 1.35;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(10px);
+}
+
+.model-preview-panel-header,
+.model-preview-panel-title-button,
+.model-preview-control-row,
+.model-preview-switch-row,
+.model-preview-object-actions,
+.model-preview-action-button,
+.model-preview-group-row,
+.model-preview-object-row {
+  display: flex;
+  align-items: center;
+}
+
+.model-preview-panel-header {
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px;
+}
+
+.model-preview-panel-title-button {
+  min-width: 0;
+  gap: 6px;
+  border-radius: 6px;
+  color: rgba(246, 248, 250, 0.94);
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.model-preview-panel-title-button:hover {
+  color: #ffffff;
+}
+
+.model-preview-panel-title {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(246, 248, 250, 0.94);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-preview-chevron {
+  flex-shrink: 0;
+  transition: transform 120ms ease;
+}
+
+.model-preview-chevron-expanded {
+  transform: rotate(90deg);
+}
+
+.model-preview-settings-body {
+  display: grid;
+  gap: 8px;
+  padding: 0 9px 9px;
+}
+
+.model-preview-control-row {
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.model-preview-control-row > span {
+  min-width: max-content;
+  color: rgba(205, 213, 224, 0.76);
+}
+
+.model-preview-segmented {
+  display: inline-flex;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.model-preview-segment,
+.model-preview-action-button,
+.model-preview-group-row {
+  color: rgba(224, 230, 238, 0.78);
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+.model-preview-segment {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 7px;
+  font-size: 11px;
+}
+
+.model-preview-segment:hover,
+.model-preview-action-button:hover,
+.model-preview-group-row:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.model-preview-segment-active {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+.model-preview-swatch {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+}
+
+.model-preview-swatch-dark {
+  background: #101215;
+}
+
+.model-preview-swatch-light {
+  background: #dce1e7;
+}
+
+.model-preview-object-actions {
+  gap: 6px;
+}
+
+.model-preview-action-button {
+  width: 26px;
+  height: 26px;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+.model-preview-object-list {
+  max-height: min(320px, calc(100vh - 280px));
+  min-height: 0;
+  overflow: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  padding: 4px;
+}
+
+.model-preview-object-group {
+  display: grid;
+  gap: 2px;
+}
+
+.model-preview-group-row {
+  min-width: 0;
+  width: 100%;
+  gap: 6px;
+  border-radius: 6px;
+  padding: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.model-preview-group-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-preview-group-children {
+  display: grid;
+  gap: 2px;
+  margin-left: 12px;
+  padding-left: 8px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.model-preview-object-row {
+  min-width: 0;
+  gap: 8px;
+  border-radius: 6px;
+  padding: 6px;
+  color: rgba(236, 241, 245, 0.9);
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    opacity 120ms ease;
+}
+
+.model-preview-object-row:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.model-preview-object-row-hidden {
+  opacity: 0.55;
+}
+
+.model-preview-object-text {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.model-preview-object-name,
+.model-preview-object-stats {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-preview-object-name {
+  color: rgba(246, 248, 250, 0.94);
+  font-size: 12px;
+}
+
+.model-preview-object-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: rgba(205, 213, 224, 0.62);
+  font-size: 11px;
+}
+
+.model-preview-object-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.model-preview-object-stat-separator {
+  color: rgba(205, 213, 224, 0.42);
 }
 
 .model-preview-toolbar {

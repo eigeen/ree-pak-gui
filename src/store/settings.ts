@@ -10,6 +10,7 @@ import { getLocalDir } from '@/lib/localDir'
 const SETTINGS_FILE_NAME = 'settings.json'
 
 export type ThemeMode = 'system' | 'light' | 'dark'
+export type MeshPreviewBackgroundStyle = 'dark' | 'light'
 
 export type AppSettings = {
   version: string
@@ -17,6 +18,10 @@ export type AppSettings = {
   theme?: ThemeMode
   preview: {
     showTexturePreview: boolean
+    meshPreview: {
+      backgroundStyle: MeshPreviewBackgroundStyle
+      showGrid: boolean
+    }
   }
   unpack: {
     extractAbsolutePath: boolean
@@ -27,7 +32,11 @@ const defaultSettings: AppSettings = {
   version: '1',
   theme: 'system',
   preview: {
-    showTexturePreview: true
+    showTexturePreview: true,
+    meshPreview: {
+      backgroundStyle: 'dark',
+      showGrid: true
+    }
   },
   unpack: {
     extractAbsolutePath: false
@@ -45,7 +54,16 @@ function normalizeSettings(raw: Partial<AppSettings> | null | undefined): AppSet
     theme: theme === 'light' || theme === 'dark' || theme === 'system' ? theme : 'system',
     preview: {
       showTexturePreview:
-        raw?.preview?.showTexturePreview ?? defaultSettings.preview.showTexturePreview
+        raw?.preview?.showTexturePreview ?? defaultSettings.preview.showTexturePreview,
+      meshPreview: {
+        backgroundStyle:
+          raw?.preview?.meshPreview?.backgroundStyle === 'light' ||
+          raw?.preview?.meshPreview?.backgroundStyle === 'dark'
+            ? raw.preview.meshPreview.backgroundStyle
+            : defaultSettings.preview.meshPreview.backgroundStyle,
+        showGrid:
+          raw?.preview?.meshPreview?.showGrid ?? defaultSettings.preview.meshPreview.showGrid
+      }
     },
     unpack: {
       extractAbsolutePath:
