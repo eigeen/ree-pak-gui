@@ -9,6 +9,7 @@ use crate::{
 
 const EXTENSIONS_DIR_NAME: &str = "extensions";
 const VGMSTREAM_EXTENSION_NAME: &str = "vgmstream";
+const MODEL_INSIGHT_EXTENSION_NAME: &str = "model-insight";
 
 pub fn extension_dir(name: &str) -> PathBuf {
     get_local_dir().join(EXTENSIONS_DIR_NAME).join(name)
@@ -25,6 +26,17 @@ pub struct VgmstreamStatus {
     pub platform: String,
     pub arch: String,
     pub asset_name: Option<String>,
+    pub install_dir: String,
+    pub expected_path: String,
+    pub executable_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelInsightStatus {
+    pub installed: bool,
+    pub platform: String,
+    pub arch: String,
     pub install_dir: String,
     pub expected_path: String,
     pub executable_path: Option<String>,
@@ -66,6 +78,43 @@ pub fn vgmstream_status() -> VgmstreamStatus {
         platform: std::env::consts::OS.to_string(),
         arch: std::env::consts::ARCH.to_string(),
         asset_name: vgmstream_download_asset_name().map(str::to_string),
+        install_dir: install_dir.to_string_lossy().to_string(),
+        expected_path: expected_path.to_string_lossy().to_string(),
+        executable_path: executable_path.map(|path| path.to_string_lossy().to_string()),
+    }
+}
+
+pub fn model_insight_cli_candidates() -> Vec<PathBuf> {
+    let root = extension_dir(MODEL_INSIGHT_EXTENSION_NAME);
+    let platform_dir = root.join(platform_arch_dir_name());
+    let mut candidates = vec![platform_dir.join(model_insight_cli_exe_name())];
+
+    candidates.push(root.join(model_insight_cli_exe_name()));
+    if cfg!(target_os = "windows") {
+        candidates.push(
+            root.join("model-insight")
+                .join(model_insight_cli_exe_name()),
+        );
+    }
+
+    candidates
+}
+
+pub fn find_model_insight_cli() -> Option<PathBuf> {
+    model_insight_cli_candidates()
+        .into_iter()
+        .find(|path| path.is_file())
+}
+
+pub fn model_insight_status() -> ModelInsightStatus {
+    let install_dir = extension_dir(MODEL_INSIGHT_EXTENSION_NAME).join(platform_arch_dir_name());
+    let expected_path = install_dir.join(model_insight_cli_exe_name());
+    let executable_path = find_model_insight_cli();
+
+    ModelInsightStatus {
+        installed: executable_path.is_some(),
+        platform: std::env::consts::OS.to_string(),
+        arch: std::env::consts::ARCH.to_string(),
         install_dir: install_dir.to_string_lossy().to_string(),
         expected_path: expected_path.to_string_lossy().to_string(),
         executable_path: executable_path.map(|path| path.to_string_lossy().to_string()),
@@ -132,6 +181,14 @@ fn vgmstream_cli_exe_name() -> &'static str {
         "vgmstream-cli.exe"
     } else {
         "vgmstream-cli"
+    }
+}
+
+fn model_insight_cli_exe_name() -> &'static str {
+    if cfg!(target_os = "windows") {
+        "model-insight.exe"
+    } else {
+        "model-insight"
     }
 }
 

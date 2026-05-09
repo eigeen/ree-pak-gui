@@ -19,6 +19,28 @@ export interface VgmstreamStatus {
   executablePath?: string
 }
 
+export interface ModelInsightStatus {
+  installed: boolean
+  platform: string
+  arch: string
+  installDir: string
+  expectedPath: string
+  executablePath?: string
+}
+
+export interface ModelInsightOpenMeshOptions {
+  hash: JsSafeHash
+  belongsTo?: string
+  entryPath: string
+}
+
+export interface ModelInsightLaunchInfo {
+  sessionId: string
+  manifestPath: string
+  rpcAddr: string
+  executablePath: string
+}
+
 export type TextureExportFormat = 'dds' | 'png'
 
 export interface TextureExportOptions {
@@ -63,6 +85,16 @@ export function performUpdate(filePath: string): Promise<void> {
 
 export function vgmstreamGetStatus(): Promise<VgmstreamStatus> {
   return invoke('vgmstream_get_status')
+}
+
+export function modelInsightGetStatus(): Promise<ModelInsightStatus> {
+  return invoke('model_insight_get_status')
+}
+
+export function modelInsightOpenMesh(
+  options: ModelInsightOpenMeshOptions
+): Promise<ModelInsightLaunchInfo> {
+  return invoke('model_insight_open_mesh', { options })
 }
 
 export function vgmstreamInstallFromArchive(archivePath: string): Promise<VgmstreamStatus> {

@@ -48,6 +48,12 @@ export default {
       openParentDirectory: 'Go to parent directory',
       openDirectory: 'Open folder',
       previewItem: 'Preview',
+      previewModel: 'Preview Model',
+      modelInsightStarted: 'Model preview started: {file}',
+      modelInsightMissingSource: 'Missing source pak or file hash. Cannot start model preview.',
+      modelInsightMissing:
+        'model-insight was not found. Place the executable in the extension directory and try again. {error}',
+      modelInsightLaunchFailed: 'Failed to start model preview: {error}',
       exitPreviewMode: 'Exit Preview',
       audioPreviewMode: 'Audio Preview Mode',
       audioBankKind: 'Sound Bank',

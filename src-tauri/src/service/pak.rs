@@ -420,6 +420,35 @@ impl PakService {
         Ok(())
     }
 
+    pub fn unpack_file_by_hash(
+        &self,
+        hash: u64,
+        belongs_to: Option<PakId>,
+        output_path: impl AsRef<Path>,
+    ) -> Result<()> {
+        {
+            let pak_group = self.pak_group.lock();
+            if pak_group.paks().is_empty() {
+                return Err(Error::NoPaksLoaded);
+            }
+        }
+
+        let (pakfile, entry) = self.find_entry_by_hash(hash, belongs_to)?;
+        let mut entry_reader = pakfile.open_entry(&entry)?;
+
+        let output_path = output_path.as_ref();
+        if let Some(file_dir) = output_path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            && !file_dir.exists()
+        {
+            std::fs::create_dir_all(file_dir)?;
+        }
+        let mut file = File::create(output_path)?;
+        std::io::copy(&mut entry_reader, &mut file)?;
+        Ok(())
+    }
+
     pub(crate) fn get_entry_path_by_hash(&self, hash: u64) -> Result<String> {
         let pak_group = self.pak_group.lock();
         let Some(file_name_table) = pak_group.file_name_table() else {
@@ -454,6 +483,47 @@ impl PakService {
                     .map(|entry| (Arc::clone(&pak.pakfile), entry))
             })
             .ok_or_else(|| Error::PakEntryNotFound(entry_path.to_string()))
+    }
+
+    fn find_entry_by_hash(
+        &self,
+        hash: u64,
+        belongs_to: Option<PakId>,
+    ) -> Result<(Arc<PakFile>, CorePakEntry)> {
+        let pak_group = self.pak_group.lock();
+        if pak_group.paks().is_empty() {
+            return Err(Error::NoPaksLoaded);
+        }
+
+        if let Some(pak_id) = belongs_to {
+            let pak = pak_group
+                .get_pak(&pak_id)
+                .ok_or(Error::PakIdNotFound(pak_id))?;
+            return pak
+                .pakfile
+                .metadata()
+                .entries()
+                .iter()
+                .find(|entry| entry.hash() == hash)
+                .cloned()
+                .map(|entry| (Arc::clone(&pak.pakfile), entry))
+                .ok_or_else(|| Error::PakEntryNotFound(format!("{hash:016X}")));
+        }
+
+        pak_group
+            .paks()
+            .iter()
+            .rev()
+            .find_map(|pak| {
+                pak.pakfile
+                    .metadata()
+                    .entries()
+                    .iter()
+                    .find(|entry| entry.hash() == hash)
+                    .cloned()
+                    .map(|entry| (Arc::clone(&pak.pakfile), entry))
+            })
+            .ok_or_else(|| Error::PakEntryNotFound(format!("{hash:016X}")))
     }
 
     pub fn set_file_name_table(&self, table: FileNameTable) {

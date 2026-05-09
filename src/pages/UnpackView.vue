@@ -291,6 +291,7 @@ import {
   Copy,
   Download,
   Eye,
+  Box,
   Info,
   FoldVertical,
   Filter,
@@ -332,6 +333,7 @@ import type {
 import {
   exportTextureFiles,
   getPreviewFile,
+  modelInsightOpenMesh,
   terminateTextureExport,
   type TextureExportFormat,
   type TextureExportProgressEvent
@@ -363,6 +365,7 @@ import {
   getDefaultExplorerLayoutMode,
   getExplorerPreviewKind,
   isAudioBankExplorerEntry,
+  isModelExplorerEntry,
   isTextureExplorerEntry,
   type ExplorerPreviewKind
 } from '@/lib/unpackExplorerPreview'
@@ -826,13 +829,14 @@ const explorerContextMenuItems = computed<ContextMenuEntry[]>(() => {
   const textureFiles = collectTextureFilesFromEntries(actionEntries, 'relativePath')
   const pathTargets = getExplorerCopyPathTargets(item)
   const canPreview = canPreviewExplorerItem(item)
+  const isModelPreview = isModelEntry(item)
 
   const entries: ContextMenuEntry[] = [
     {
       type: 'action',
       key: 'explorer-primary-open',
-      label: t('unpack.previewItem'),
-      icon: Eye,
+      label: isModelPreview ? t('unpack.previewModel') : t('unpack.previewItem'),
+      icon: isModelPreview ? Box : Eye,
       disabled: !canPreview,
       action: () => {
         void handleExplorerItemOpen(item)
@@ -1791,6 +1795,11 @@ async function handleExplorerItemOpen(item: ExplorerEntry) {
   }
 
   const previewKind = getExplorerPreviewKind(item)
+  if (previewKind === 'model') {
+    await openModelInsightPreview(item)
+    return
+  }
+
   if (previewKind === 'audioBank') {
     enterPreviewMode(item)
     return
@@ -1822,8 +1831,35 @@ function isAudioBankEntry(item: ExplorerEntry) {
   return isAudioBankExplorerEntry(item)
 }
 
+function isModelEntry(item: ExplorerEntry) {
+  return isModelExplorerEntry(item)
+}
+
 function canPreviewExplorerItem(item: ExplorerEntry) {
   return canOpenExplorerItemPreview(item)
+}
+
+async function openModelInsightPreview(item: ExplorerEntry) {
+  if (!item.hash || !item.belongsTo) {
+    ShowWarn(t('unpack.modelInsightMissingSource'))
+    return
+  }
+
+  try {
+    await modelInsightOpenMesh({
+      hash: item.hash,
+      belongsTo: item.belongsTo,
+      entryPath: item.path
+    })
+    ShowInfo(t('unpack.modelInsightStarted', { file: item.name }))
+  } catch (error) {
+    const message = String(error)
+    if (message.includes('model-insight not found')) {
+      ShowError(t('unpack.modelInsightMissing', { error: message }))
+      return
+    }
+    ShowError(t('unpack.modelInsightLaunchFailed', { error: message }))
+  }
 }
 
 function getDefaultExplorerLayout(directory: ExplorerEntry | null): ExplorerLayoutMode {

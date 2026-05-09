@@ -14,7 +14,9 @@ use pak::group::PakGroup;
 use service::pak::PakService;
 use tauri::{AppHandle, Manager};
 
-use crate::service::{audio::AudioService, preview::PreviewService};
+use crate::service::{
+    audio::AudioService, model_insight::ModelInsightService, preview::PreviewService,
+};
 
 mod channel;
 mod command;
@@ -131,6 +133,7 @@ fn main() {
     let _ = PakService::initialize(PakGroup::new());
     let _ = AudioService::initialize();
     let _ = PreviewService::initialize();
+    let _ = ModelInsightService::initialize();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_process::init())
@@ -172,6 +175,8 @@ fn main() {
             command::audio_extract_wavs_with_progress,
             command::audio_terminate_extract,
             command::vgmstream_get_status,
+            command::model_insight_get_status,
+            command::model_insight_open_mesh,
             command::vgmstream_install_from_archive,
             command::export_texture_files,
             command::terminate_texture_export,
