@@ -37,6 +37,10 @@ export interface ModelInsightOpenMeshOptions {
 export interface ModelInsightRenderMeshOptions extends ModelInsightOpenMeshOptions {
   width?: number
   height?: number
+  cameraYaw?: number
+  cameraPitch?: number
+  cameraDistanceScale?: number
+  frameY?: number
   startResidentViewer?: boolean
 }
 

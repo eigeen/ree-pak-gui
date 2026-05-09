@@ -41,6 +41,10 @@ pub struct ModelInsightRenderMeshOptions {
     pub entry_path: String,
     pub width: Option<u32>,
     pub height: Option<u32>,
+    pub camera_yaw: Option<f32>,
+    pub camera_pitch: Option<f32>,
+    pub camera_distance_scale: Option<f32>,
+    pub frame_y: Option<f32>,
     pub start_resident_viewer: Option<bool>,
 }
 
@@ -138,6 +142,10 @@ struct ControlRenderMeshPreviewParams {
     output_path: String,
     width: u32,
     height: u32,
+    camera_yaw: f32,
+    camera_pitch: f32,
+    camera_distance_scale: f32,
+    frame_y: f32,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -199,7 +207,53 @@ pub struct ModelInsightService {
 }
 
 const DEFAULT_RENDER_PREVIEW_SIZE: u32 = 256;
-const MODEL_PREVIEW_CACHE_VERSION: &str = "v2";
+const MODEL_PREVIEW_CACHE_VERSION: &str = "v3";
+const DEFAULT_RENDER_CAMERA_YAW: f32 = -0.65;
+const DEFAULT_RENDER_CAMERA_PITCH: f32 = -0.28;
+const DEFAULT_RENDER_CAMERA_DISTANCE_SCALE: f32 = 2.6;
+const DEFAULT_RENDER_FRAME_Y: f32 = 0.0;
+
+#[derive(Debug, Clone, Copy)]
+struct RenderMeshCameraOptions {
+    yaw: f32,
+    pitch: f32,
+    distance_scale: f32,
+    frame_y: f32,
+}
+
+fn render_mesh_camera_options(
+    options: &ModelInsightRenderMeshOptions,
+) -> Result<RenderMeshCameraOptions> {
+    let camera = RenderMeshCameraOptions {
+        yaw: options.camera_yaw.unwrap_or(DEFAULT_RENDER_CAMERA_YAW),
+        pitch: options.camera_pitch.unwrap_or(DEFAULT_RENDER_CAMERA_PITCH),
+        distance_scale: options
+            .camera_distance_scale
+            .unwrap_or(DEFAULT_RENDER_CAMERA_DISTANCE_SCALE),
+        frame_y: options.frame_y.unwrap_or(DEFAULT_RENDER_FRAME_Y),
+    };
+
+    if !camera.yaw.is_finite()
+        || !camera.pitch.is_finite()
+        || !camera.distance_scale.is_finite()
+        || !camera.frame_y.is_finite()
+    {
+        return Err(Error::Internal(
+            "render camera options must be finite numbers".to_string(),
+        ));
+    }
+    if camera.distance_scale <= 0.0 {
+        return Err(Error::Internal(
+            "render camera distance scale must be greater than 0".to_string(),
+        ));
+    }
+
+    Ok(camera)
+}
+
+fn float_cache_key(value: f32) -> String {
+    format!("{value:.3}").replace('-', "m").replace('.', "p")
+}
 
 impl ModelInsightService {
     pub fn initialize() -> Result<&'static Self> {
@@ -262,6 +316,7 @@ impl ModelInsightService {
     pub fn render_mesh_preview(&self, options: ModelInsightRenderMeshOptions) -> Result<String> {
         let width = options.width.unwrap_or(DEFAULT_RENDER_PREVIEW_SIZE);
         let height = options.height.unwrap_or(DEFAULT_RENDER_PREVIEW_SIZE);
+        let camera = render_mesh_camera_options(&options)?;
         if width == 0 || height == 0 {
             return Err(Error::Internal(
                 "render width and height must be greater than 0".to_string(),
@@ -274,6 +329,7 @@ impl ModelInsightService {
             &options.entry_path,
             width,
             height,
+            camera,
         );
         if output_path.exists() {
             return Ok(output_path.to_string_lossy().to_string());
@@ -285,7 +341,13 @@ impl ModelInsightService {
 
         let request = self.create_request(options.hash, options.belongs_to, &options.entry_path)?;
         if self
-            .send_render_to_existing_viewer(&request.manifest_path, &output_path, width, height)
+            .send_render_to_existing_viewer(
+                &request.manifest_path,
+                &output_path,
+                width,
+                height,
+                camera,
+            )
             .is_ok()
         {
             return Ok(output_path.to_string_lossy().to_string());
@@ -293,7 +355,13 @@ impl ModelInsightService {
 
         if options.start_resident_viewer.unwrap_or(false)
             && self
-                .render_with_resident_viewer(&request.manifest_path, &output_path, width, height)
+                .render_with_resident_viewer(
+                    &request.manifest_path,
+                    &output_path,
+                    width,
+                    height,
+                    camera,
+                )
                 .is_ok()
         {
             return Ok(output_path.to_string_lossy().to_string());
@@ -307,6 +375,10 @@ impl ModelInsightService {
         })?;
         let width_arg = width.to_string();
         let height_arg = height.to_string();
+        let camera_yaw_arg = camera.yaw.to_string();
+        let camera_pitch_arg = camera.pitch.to_string();
+        let camera_distance_scale_arg = camera.distance_scale.to_string();
+        let frame_y_arg = camera.frame_y.to_string();
 
         let output = Command::new(&executable_path)
             .args([
@@ -315,6 +387,14 @@ impl ModelInsightService {
                 width_arg.as_str(),
                 "--height",
                 height_arg.as_str(),
+                "--camera-yaw",
+                camera_yaw_arg.as_str(),
+                "--camera-pitch",
+                camera_pitch_arg.as_str(),
+                "--camera-distance-scale",
+                camera_distance_scale_arg.as_str(),
+                "--frame-y",
+                frame_y_arg.as_str(),
                 "--request",
             ])
             .arg(&request.manifest_path)
@@ -387,13 +467,21 @@ impl ModelInsightService {
         entry_path: &str,
         width: u32,
         height: u32,
+        camera: RenderMeshCameraOptions,
     ) -> PathBuf {
         let pak_key = belongs_to
             .map(|value| sanitize_file_name(&format!("{value:?}")))
             .unwrap_or_else(|| "unknown".to_string());
         let file_key = sanitize_file_name(file_name(entry_path));
+        let camera_key = format!(
+            "yaw{}-pitch{}-dist{}-frame{}",
+            float_cache_key(camera.yaw),
+            float_cache_key(camera.pitch),
+            float_cache_key(camera.distance_scale),
+            float_cache_key(camera.frame_y)
+        );
         self.temp_dir.join("previews").join(format!(
-            "{MODEL_PREVIEW_CACHE_VERSION}-{hash:016X}-{pak_key}-{width}x{height}-{file_key}.png"
+            "{MODEL_PREVIEW_CACHE_VERSION}-{hash:016X}-{pak_key}-{width}x{height}-{camera_key}-{file_key}.png"
         ))
     }
 
@@ -460,6 +548,7 @@ impl ModelInsightService {
         output_path: &PathBuf,
         width: u32,
         height: u32,
+        camera: RenderMeshCameraOptions,
     ) -> Result<()> {
         let Some(instance) = self.viewer.lock().clone() else {
             return Err(Error::Internal(
@@ -476,6 +565,10 @@ impl ModelInsightService {
                 output_path: output_path.to_string_lossy().to_string(),
                 width,
                 height,
+                camera_yaw: camera.yaw,
+                camera_pitch: camera.pitch,
+                camera_distance_scale: camera.distance_scale,
+                frame_y: camera.frame_y,
             },
         };
         let mut stream = TcpStream::connect(&instance.control_addr).map_err(|error| {
@@ -507,13 +600,20 @@ impl ModelInsightService {
         output_path: &PathBuf,
         width: u32,
         height: u32,
+        camera: RenderMeshCameraOptions,
     ) -> Result<()> {
         self.launch_resident_viewer(manifest_path)?;
 
         let deadline = Instant::now() + Duration::from_millis(1800);
         let mut last_error = None;
         while Instant::now() < deadline {
-            match self.send_render_to_existing_viewer(manifest_path, output_path, width, height) {
+            match self.send_render_to_existing_viewer(
+                manifest_path,
+                output_path,
+                width,
+                height,
+                camera,
+            ) {
                 Ok(()) => return Ok(()),
                 Err(error) => {
                     last_error = Some(error);

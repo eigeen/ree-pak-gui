@@ -2015,6 +2015,7 @@ async function ensureModelHoverPreview(item: ExplorerEntry) {
       entryPath: item.path,
       width: 256,
       height: 256,
+      frameY: 0.16,
       startResidentViewer: true
     })
     const previewUrl = convertFileSrc(previewFile, 'asset')
