@@ -30,10 +30,16 @@ pub fn model_insight_wasm_version() -> String {
 pub fn mesh_to_preview_model(
     mesh_bytes: &[u8],
     mesh_file_version: u32,
+    streaming_buffer_bytes: Option<Vec<u8>>,
     mdf_bytes: Option<Vec<u8>>,
     mdf_file_version: Option<u32>,
 ) -> Result<JsValue, JsValue> {
-    let mesh = MeshFile::read_bytes(mesh_bytes, mesh_file_version).map_err(js_error)?;
+    let mesh = MeshFile::read_bytes_with_streaming(
+        mesh_bytes,
+        mesh_file_version,
+        streaming_buffer_bytes.as_deref(),
+    )
+    .map_err(js_error)?;
     let mut preview = mesh.to_preview_model().map_err(js_error)?;
 
     if let (Some(mdf_bytes), Some(mdf_file_version)) = (mdf_bytes, mdf_file_version) {

@@ -29,6 +29,8 @@ export interface ModelInsightMeshAssets {
   meshEntryPath: string
   meshFileVersion: number
   meshData: number[] | Uint8Array
+  streamingBufferEntryPath?: string | null
+  streamingBufferData?: number[] | Uint8Array | null
   mdfEntryPath?: string | null
   mdfFileVersion?: number | null
   mdfData?: number[] | Uint8Array | null

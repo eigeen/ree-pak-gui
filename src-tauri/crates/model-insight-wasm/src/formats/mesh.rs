@@ -28,6 +28,7 @@ pub enum MeshSerializerVersion {
 impl MeshSerializerVersion {
     pub fn resolve(internal_version: u32, file_version: u32) -> Self {
         match (internal_version, file_version) {
+            (352921600, 32) => Self::Re7,
             (386270720, 1808282334 | 1808312334 | 1902042334) => Self::Dmc5,
             (21041600, 2109108288 | 220128762) => Self::ReRt,
             (21061800 | 21091000, 2109148288) => Self::ReRt,
@@ -209,9 +210,49 @@ impl MeshHeader {
             });
         }
 
-        Err(ParseError::Unsupported(
-            "pre-RE4 mesh headers are not implemented in this first parser pass",
-        ))
+        let flags = reader.read_u16()?;
+        let name_count = reader.read_u16()?;
+        let _ukn = reader.read_i32()?;
+        let lods_offset = reader.read_u64()?;
+        let shadow_lods_offset = reader.read_u64()?;
+        let occluder_mesh_offset = reader.read_u64()?;
+        let bones_offset = reader.read_u64()?;
+        let normal_recalc_offset = reader.read_u64()?;
+        let blend_shape_headers_offset = reader.read_u64()?;
+        let bounds_offset = reader.read_u64()?;
+        let mesh_offset = reader.read_u64()?;
+        let floats_offset = reader.read_u64()?;
+        let material_indices_offset = reader.read_u64()?;
+        let bone_indices_offset = reader.read_u64()?;
+        let blend_shape_indices_offset = reader.read_u64()?;
+        let name_offsets_offset = reader.read_u64()?;
+        if serializer_version <= MeshSerializerVersion::Dmc5 {
+            reader.skip(8)?;
+        }
+
+        Ok(Self {
+            version,
+            file_size,
+            lod_hash,
+            flags,
+            name_count,
+            lods_offset,
+            shadow_lods_offset,
+            occluder_mesh_offset,
+            bones_offset,
+            normal_recalc_offset,
+            blend_shape_headers_offset,
+            bounds_offset,
+            mesh_offset,
+            floats_offset,
+            material_indices_offset,
+            bone_indices_offset,
+            blend_shape_indices_offset,
+            name_offsets_offset,
+            streaming_info_offset: 0,
+            vertices_offset: 0,
+            serializer_version,
+        })
     }
 }
 
@@ -220,6 +261,7 @@ pub struct MeshFile {
     pub header: MeshHeader,
     pub material_names: Vec<String>,
     pub mesh_buffer: Option<MeshBuffer>,
+    pub streaming_buffers: Vec<Option<MeshBuffer>>,
     pub streaming_info: Option<MeshStreamingInfo>,
     pub mesh_data: Option<MeshData>,
 }
@@ -232,6 +274,14 @@ impl MeshFile {
     }
 
     pub fn read_bytes(data: &[u8], file_version: u32) -> ParseResult<Self> {
+        Self::read_bytes_with_streaming(data, file_version, None)
+    }
+
+    pub fn read_bytes_with_streaming(
+        data: &[u8],
+        file_version: u32,
+        streaming_data: Option<&[u8]>,
+    ) -> ParseResult<Self> {
         let mut reader = Reader::new(data);
         let header = MeshHeader::read(&mut reader, file_version)?;
 
@@ -242,15 +292,33 @@ impl MeshFile {
             None
         };
 
-        let mut mesh_buffer = if header.mesh_offset > 0 {
-            let mut buffer_reader = reader.fork_at(header.mesh_offset)?;
-            Some(MeshBuffer::read(
-                &mut buffer_reader,
-                header.serializer_version,
-            )?)
+        let mut buffer_reader = if header.mesh_offset > 0 {
+            Some(reader.fork_at(header.mesh_offset)?)
         } else {
             None
         };
+
+        let mut mesh_buffer = if let Some(buffer_reader) = buffer_reader.as_mut() {
+            Some(MeshBuffer::read(buffer_reader, header.serializer_version)?)
+        } else {
+            None
+        };
+
+        let mut streaming_buffers = Vec::new();
+        if let (Some(streaming_info), Some(buffer_reader)) =
+            (streaming_info.as_ref(), buffer_reader.as_mut())
+        {
+            for entry in &streaming_info.entries {
+                if entry.size == 0 {
+                    streaming_buffers.push(None);
+                } else {
+                    streaming_buffers.push(Some(MeshBuffer::read(
+                        buffer_reader,
+                        header.serializer_version,
+                    )?));
+                }
+            }
+        }
 
         let mesh_data = if header.lods_offset > 0 {
             let buffer = mesh_buffer
@@ -274,6 +342,17 @@ impl MeshFile {
                 header.occluder_mesh_offset > 0,
             )?;
         }
+        if let Some(streaming_data) = streaming_data {
+            let streaming_reader = Reader::new(streaming_data);
+            for buffer in streaming_buffers.iter_mut().flatten() {
+                buffer.read_buffer_data(
+                    &streaming_reader,
+                    mesh_data.as_ref().is_some_and(|data| data.integer_faces),
+                    header.shadow_lods_offset > 0,
+                    header.occluder_mesh_offset > 0,
+                )?;
+            }
+        }
 
         let strings = read_strings(&reader, header.name_offsets_offset, header.name_count)?;
         let material_names = if header.material_indices_offset > 0 {
@@ -296,16 +375,16 @@ impl MeshFile {
             header,
             material_names,
             mesh_buffer,
+            streaming_buffers,
             streaming_info,
             mesh_data,
         })
     }
 
     pub fn to_preview_model(&self) -> ParseResult<PreviewModel> {
-        let buffer = self
-            .mesh_buffer
-            .as_ref()
-            .ok_or(ParseError::Unsupported("mesh has no vertex buffer"))?;
+        if self.mesh_buffer.is_none() && self.streaming_buffers.is_empty() {
+            return Err(ParseError::Unsupported("mesh has no vertex buffer"));
+        }
         let mesh_data = self
             .mesh_data
             .as_ref()
@@ -318,9 +397,9 @@ impl MeshFile {
         let mut meshes = Vec::new();
         for group in &lod0.mesh_groups {
             for (submesh_index, submesh) in group.submeshes.iter().enumerate() {
-                if submesh.buffer_index != 0 {
+                let Some(buffer) = self.buffer_for_submesh(submesh) else {
                     continue;
-                }
+                };
                 meshes.push(buffer.preview_submesh(
                     submesh,
                     mesh_data.integer_faces,
@@ -363,6 +442,16 @@ impl MeshFile {
                 sphere_radius: mesh_data.bounding_sphere[3],
             },
         })
+    }
+
+    fn buffer_for_submesh(&self, submesh: &Submesh) -> Option<&MeshBuffer> {
+        if submesh.buffer_index == 0 {
+            return self.mesh_buffer.as_ref();
+        }
+        self.streaming_buffers
+            .get(usize::from(submesh.buffer_index - 1))
+            .and_then(Option::as_ref)
+            .filter(|buffer| !buffer.positions.is_empty())
     }
 }
 
@@ -984,5 +1073,37 @@ mod tests {
                 .iter()
                 .all(|index| (*index as usize) < sub.positions.len())
         }));
+    }
+
+    #[test]
+    fn reads_pre_re4_mesh_header_layout() {
+        let mut data = Vec::new();
+        data.extend_from_slice(&MESH_MAGIC.to_le_bytes());
+        data.extend_from_slice(&386270720u32.to_le_bytes());
+        data.extend_from_slice(&0x1234u32.to_le_bytes());
+        data.extend_from_slice(&0x5678u32.to_le_bytes());
+        data.extend_from_slice(&0x0200u16.to_le_bytes());
+        data.extend_from_slice(&3u16.to_le_bytes());
+        data.extend_from_slice(&0i32.to_le_bytes());
+        for offset in [
+            0x100u64, 0x200, 0x300, 0x400, 0x500, 0x600, 0x700, 0x800, 0x900, 0xa00, 0xb00, 0xc00,
+            0xd00,
+        ] {
+            data.extend_from_slice(&offset.to_le_bytes());
+        }
+        data.extend_from_slice(&0u64.to_le_bytes());
+
+        let mut reader = Reader::new(&data);
+        let header = MeshHeader::read(&mut reader, 1808312334).expect("header should parse");
+
+        assert_eq!(header.serializer_version, MeshSerializerVersion::Dmc5);
+        assert_eq!(header.flags, 0x0200);
+        assert_eq!(header.name_count, 3);
+        assert_eq!(header.lods_offset, 0x100);
+        assert_eq!(header.mesh_offset, 0x800);
+        assert_eq!(header.material_indices_offset, 0xa00);
+        assert_eq!(header.name_offsets_offset, 0xd00);
+        assert_eq!(header.streaming_info_offset, 0);
+        assert_eq!(header.vertices_offset, 0);
     }
 }

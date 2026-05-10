@@ -94,6 +94,9 @@ async function loadUncachedModelPreviewGeometry(
   const result = await meshToPreviewModel({
     meshBytes: toUint8Array(assets.meshData),
     meshFileVersion: assets.meshFileVersion,
+    streamingBufferBytes: assets.streamingBufferData
+      ? toUint8Array(assets.streamingBufferData)
+      : null,
     mdfBytes: assets.mdfData ? toUint8Array(assets.mdfData) : null,
     mdfFileVersion: assets.mdfFileVersion ?? null
   })

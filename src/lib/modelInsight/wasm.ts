@@ -43,6 +43,7 @@ interface ModelInsightWasmModule {
   meshToPreviewModel: (
     meshBytes: Uint8Array,
     meshFileVersion: number,
+    streamingBufferBytes?: Uint8Array,
     mdfBytes?: Uint8Array,
     mdfFileVersion?: number
   ) => MeshPreviewResponse
@@ -69,6 +70,7 @@ export async function loadModelInsightWasm(): Promise<ModelInsightWasmModule> {
 export async function meshToPreviewModel(options: {
   meshBytes: Uint8Array
   meshFileVersion: number
+  streamingBufferBytes?: Uint8Array | null
   mdfBytes?: Uint8Array | null
   mdfFileVersion?: number | null
 }): Promise<MeshPreviewResponse> {
@@ -76,6 +78,7 @@ export async function meshToPreviewModel(options: {
   return wasm.meshToPreviewModel(
     options.meshBytes,
     options.meshFileVersion,
+    options.streamingBufferBytes ?? undefined,
     options.mdfBytes ?? undefined,
     options.mdfFileVersion ?? undefined
   )

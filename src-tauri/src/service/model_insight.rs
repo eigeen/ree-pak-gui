@@ -32,6 +32,8 @@ pub struct ModelInsightMeshAssets {
     pub mesh_entry_path: String,
     pub mesh_file_version: u32,
     pub mesh_data: Vec<u8>,
+    pub streaming_buffer_entry_path: Option<String>,
+    pub streaming_buffer_data: Option<Vec<u8>>,
     pub mdf_entry_path: Option<String>,
     pub mdf_file_version: Option<u32>,
     pub mdf_data: Option<Vec<u8>>,
@@ -98,6 +100,24 @@ impl ModelInsightService {
             &asset_dir,
         )?;
 
+        let streaming_buffer = match find_streaming_mesh_buffer_entry(
+            self.pak_service,
+            &mesh_entry_path,
+            options.belongs_to,
+        ) {
+            Ok(resolved) => {
+                let streaming_buffer_data = self.materialize_hash_bytes(
+                    resolved.hash,
+                    resolved.belongs_to,
+                    &resolved.entry_path,
+                    &asset_dir,
+                )?;
+                Some((resolved.entry_path, streaming_buffer_data))
+            }
+            Err(Error::PakEntryNotFound(_)) => None,
+            Err(error) => return Err(error),
+        };
+
         let mdf =
             match find_adjacent_mdf_entry(self.pak_service, &mesh_entry_path, options.belongs_to) {
                 Ok(resolved) => {
@@ -123,6 +143,10 @@ impl ModelInsightService {
             mesh_entry_path,
             mesh_file_version,
             mesh_data,
+            streaming_buffer_entry_path: streaming_buffer
+                .as_ref()
+                .map(|(entry_path, _)| entry_path.clone()),
+            streaming_buffer_data: streaming_buffer.map(|(_, data)| data),
             mdf_entry_path: mdf.as_ref().map(|(entry_path, _, _)| entry_path.clone()),
             mdf_file_version: mdf.as_ref().map(|(_, file_version, _)| *file_version),
             mdf_data: mdf.map(|(_, _, data)| data),
@@ -370,6 +394,27 @@ fn find_adjacent_mdf_entry(
 
     select_loaded_candidate(pak_service, candidates, preferred_pak)
         .ok_or_else(|| Error::PakEntryNotFound(format!("mdf for {mesh_entry_path}")))
+}
+
+fn find_streaming_mesh_buffer_entry(
+    pak_service: &PakService,
+    mesh_entry_path: &str,
+    preferred_pak: Option<PakId>,
+) -> Result<ResolvedPakEntry> {
+    let mesh_entry_path = normalize_entry_path(mesh_entry_path);
+    let Some(streaming_path) = streaming_texture_candidate(&mesh_entry_path) else {
+        return Err(Error::PakEntryNotFound(format!(
+            "streaming mesh buffer for {mesh_entry_path}"
+        )));
+    };
+
+    let candidates = collect_named_candidates(pak_service, |path| {
+        path.eq_ignore_ascii_case(&streaming_path)
+    })?;
+
+    select_loaded_candidate(pak_service, candidates, preferred_pak).ok_or_else(|| {
+        Error::PakEntryNotFound(format!("streaming mesh buffer for {mesh_entry_path}"))
+    })
 }
 
 fn resolve_texture_entry(
