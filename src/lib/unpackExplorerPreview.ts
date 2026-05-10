@@ -3,7 +3,7 @@ import type { ExplorerEntry, ExplorerLayoutMode } from '@/lib/unpackExplorer'
 
 type PreviewableExplorerEntry = Pick<ExplorerEntry, 'children' | 'isDir' | 'name'>
 
-export type ExplorerPreviewKind = 'texture' | 'audioBank'
+export type ExplorerPreviewKind = 'texture' | 'audioBank' | 'model'
 
 export function getExplorerPreviewKind(
   item: Pick<ExplorerEntry, 'isDir' | 'name'>
@@ -14,6 +14,8 @@ export function getExplorerPreviewKind(
       return 'texture'
     case 'sound':
       return 'audioBank'
+    case 'mesh':
+      return 'model'
     default:
       return null
   }
@@ -25,6 +27,10 @@ export function isTextureExplorerEntry(item: Pick<ExplorerEntry, 'isDir' | 'name
 
 export function isAudioBankExplorerEntry(item: Pick<ExplorerEntry, 'isDir' | 'name'>) {
   return getExplorerPreviewKind(item) === 'audioBank'
+}
+
+export function isModelExplorerEntry(item: Pick<ExplorerEntry, 'isDir' | 'name'>) {
+  return getExplorerPreviewKind(item) === 'model'
 }
 
 export function canOpenExplorerItemPreview(item: Pick<ExplorerEntry, 'isDir' | 'name'>) {

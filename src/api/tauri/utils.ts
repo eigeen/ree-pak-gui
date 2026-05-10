@@ -19,6 +19,37 @@ export interface VgmstreamStatus {
   executablePath?: string
 }
 
+export interface ModelInsightLoadMeshAssetsOptions {
+  hash: JsSafeHash
+  belongsTo?: string
+  entryPath: string
+}
+
+export interface ModelInsightMeshAssets {
+  meshEntryPath: string
+  meshFileVersion: number
+  meshData: number[] | Uint8Array
+  mdfEntryPath?: string | null
+  mdfFileVersion?: number | null
+  mdfData?: number[] | Uint8Array | null
+}
+
+export interface ModelInsightLoadTexturePreviewsOptions {
+  belongsTo?: string
+  baseEntryPath: string
+  texturePaths: string[]
+  textureResolution?: ModelTextureResolution
+}
+
+export type ModelTextureResolution = 'standard' | 'high'
+
+export interface ModelInsightTexturePreview {
+  texturePath: string
+  entryPath: string
+  previewPath: string
+  previewData: number[] | Uint8Array
+}
+
 export type TextureExportFormat = 'dds' | 'png'
 
 export interface TextureExportOptions {
@@ -57,12 +88,20 @@ export function getCompileInfo(): Promise<CompileInfo> {
   return invoke('get_compile_info')
 }
 
-export function performUpdate(filePath: string): Promise<void> {
-  return invoke('perform_update', { filePath })
-}
-
 export function vgmstreamGetStatus(): Promise<VgmstreamStatus> {
   return invoke('vgmstream_get_status')
+}
+
+export function modelInsightLoadMeshAssets(
+  options: ModelInsightLoadMeshAssetsOptions
+): Promise<ModelInsightMeshAssets> {
+  return invoke('model_insight_load_mesh_assets', { options })
+}
+
+export function modelInsightLoadTexturePreviews(
+  options: ModelInsightLoadTexturePreviewsOptions
+): Promise<ModelInsightTexturePreview[]> {
+  return invoke('model_insight_load_texture_previews', { options })
 }
 
 export function vgmstreamInstallFromArchive(archivePath: string): Promise<VgmstreamStatus> {

@@ -1,14 +1,24 @@
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
-import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises'
+import {
+  appendFile,
+  chmod,
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile
+} from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { parseArgs } from 'node:util'
 
 import { zipSync } from 'fflate'
 
 const ROOT_DIR = process.cwd()
-const DEFAULT_EXE_PATH = path.join('src-tauri', 'target', 'release', 'ree-pak-rs.exe')
 const DEFAULT_OUTPUT_DIR = path.join('dist', 'release')
+const DEFAULT_BINARY_NAME = 'ree-pak-rs'
 
 function resolvePath(filePath) {
   return path.isAbsolute(filePath) ? filePath : path.join(ROOT_DIR, filePath)
@@ -35,7 +45,8 @@ function getShortCommitHash() {
   try {
     return execFileSync('jj', ['log', '-r', '@', '-T', 'commit_id.short(7)', '--no-graph'], {
       cwd: ROOT_DIR,
-      encoding: 'utf8'
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
     }).trim()
   } catch {
     // Fall back to git for non-jj environments such as GitHub Actions.
@@ -45,6 +56,19 @@ function getShortCommitHash() {
     cwd: ROOT_DIR,
     encoding: 'utf8'
   }).trim()
+}
+
+function getHostTarget() {
+  const versionOutput = execFileSync('rustc', ['-vV'], {
+    cwd: ROOT_DIR,
+    encoding: 'utf8'
+  })
+  const hostMatch = versionOutput.match(/^host:\s*(.+)$/m)
+  if (!hostMatch) {
+    throw new Error('Failed to read host target from rustc -vV')
+  }
+
+  return hostMatch[1].trim()
 }
 
 function sha256Hex(buffer) {
@@ -66,53 +90,73 @@ function formatOutputs(outputs) {
 
 const { values } = parseArgs({
   options: {
-    exe: { type: 'string', default: DEFAULT_EXE_PATH },
+    exe: { type: 'string' },
     'out-dir': { type: 'string', default: DEFAULT_OUTPUT_DIR },
-    platform: { type: 'string', default: 'windows' },
-    arch: { type: 'string', default: 'x86_64' },
+    target: { type: 'string' },
+    'bin-name': { type: 'string', default: DEFAULT_BINARY_NAME },
     version: { type: 'string' },
     commit: { type: 'string' }
   },
   allowPositionals: false
 })
 
-const exePath = resolvePath(values.exe)
+const target = values.target ?? process.env.TARGET ?? getHostTarget()
+const binaryName = values['bin-name']
+const executableName = target.includes('windows') ? `${binaryName}.exe` : binaryName
+const exePath = resolvePath(
+  values.exe ?? path.join('src-tauri', 'target', 'release', executableName)
+)
 const outputDir = resolvePath(values['out-dir'])
 const version = values.version ?? (await readVersionFromCargoToml())
 const commitHash = values.commit ?? getShortCommitHash()
-const platform = values.platform
-const arch = values.arch
 
-const packagedExecutableName = `ree-pak-gui_${version}_${platform}_${arch}_release_${commitHash}.exe`
-const archiveName = `${packagedExecutableName}.zip`
+const archiveExtension = target.includes('windows') ? 'zip' : 'tar.gz'
+const archiveName = `${binaryName}-v${version}-${target}.${archiveExtension}`
 const archivePath = path.join(outputDir, archiveName)
-const manifestPath = path.join(outputDir, 'update-artifact.json')
+const manifestPath = path.join(outputDir, `update-artifact-${target}.json`)
+const binPathInArchive = executableName
 
 const executableBuffer = await readFile(exePath)
-const archiveBuffer = Buffer.from(
-  zipSync(
-    {
-      [packagedExecutableName]: new Uint8Array(executableBuffer)
-    },
-    {
-      level: 9
-    }
-  )
-)
 
 await mkdir(outputDir, { recursive: true })
-await writeFile(archivePath, archiveBuffer)
 
+if (target.includes('windows')) {
+  const archiveBuffer = Buffer.from(
+    zipSync(
+      {
+        [binPathInArchive]: new Uint8Array(executableBuffer)
+      },
+      {
+        level: 9
+      }
+    )
+  )
+  await writeFile(archivePath, archiveBuffer)
+} else {
+  const stagingDir = await mkdtemp(path.join(tmpdir(), 'ree-pak-release-'))
+  const stagedExecutablePath = path.join(stagingDir, binPathInArchive)
+  try {
+    await copyFile(exePath, stagedExecutablePath)
+    await chmod(stagedExecutablePath, 0o755)
+    execFileSync('tar', ['-czf', archivePath, '-C', stagingDir, binPathInArchive], {
+      cwd: ROOT_DIR,
+      stdio: 'inherit'
+    })
+  } finally {
+    await rm(stagingDir, { force: true, recursive: true })
+  }
+}
+
+const archiveBuffer = await readFile(archivePath)
 const archiveSha256 = sha256Hex(archiveBuffer)
 const manifest = {
   version,
   tag: `v${version}`,
-  platform,
-  arch,
+  target,
   commitHash,
   executable: {
     inputPath: exePath,
-    packagedName: packagedExecutableName,
+    binPathInArchive,
     size: executableBuffer.byteLength
   },
   archive: {
@@ -127,11 +171,13 @@ await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
 await formatOutputs({
   version,
   tag: manifest.tag,
+  target,
   archive_name: archiveName,
   archive_path: archivePath,
   archive_sha256: archiveSha256,
   manifest_path: manifestPath,
-  executable_path: exePath
+  executable_path: exePath,
+  bin_path_in_archive: binPathInArchive
 })
 
 console.log(`Prepared update archive: ${archivePath}`)

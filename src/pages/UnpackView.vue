@@ -162,11 +162,15 @@
                 :file-name="previewState.entry.name"
                 :file-icon="previewFileIcon"
                 :parent-segments="previewParentSegments"
-                accent="audio"
+                :accent="previewState.kind === 'audioBank' ? 'audio' : 'model'"
                 @exit="exitPreviewMode"
               >
                 <UnpackAudioBankPreview
                   v-if="previewState.kind === 'audioBank'"
+                  :entry="previewState.entry"
+                />
+                <UnpackModelPreview
+                  v-else-if="previewState.kind === 'model'"
                   :entry="previewState.entry"
                 />
               </UnpackPreviewModePane>
@@ -193,6 +197,9 @@
                 @item-check="handleExplorerItemCheck"
                 @item-open="handleExplorerItemOpen"
                 @item-contextmenu="handleExplorerItemContextMenu"
+                @item-hover-start="handleExplorerItemHoverStart"
+                @item-hover-move="handleExplorerItemHoverMove"
+                @item-hover-end="handleExplorerItemHoverEnd"
                 @background-click="handleExplorerBackgroundClick"
                 @background-contextmenu="handleExplorerBackgroundContextMenu"
                 @visible-items-change="handleVisibleExplorerItemsChange"
@@ -243,6 +250,33 @@
       @close="closeImageViewer"
     />
 
+    <div
+      v-if="modelHoverPreview"
+      class="pointer-events-none fixed z-50 w-[260px] overflow-hidden rounded-md border border-border/70 bg-background/92 shadow-2xl backdrop-blur-md"
+      :style="modelHoverPreviewStyle"
+    >
+      <div class="grid h-[180px] place-items-center bg-background">
+        <img
+          v-if="modelHoverPreview.url"
+          :src="modelHoverPreview.url"
+          :alt="modelHoverPreview.fileName"
+          class="max-h-full max-w-full object-contain"
+          draggable="false"
+        />
+        <div
+          v-else
+          class="grid h-full w-full place-items-center text-[color-mix(in_srgb,var(--color-foreground)_54%,transparent)] [&_svg]:animate-[model-hover-preview-pulse_1.2s_ease-in-out_infinite]"
+        >
+          <Box class="size-7" />
+        </div>
+      </div>
+      <div
+        class="overflow-hidden truncate border-t border-[color-mix(in_srgb,var(--color-border)_72%,transparent)] px-2.5 py-2 text-xs font-semibold"
+      >
+        {{ modelHoverPreview.fileName }}
+      </div>
+    </div>
+
     <FileNameTable
       ref="fileNameTable"
       v-model="unpackState.fileList"
@@ -291,6 +325,7 @@ import {
   Copy,
   Download,
   Eye,
+  Box,
   Info,
   FoldVertical,
   Filter,
@@ -348,6 +383,7 @@ import UnpackSidebarTabs, {
 } from '@/components/unpack/UnpackSidebarTabs.vue'
 import UnpackAudioBankPreview from '@/components/unpack/UnpackAudioBankPreview.vue'
 import UnpackExplorerPane from '@/components/unpack/UnpackExplorerPane.vue'
+import UnpackModelPreview from '@/components/unpack/UnpackModelPreview.vue'
 import UnpackPreviewModePane from '@/components/unpack/UnpackPreviewModePane.vue'
 import UnpackPropertiesDialog, {
   type PropertySection
@@ -363,9 +399,17 @@ import {
   getDefaultExplorerLayoutMode,
   getExplorerPreviewKind,
   isAudioBankExplorerEntry,
+  isModelExplorerEntry,
   isTextureExplorerEntry,
   type ExplorerPreviewKind
 } from '@/lib/unpackExplorerPreview'
+import { renderModelPreviewToDataUrl } from '@/lib/modelInsight/previewRenderer'
+import {
+  clearModelPreviewLoaderCache,
+  loadModelPreviewGeometry,
+  loadModelPreviewTextureImages
+} from '@/lib/modelInsight/loader'
+import { isModelInsightWasmUnavailableError } from '@/lib/modelInsight/wasm'
 import {
   useAudioBankExportProgress,
   type AudioExportFormat
@@ -475,6 +519,19 @@ const selectionAnchorKey = ref('')
 const visibleExplorerEntries = ref<ExplorerEntry[]>([])
 const texturePreviewCache = ref<Record<string, string | null>>({})
 const texturePreviewPending = new Set<string>()
+const modelPreviewCache = ref<Record<string, string | null>>({})
+const modelPreviewPending = new Set<string>()
+const modelHoverPreview = ref<{
+  itemId: string
+  fileName: string
+  x: number
+  y: number
+  url: string | null
+  loading: boolean
+} | null>(null)
+let modelHoverTimer: ReturnType<typeof window.setTimeout> | null = null
+let modelHoverRequestId = 0
+let modelHoverUnavailableToastShown = false
 const explorerLayoutMode = ref<ExplorerLayoutMode>('details')
 const explorerContextMenuKind = ref<ExplorerContextMenuKind>('background')
 const explorerContextMenuTarget = ref<ExplorerEntry | null>(null)
@@ -619,6 +676,30 @@ const explorerColumnLabels = computed<ExplorerColumnLabels>(() => ({
   size: t('unpack.columnSize'),
   details: t('unpack.columnDetails')
 }))
+const modelHoverPreviewStyle = computed<CSSProperties>(() => {
+  const preview = modelHoverPreview.value
+  if (!preview) return {}
+
+  const width = 260
+  const height = 218
+  const offset = 18
+  const margin = 12
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+  const left =
+    preview.x + width + offset > viewportWidth
+      ? Math.max(margin, preview.x - width - offset)
+      : preview.x + offset
+  const top = Math.min(
+    Math.max(margin, preview.y + offset),
+    Math.max(margin, viewportHeight - height - margin)
+  )
+
+  return {
+    left: `${left}px`,
+    top: `${top}px`
+  }
+})
 
 function buildDirectoryContextMenuEntries(
   item: ExplorerEntry,
@@ -826,13 +907,14 @@ const explorerContextMenuItems = computed<ContextMenuEntry[]>(() => {
   const textureFiles = collectTextureFilesFromEntries(actionEntries, 'relativePath')
   const pathTargets = getExplorerCopyPathTargets(item)
   const canPreview = canPreviewExplorerItem(item)
+  const isModelPreview = isModelEntry(item)
 
   const entries: ContextMenuEntry[] = [
     {
       type: 'action',
       key: 'explorer-primary-open',
-      label: t('unpack.previewItem'),
-      icon: Eye,
+      label: isModelPreview ? t('unpack.previewModel') : t('unpack.previewItem'),
+      icon: isModelPreview ? Box : Eye,
       disabled: !canPreview,
       action: () => {
         void handleExplorerItemOpen(item)
@@ -1013,6 +1095,8 @@ const previewKindLabel = computed(() => {
   switch (previewState.value.kind) {
     case 'audioBank':
       return t('unpack.audioBankKind')
+    case 'model':
+      return t('unpack.modelPreviewKind')
     default:
       return ''
   }
@@ -1023,6 +1107,8 @@ const previewFileIcon = computed(() => {
   switch (previewState.value.kind) {
     case 'audioBank':
       return FileMusic
+    case 'model':
+      return Box
     default:
       return null
   }
@@ -1045,7 +1131,8 @@ const previewParentSegments = computed(() => {
 
 function enterPreviewMode(item: ExplorerEntry) {
   const kind = getExplorerPreviewKind(item)
-  if (kind !== 'audioBank') return
+  if (kind !== 'audioBank' && kind !== 'model') return
+  clearModelHoverPreview()
   previewState.value = { kind, entry: item }
 }
 
@@ -1119,6 +1206,10 @@ watch(pakData, async () => {
   visibleExplorerEntries.value = []
   texturePreviewCache.value = {}
   texturePreviewPending.clear()
+  modelPreviewCache.value = {}
+  modelPreviewPending.clear()
+  clearModelPreviewLoaderCache()
+  clearModelHoverPreview()
   if (initialLoaded.value) {
     unpackState.value.paks = pakData.value.map((pak) => pak.path)
   }
@@ -1566,6 +1657,10 @@ function releasePreviewFileReferences() {
   exitPreviewMode()
   texturePreviewCache.value = {}
   texturePreviewPending.clear()
+  modelPreviewCache.value = {}
+  modelPreviewPending.clear()
+  clearModelPreviewLoaderCache()
+  clearModelHoverPreview()
   visibleExplorerEntries.value = []
 }
 
@@ -1760,6 +1855,7 @@ function handleExplorerBackgroundClick() {
   treeContextMenuOpen.value = false
   explorerContextMenuOpen.value = false
   clearExplorerSelection()
+  clearModelHoverPreview()
 }
 
 function handleExplorerBackgroundContextMenu(event: MouseEvent) {
@@ -1778,7 +1874,49 @@ function handleVisibleExplorerItemsChange(items: ExplorerEntry[]) {
   visibleExplorerEntries.value = items
 }
 
+function handleExplorerItemHoverStart(item: ExplorerEntry, event: PointerEvent) {
+  modelHoverRequestId += 1
+  const requestId = modelHoverRequestId
+  if (!isModelEntry(item) || !item.hash || !item.belongsTo) {
+    clearModelHoverPreview()
+    return
+  }
+
+  updateModelHoverPosition(event)
+  const cached = modelPreviewCache.value[item.id]
+  modelHoverPreview.value = {
+    itemId: item.id,
+    fileName: item.displayName ?? item.name,
+    x: event.clientX,
+    y: event.clientY,
+    url: cached ?? null,
+    loading: cached === undefined
+  }
+
+  if (cached !== undefined) return
+
+  if (modelHoverTimer) {
+    window.clearTimeout(modelHoverTimer)
+  }
+  modelHoverTimer = window.setTimeout(() => {
+    modelHoverTimer = null
+    if (modelHoverRequestId !== requestId || modelHoverPreview.value?.itemId !== item.id) return
+    void ensureModelHoverPreview(item)
+  }, 140)
+}
+
+function handleExplorerItemHoverMove(item: ExplorerEntry, event: PointerEvent) {
+  if (modelHoverPreview.value?.itemId !== item.id) return
+  updateModelHoverPosition(event)
+}
+
+function handleExplorerItemHoverEnd(item: ExplorerEntry) {
+  if (modelHoverPreview.value?.itemId !== item.id) return
+  clearModelHoverPreview()
+}
+
 async function handleExplorerItemOpen(item: ExplorerEntry) {
+  clearModelHoverPreview()
   setExplorerFocus(item.id)
   if (!checkedEntryKeySet.value.has(item.id)) {
     checkedEntryKeys.value = [...checkedEntryKeys.value, item.id]
@@ -1791,6 +1929,11 @@ async function handleExplorerItemOpen(item: ExplorerEntry) {
   }
 
   const previewKind = getExplorerPreviewKind(item)
+  if (previewKind === 'model') {
+    enterPreviewMode(item)
+    return
+  }
+
   if (previewKind === 'audioBank') {
     enterPreviewMode(item)
     return
@@ -1822,8 +1965,132 @@ function isAudioBankEntry(item: ExplorerEntry) {
   return isAudioBankExplorerEntry(item)
 }
 
+function isModelEntry(item: ExplorerEntry) {
+  return isModelExplorerEntry(item)
+}
+
 function canPreviewExplorerItem(item: ExplorerEntry) {
   return canOpenExplorerItemPreview(item)
+}
+
+function updateModelHoverPosition(event: PointerEvent) {
+  if (!modelHoverPreview.value) return
+  modelHoverPreview.value = {
+    ...modelHoverPreview.value,
+    x: event.clientX,
+    y: event.clientY
+  }
+}
+
+function clearModelHoverPreview() {
+  modelHoverRequestId += 1
+  if (modelHoverTimer) {
+    window.clearTimeout(modelHoverTimer)
+    modelHoverTimer = null
+  }
+  modelHoverPreview.value = null
+}
+
+async function ensureModelHoverPreview(item: ExplorerEntry) {
+  if (!item.hash || !item.belongsTo || !isModelEntry(item)) return null
+
+  const cached = modelPreviewCache.value[item.id]
+  if (cached !== undefined) {
+    applyModelHoverPreview(item, cached)
+    return cached
+  }
+
+  if (modelPreviewPending.has(item.id)) {
+    const url = await waitForModelPreview(item.id)
+    applyModelHoverPreview(item, url)
+    return url
+  }
+
+  modelPreviewPending.add(item.id)
+
+  try {
+    const geometry = await loadModelPreviewGeometry(item)
+    const textureImages = await loadHoverPreviewTextureImages(item, geometry)
+    const previewUrl = renderModelPreviewToDataUrl(
+      geometry.preview,
+      {
+        width: 256,
+        height: 256,
+        frameY: 0.16
+      },
+      textureImages
+    )
+    modelPreviewCache.value = {
+      ...modelPreviewCache.value,
+      [item.id]: previewUrl
+    }
+    applyModelHoverPreview(item, previewUrl)
+    return previewUrl
+  } catch (error) {
+    const previewModuleUnavailable = isModelInsightWasmUnavailableError(error)
+    if (previewModuleUnavailable) {
+      showModelPreviewUnavailableToastOnce()
+    } else {
+      logFrontendWarn(
+        'unpack.modelPreview',
+        `model preview render failed path=${item.path} error=${error instanceof Error ? error.message : String(error)}`
+      )
+    }
+    modelPreviewCache.value = {
+      ...modelPreviewCache.value,
+      [item.id]: null
+    }
+    applyModelHoverPreview(item, null)
+    return null
+  } finally {
+    modelPreviewPending.delete(item.id)
+  }
+}
+
+async function loadHoverPreviewTextureImages(
+  item: ExplorerEntry,
+  geometry: Awaited<ReturnType<typeof loadModelPreviewGeometry>>
+) {
+  try {
+    return await loadModelPreviewTextureImages(item, geometry, {
+      warnScope: 'unpack.modelPreview'
+    })
+  } catch (error) {
+    logFrontendWarn(
+      'unpack.modelPreview',
+      `hover texture load failed path=${geometry.assets.mdfEntryPath ?? geometry.assets.meshEntryPath} error=${error instanceof Error ? error.message : String(error)}`
+    )
+    return {}
+  }
+}
+
+function showModelPreviewUnavailableToastOnce() {
+  if (modelHoverUnavailableToastShown) return
+  modelHoverUnavailableToastShown = true
+  ShowWarn(t('unpack.modelPreviewUnavailable'))
+}
+
+function applyModelHoverPreview(item: ExplorerEntry, url: string | null) {
+  if (modelHoverPreview.value?.itemId !== item.id) return
+  modelHoverPreview.value = {
+    ...modelHoverPreview.value,
+    url,
+    loading: false
+  }
+}
+
+function waitForModelPreview(itemId: string) {
+  return new Promise<string | null>((resolve) => {
+    const stop = watch(
+      modelPreviewCache,
+      (cache) => {
+        if (!(itemId in cache)) return
+        stop()
+        resolve(cache[itemId] ?? null)
+      },
+      { flush: 'sync' }
+    )
+  })
 }
 
 function getDefaultExplorerLayout(directory: ExplorerEntry | null): ExplorerLayoutMode {
@@ -2427,3 +2694,18 @@ onUnmounted(async () => {
   await stopListenToDrop()
 })
 </script>
+
+<style>
+@keyframes model-hover-preview-pulse {
+  0%,
+  100% {
+    opacity: 0.36;
+    transform: scale(0.96);
+  }
+
+  50% {
+    opacity: 0.86;
+    transform: scale(1);
+  }
+}
+</style>

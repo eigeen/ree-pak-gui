@@ -1,7 +1,7 @@
-use anyhow::Context as _;
 use ree_pak_core::filename::FileNameTable;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, time::Instant};
+use tauri::AppHandle;
 
 use crate::{
     channel::{
@@ -18,8 +18,13 @@ use crate::{
     },
     service::{
         audio::{AudioContainerInfo, AudioExtractBatchOptions, AudioService, AudioSourceRef},
+        model_insight::{
+            ModelInsightLoadMeshAssetsOptions, ModelInsightLoadTexturePreviewsOptions,
+            ModelInsightMeshAssets, ModelInsightService, ModelInsightTexturePreview,
+        },
         pak::{PackConflictInfo, PakHeaderInfo, PakService},
         preview::{PreviewService, TextureExportFormat},
+        update::{AppUpdateInfo, AppUpdateProgressChannel},
     },
     utility, warp_result_elapsed,
 };
@@ -328,6 +333,42 @@ pub fn vgmstream_get_status() -> VgmstreamStatus {
 }
 
 #[tauri::command]
+pub async fn model_insight_load_mesh_assets(
+    options: ModelInsightLoadMeshAssetsOptions,
+) -> Result<ModelInsightMeshAssets, String> {
+    let detail = Some(format!("entry_path={}", options.entry_path));
+    tokio::task::spawn_blocking(move || {
+        log_sync_command("model_insight_load_mesh_assets", detail, || {
+            ModelInsightService::get()
+                .load_mesh_assets(options)
+                .map_err(|error| error.to_string())
+        })
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn model_insight_load_texture_previews(
+    options: ModelInsightLoadTexturePreviewsOptions,
+) -> Result<Vec<ModelInsightTexturePreview>, String> {
+    let detail = Some(format!(
+        "base_entry_path={}, textures={}",
+        options.base_entry_path,
+        options.texture_paths.len()
+    ));
+    tokio::task::spawn_blocking(move || {
+        log_sync_command("model_insight_load_texture_previews", detail, || {
+            ModelInsightService::get()
+                .load_texture_previews(options)
+                .map_err(|error| error.to_string())
+        })
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
 pub fn vgmstream_install_from_archive(archive_path: String) -> Result<VgmstreamStatus, String> {
     log_sync_command(
         "vgmstream_install_from_archive",
@@ -401,23 +442,21 @@ pub fn get_compile_info() -> CompileInfo {
     }
 }
 
-/// Replace current binary with the given file.
-///
-/// Will apply after restart.
 #[tauri::command]
-pub fn perform_update(file_path: String) -> Result<(), String> {
+pub fn app_check_update() -> Result<Option<AppUpdateInfo>, String> {
     log_sync_command(
-        "perform_update",
-        Some(format!("file_path={file_path}")),
-        || {
-            self_replace::self_replace(&file_path)
-                .context("Failed to replace current binary")
-                .map_err(|e| e.to_string())?;
-            let _ = std::fs::remove_file(&file_path);
-
-            Ok(())
-        },
+        "app_check_update",
+        Some("source=github_releases".to_string()),
+        || crate::service::update::check_for_update().map_err(|e| e.to_string()),
     )
+}
+
+#[tauri::command]
+pub async fn app_install_update(
+    app: AppHandle,
+    on_event: AppUpdateProgressChannel,
+) -> Result<(), String> {
+    crate::service::update::install_update(app, on_event).await
 }
 
 #[tauri::command]

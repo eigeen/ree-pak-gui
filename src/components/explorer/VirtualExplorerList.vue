@@ -26,6 +26,9 @@ const emit = defineEmits<{
   (e: 'item-click', item: TItem, event: MouseEvent): void
   (e: 'item-open', item: TItem, event: MouseEvent): void
   (e: 'item-contextmenu', item: TItem, event: MouseEvent): void
+  (e: 'item-hover-start', item: TItem, event: PointerEvent): void
+  (e: 'item-hover-move', item: TItem, event: PointerEvent): void
+  (e: 'item-hover-end', item: TItem, event: PointerEvent): void
   (e: 'background-click', event: MouseEvent): void
   (e: 'background-contextmenu', event: MouseEvent): void
   (e: 'visible-items-change', items: TItem[]): void
@@ -152,6 +155,9 @@ function handleBackgroundContextMenu(event: MouseEvent) {
           @click="emit('item-click', getItem(virtualRow.index), $event)"
           @dblclick="emit('item-open', getItem(virtualRow.index), $event)"
           @contextmenu.prevent="emit('item-contextmenu', getItem(virtualRow.index), $event)"
+          @pointerenter="emit('item-hover-start', getItem(virtualRow.index), $event)"
+          @pointermove="emit('item-hover-move', getItem(virtualRow.index), $event)"
+          @pointerleave="emit('item-hover-end', getItem(virtualRow.index), $event)"
         >
           <div class="grid h-full items-center gap-3" :style="columnStyle">
             <slot name="row" :item="getItem(virtualRow.index)" />

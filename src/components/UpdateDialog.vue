@@ -8,10 +8,10 @@
         <div class="flex items-center gap-3">
           <Download class="size-5" />
           <div>
-            <DialogTitle class="update-dialog-title">{{
+            <DialogTitle class="text-base font-bold leading-[1.35] tracking-normal">{{
               t('updateDialog.updateAvailable')
             }}</DialogTitle>
-            <DialogDescription class="update-dialog-description mt-1">{{
+            <DialogDescription class="mt-1 text-sm leading-[1.4]">{{
               t('updateDialog.description')
             }}</DialogDescription>
           </div>
@@ -23,13 +23,13 @@
           {{ t('updateDialog.version') }} v{{ updateState.updateVersion?.version }}
         </h3>
         <p class="text-sm text-muted-foreground">
-          {{ t('updateDialog.releaseDate') }}: {{ updateState.updateVersion?.pub_time }}
+          {{ t('updateDialog.releaseDate') }}: {{ updateState.updateVersion?.date }}
         </p>
 
         <ScrollArea v-if="renderedDescription" class="min-h-0 flex-1 pr-3">
           <div
             ref="descriptionRef"
-            class="update-description-markdown text-sm"
+            class="update-description-markdown break-words text-[0.8125rem] leading-[1.65] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
             v-html="renderedDescription"
             @click="handleDescriptionClick"
           />
@@ -95,8 +95,8 @@ const markdown = new MarkdownIt({
   linkify: true
 })
 const renderedDescription = computed(() => {
-  const description = updateState.updateVersion?.description
-  return description ? markdown.render(description) : ''
+  const releaseMarkdown = updateState.updateVersion?.releaseMarkdown
+  return releaseMarkdown ? markdown.render(releaseMarkdown) : ''
 })
 
 const handleDescriptionClick = async (event: MouseEvent) => {
@@ -133,24 +133,51 @@ const handleDescriptionClick = async (event: MouseEvent) => {
 
 const startDownload = async () => {
   downloading.value = true
+  progress.value = 0
   logFrontendInfo('update.dialog', 'user confirmed download')
   try {
     const updateService = UpdateService.getInstance()
     const window = getCurrentWindow()
 
-    await updateService.downloadUpdate(async (event) => {
-      if (event.type === 'loadstart') {
-        await window.setProgressBar({
-          status: ProgressBarStatus.Normal,
-          progress: 0
-        })
-      } else if (event.type === 'load') {
-        progress.value = Math.floor((event.loaded / event.total) * 100)
+    await updateService.installUpdate(async (event) => {
+      if (event.event === 'checking') {
+        progress.value = 0
         await window.setProgressBar({
           status: ProgressBarStatus.Normal,
           progress: progress.value
         })
-      } else if (event.type === 'loadend') {
+      } else if (event.event === 'downloadStarted') {
+        progress.value = 0
+        await window.setProgressBar({
+          status: ProgressBarStatus.Normal,
+          progress: progress.value
+        })
+      } else if (event.event === 'downloadProgress') {
+        const total = event.data.total
+        if (total && total > 0) {
+          progress.value = Math.floor((event.data.downloaded / total) * 100)
+        }
+        await window.setProgressBar({
+          status: ProgressBarStatus.Normal,
+          progress: progress.value
+        })
+      } else if (event.event === 'installing') {
+        progress.value = 100
+        await window.setProgressBar({
+          status: ProgressBarStatus.Normal,
+          progress: progress.value
+        })
+      } else if (
+        event.event === 'finished' ||
+        event.event === 'relaunching' ||
+        event.event === 'upToDate'
+      ) {
+        await window.setProgressBar({
+          status: ProgressBarStatus.None,
+          progress: 0
+        })
+        downloading.value = false
+      } else if (event.event === 'error') {
         await window.setProgressBar({
           status: ProgressBarStatus.None,
           progress: 0
@@ -158,8 +185,6 @@ const startDownload = async () => {
         downloading.value = false
       }
     })
-
-    await updateService.performUpdate()
   } catch (error) {
     ShowError(t('global.failedDownloadUpdate', { error: String(error) }))
     downloading.value = false
@@ -193,32 +218,6 @@ defineExpose({ popup })
 </script>
 
 <style scoped>
-.update-dialog-title {
-  font-size: 1rem;
-  line-height: 1.35;
-  font-weight: 700;
-  letter-spacing: 0;
-}
-
-.update-dialog-description {
-  font-size: 0.875rem;
-  line-height: 1.4;
-}
-
-.update-description-markdown {
-  font-size: 0.8125rem;
-  line-height: 1.65;
-  word-break: break-word;
-}
-
-.update-description-markdown :deep(*:first-child) {
-  margin-top: 0;
-}
-
-.update-description-markdown :deep(*:last-child) {
-  margin-bottom: 0;
-}
-
 .update-description-markdown :deep(p),
 .update-description-markdown :deep(ul),
 .update-description-markdown :deep(ol),

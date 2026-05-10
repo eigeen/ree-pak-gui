@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   canOpenExplorerItemPreview,
   getDefaultExplorerLayoutMode,
+  isModelExplorerEntry,
   isTextureExplorerEntry
 } from './unpackExplorerPreview'
 
@@ -11,6 +12,13 @@ describe('unpackExplorerPreview', () => {
 
     expect(isTextureExplorerEntry(textureEntry)).toBe(true)
     expect(canOpenExplorerItemPreview(textureEntry)).toBe(true)
+  })
+
+  test('treats mesh files as model previews', () => {
+    const meshEntry = { isDir: false, name: 'body.mesh.2109148288' }
+
+    expect(isModelExplorerEntry(meshEntry)).toBe(true)
+    expect(canOpenExplorerItemPreview(meshEntry)).toBe(true)
   })
 
   test('falls back to details layout when texture preview is disabled', () => {

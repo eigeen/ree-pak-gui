@@ -17,6 +17,9 @@ const emit = defineEmits<{
   (e: 'item-open', item: ExplorerEntry, event: MouseEvent): void
   (e: 'item-contextmenu', item: ExplorerEntry, event: MouseEvent): void
   (e: 'item-check', item: ExplorerEntry, checked: boolean): void
+  (e: 'item-hover-start', item: ExplorerEntry, event: PointerEvent): void
+  (e: 'item-hover-move', item: ExplorerEntry, event: PointerEvent): void
+  (e: 'item-hover-end', item: ExplorerEntry, event: PointerEvent): void
   (e: 'background-click', event: MouseEvent): void
   (e: 'background-contextmenu', event: MouseEvent): void
   (e: 'visible-items-change', items: ExplorerEntry[]): void
@@ -36,6 +39,18 @@ function handleItemClick(item: ExplorerEntry, event: MouseEvent) {
 function handleItemOpen(item: ExplorerEntry, event: MouseEvent) {
   emit('item-open', item, event)
 }
+
+function handleItemHoverStart(item: ExplorerEntry, event: PointerEvent) {
+  emit('item-hover-start', item, event)
+}
+
+function handleItemHoverMove(item: ExplorerEntry, event: PointerEvent) {
+  emit('item-hover-move', item, event)
+}
+
+function handleItemHoverEnd(item: ExplorerEntry, event: PointerEvent) {
+  emit('item-hover-end', item, event)
+}
 </script>
 
 <template>
@@ -50,6 +65,9 @@ function handleItemOpen(item: ExplorerEntry, event: MouseEvent) {
     @item-click="handleItemClick"
     @item-open="handleItemOpen"
     @item-contextmenu="handleItemContextMenu"
+    @item-hover-start="handleItemHoverStart"
+    @item-hover-move="handleItemHoverMove"
+    @item-hover-end="handleItemHoverEnd"
     @background-click="emit('background-click', $event)"
     @background-contextmenu="emit('background-contextmenu', $event)"
     @visible-items-change="emit('visible-items-change', $event)"
@@ -75,7 +93,7 @@ function handleItemOpen(item: ExplorerEntry, event: MouseEvent) {
       <div class="flex min-w-0 items-center gap-2.5">
         <component
           :is="props.renderers.getHeroIcon(item)"
-          class="asset-list-icon size-4"
+          class="size-4 [filter:drop-shadow(0_4px_8px_rgb(0_0_0_/_0.2))]"
           :style="props.renderers.getHeroIconStyle(item)"
         />
 
@@ -98,9 +116,3 @@ function handleItemOpen(item: ExplorerEntry, event: MouseEvent) {
     </template>
   </VirtualExplorerList>
 </template>
-
-<style scoped>
-.asset-list-icon {
-  filter: drop-shadow(0 4px 8px rgb(0 0 0 / 0.2));
-}
-</style>
