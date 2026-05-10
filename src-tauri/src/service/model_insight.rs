@@ -188,15 +188,19 @@ impl ModelInsightService {
                 )?;
             }
 
+            let preview_lod = texture_preview_lod(texture_resolution, &resolved.entry_path);
             let preview_path = asset_dir.join(format!(
-                "{:016X}-{}.png",
+                "{:016X}-lod{}-{}.png",
                 resolved.hash,
+                preview_lod,
                 sanitize_file_name(&file_stem(&resolved.entry_path))
             ));
             let preview_cached = preview_path.exists();
             if !preview_cached {
                 let convert_started_at = Instant::now();
-                if let Err(error) = crate::service::preview::tex_to_png(&raw_path, &preview_path) {
+                if let Err(error) =
+                    crate::service::preview::tex_to_png_lod(&raw_path, &preview_path, preview_lod)
+                {
                     log::warn!(
                         "model insight texture conversion skipped: entry={} error={}",
                         resolved.entry_path,
@@ -214,9 +218,10 @@ impl ModelInsightService {
             let read_started_at = Instant::now();
             let preview_data = std::fs::read(&preview_path)?;
             log::info!(
-                "model insight texture preview ready: texture={} entry={} raw_cached={} preview_cached={} bytes={} resolve_elapsed={} ms read_elapsed={} ms total_elapsed={} ms",
+                "model insight texture preview ready: texture={} entry={} lod={} raw_cached={} preview_cached={} bytes={} resolve_elapsed={} ms read_elapsed={} ms total_elapsed={} ms",
                 texture_path,
                 resolved.entry_path,
+                preview_lod,
                 raw_cached,
                 preview_cached,
                 preview_data.len(),
@@ -416,16 +421,22 @@ fn texture_entry_candidates(
         }
     }
 
-    if texture_resolution == ModelTextureResolution::High {
-        let standard_candidates = candidates.clone();
-        candidates.clear();
-        for candidate in &standard_candidates {
-            if let Some(streaming_candidate) = streaming_texture_candidate(candidate) {
-                push_unique_candidate(&mut candidates, streaming_candidate);
-            }
+    let standard_candidates = candidates.clone();
+    let mut streaming_candidates = Vec::new();
+    for candidate in &standard_candidates {
+        if let Some(streaming_candidate) = streaming_texture_candidate(candidate) {
+            push_unique_candidate(&mut streaming_candidates, streaming_candidate);
         }
-        for candidate in standard_candidates {
-            push_unique_candidate(&mut candidates, candidate);
+    }
+
+    candidates.clear();
+    let ordered_candidate_groups = match texture_resolution {
+        ModelTextureResolution::High => [&streaming_candidates, &standard_candidates],
+        ModelTextureResolution::Standard => [&standard_candidates, &streaming_candidates],
+    };
+    for group in ordered_candidate_groups {
+        for candidate in group {
+            push_unique_candidate(&mut candidates, candidate.clone());
         }
     }
 
@@ -479,6 +490,20 @@ fn streaming_texture_candidate(path: &str) -> Option<String> {
     }
     components.insert(streaming_index, "streaming".to_string());
     Some(components.join("/"))
+}
+
+fn texture_preview_lod(texture_resolution: ModelTextureResolution, entry_path: &str) -> usize {
+    match texture_resolution {
+        ModelTextureResolution::High => 0,
+        ModelTextureResolution::Standard if is_streaming_entry_path(entry_path) => 2,
+        ModelTextureResolution::Standard => 0,
+    }
+}
+
+fn is_streaming_entry_path(path: &str) -> bool {
+    path.split('/')
+        .filter(|component| !component.is_empty())
+        .any(|component| component.eq_ignore_ascii_case("streaming"))
 }
 
 fn join_entry_path(parent: &str, child: &str) -> String {
@@ -671,7 +696,10 @@ mod tests {
             vec![
                 "Art/Model/ch000/textures/foo_ALBD".to_string(),
                 "natives/STM/Art/Model/ch000/textures/foo_ALBD".to_string(),
-                "natives/STM/Art/Model/ch000/Art/Model/ch000/textures/foo_ALBD".to_string()
+                "natives/STM/Art/Model/ch000/Art/Model/ch000/textures/foo_ALBD".to_string(),
+                "natives/STM/streaming/Art/Model/ch000/textures/foo_ALBD".to_string(),
+                "natives/STM/streaming/Art/Model/ch000/Art/Model/ch000/textures/foo_ALBD"
+                    .to_string()
             ]
         );
     }
@@ -720,5 +748,30 @@ mod tests {
             Some("natives/STM/streaming/Art/foo_ALBD".to_string())
         );
         assert_eq!(streaming_texture_candidate("Art/foo_ALBD"), None);
+    }
+
+    #[test]
+    fn standard_texture_preview_uses_lower_lod_for_streaming_fallback() {
+        assert_eq!(
+            texture_preview_lod(
+                ModelTextureResolution::Standard,
+                "natives/STM/streaming/Art/foo_ALBD.tex.241106027"
+            ),
+            2
+        );
+        assert_eq!(
+            texture_preview_lod(
+                ModelTextureResolution::High,
+                "natives/STM/streaming/Art/foo_ALBD.tex.241106027"
+            ),
+            0
+        );
+        assert_eq!(
+            texture_preview_lod(
+                ModelTextureResolution::Standard,
+                "natives/STM/Art/foo_ALBD.tex.241106027"
+            ),
+            0
+        );
     }
 }

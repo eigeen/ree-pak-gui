@@ -7,10 +7,7 @@ pub type ParseResult<T> = Result<T, ParseError>;
 #[derive(Debug, thiserror::Error)]
 pub enum ParseError {
     #[error("invalid magic: expected {expected}, got 0x{actual:08x}")]
-    InvalidMagic {
-        expected: &'static str,
-        actual: u32,
-    },
+    InvalidMagic { expected: &'static str, actual: u32 },
     #[error("unsupported format: {0}")]
     Unsupported(&'static str),
     #[error(

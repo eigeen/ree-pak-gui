@@ -402,13 +402,23 @@ fn build_texture_output_path(
 }
 
 pub(crate) fn tex_to_png(tex_path: impl AsRef<Path>, png_path: impl AsRef<Path>) -> Result<()> {
+    tex_to_png_lod(tex_path, png_path, 0)
+}
+
+pub(crate) fn tex_to_png_lod(
+    tex_path: impl AsRef<Path>,
+    png_path: impl AsRef<Path>,
+    lod: usize,
+) -> Result<()> {
     let tex_path = tex_path.as_ref();
     let png_path = png_path.as_ref();
 
     let mut reader = BufReader::new(File::open(tex_path)?);
     let tex = Tex::from_reader(&mut reader)?;
+    let mipmap_count = usize::from(tex.header.mipmap_count);
+    let mipmap_idx = lod.min(mipmap_count.saturating_sub(1));
 
-    let img = tex.to_rgba_image(0)?;
+    let img = tex.to_rgba_image(mipmap_idx)?;
     img.save_with_format(png_path, image::ImageFormat::Png)?;
 
     Ok(())
