@@ -1118,15 +1118,18 @@ mod tests {
 
     #[test]
     fn test_get_relative_path_with_parent() {
-        // 测试包含父目录名称的相对路径
-        let root_path = Path::new("C:/Folder/Project");
-        let file_path = Path::new("C:/Folder/Project/natives/STM/test.txt");
-        let relative_path = get_relative_path_with_parent(root_path, file_path).unwrap();
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let root_path = temp_dir.path().join("Project");
+        let file_path = root_path.join("natives").join("STM").join("test.txt");
+        let relative_path =
+            get_relative_path_with_parent(root_path.as_path(), file_path.as_path()).unwrap();
         assert_eq!(relative_path, "Project/natives/STM/test.txt");
 
-        let root_path = Path::new("C:/Data/MyMod");
-        let file_path = Path::new("C:/Data/MyMod/assets/texture.png");
-        let relative_path = get_relative_path_with_parent(root_path, file_path).unwrap();
+        let root_path = temp_dir.path().join("MyMod");
+        let file_path = root_path.join("assets").join("texture.png");
+        let relative_path =
+            get_relative_path_with_parent(root_path.as_path(), file_path.as_path()).unwrap();
         assert_eq!(relative_path, "MyMod/assets/texture.png");
     }
 

@@ -1,6 +1,8 @@
 use std::process::Command;
 
 fn main() {
+    configure_native_linking();
+
     let commit_time = get_commit_rfc3339().unwrap();
     println!("cargo:rustc-env=GIT_COMMIT_TIME_RFC3339={}", commit_time);
 
@@ -21,6 +23,15 @@ fn main() {
     println!("cargo:rustc-env=GIT_COMMIT_HASH={}", commit_hash);
 
     tauri_build::build()
+}
+
+fn configure_native_linking() {
+    let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+    let target_env = std::env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
+
+    if target_os == "linux" && target_env == "gnu" {
+        println!("cargo:rustc-link-lib=dylib=stdc++");
+    }
 }
 
 fn get_commit_rfc3339() -> Result<String, String> {
