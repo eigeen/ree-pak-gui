@@ -15,7 +15,7 @@ interface WorkRecord {
   pack: PackWork
 }
 
-interface UnpackWork {
+export interface UnpackWork {
   fileList: string
   paks: string[]
   filterText: string
@@ -40,6 +40,16 @@ export interface FileItem {
 }
 
 const FILE_NAME = 'workspace.json'
+
+function normalizeUnpackWork(raw: Partial<UnpackWork> | null | undefined): UnpackWork {
+  return {
+    fileList: raw?.fileList ?? '',
+    paks: Array.isArray(raw?.paks) ? raw.paks : [],
+    filterText: raw?.filterText ?? '',
+    filterUseRegex: raw?.filterUseRegex ?? false,
+    explorerLayoutMode: raw?.explorerLayoutMode === 'tile' ? 'tile' : 'details'
+  }
+}
 
 function normalizePackWork(raw: Partial<PackWork> | null | undefined): PackWork {
   return {
@@ -100,14 +110,7 @@ export const useWorkStore = defineStore('work', () => {
         const work = JSON.parse(content)
 
         if (work.unpack) {
-          unpack.value = {
-            fileList: '',
-            paks: [],
-            filterText: '',
-            filterUseRegex: false,
-            explorerLayoutMode: 'details',
-            ...work.unpack
-          }
+          unpack.value = normalizeUnpackWork(work.unpack)
         }
         if (work.pack) {
           pack.value = normalizePackWork(work.pack)
@@ -151,5 +154,10 @@ export const useWorkStore = defineStore('work', () => {
     { deep: true }
   )
 
-  return { unpack, pack, loadWorkRecords, saveFile }
+  return {
+    unpack,
+    pack,
+    loadWorkRecords,
+    saveFile
+  }
 })

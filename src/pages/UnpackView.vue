@@ -48,15 +48,12 @@
                 class="flex min-h-0 flex-1 flex-col overflow-hidden"
               >
                 <div class="mb-3 flex items-center gap-2">
-                  <DenseInput
-                    v-model="unpackState.filterText"
-                    :placeholder="t('unpack.filterKeyword')"
-                  />
+                  <DenseInput v-model="filterDraftText" :placeholder="t('unpack.filterKeyword')" />
                   <Button
                     variant="outline"
                     size="sm"
                     class="desktop-command-button"
-                    :disabled="unpackState.filterText === filterTextApply"
+                    :disabled="filterDraftText.trim() === filterTextApply"
                     @click="updateFilter"
                   >
                     <Filter class="size-4" />
@@ -137,10 +134,12 @@
                     ref="fileTreeComponent"
                     :current-node-key="treeFocusKey"
                     :checked-keys="checkedTreeKeys"
+                    :expanded-keys="expandedTreeKeys"
                     :data="treePanelData"
                     class="h-full"
                     @node-click="handleNodeClick"
                     @node-check="handleTreeNodeCheck"
+                    @node-expanded-change="handleTreeExpandedKeysChange"
                     @node-contextmenu="handleTreeNodeContextMenu"
                     @background-contextmenu="handleTreeBackgroundContextMenu"
                   />
@@ -310,12 +309,12 @@ import {
   onMounted,
   onUnmounted,
   ref,
-  shallowRef,
   unref,
   watch,
   type CSSProperties,
   type Ref
 } from 'vue'
+import { storeToRefs } from 'pinia'
 import { Channel, convertFileSrc } from '@tauri-apps/api/core'
 import type { UnlistenFn } from '@tauri-apps/api/event'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
@@ -361,7 +360,6 @@ import type {
   PakHeaderInfo,
   PakId,
   PakInfo,
-  RenderTreeNode,
   UnpackProgressEvent
 } from '@/api/tauri/pak'
 import {
@@ -447,6 +445,7 @@ import {
 import { fileListService } from '@/service/filelist'
 import { useSettingsStore, type AppSettings } from '@/store/settings'
 import { useWorkStore } from '@/store/work'
+import { useUnpackStore } from '@/store/unpack'
 import { logFrontendInfo, logFrontendWarn } from '@/utils/frontendLog'
 import { ShowError, ShowInfo, ShowWarn } from '@/utils/message'
 import {
@@ -460,15 +459,6 @@ import { Switch } from '@/components/ui/switch'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { ElImageViewer } from 'element-plus'
 
-type UnpackState = {
-  fileList: string
-  paks: string[]
-  filterText: string
-  filterUseRegex: boolean
-  explorerLayoutMode: ExplorerLayoutMode
-}
-
-type SidebarTab = 'resources' | 'tree'
 type ExplorerContextMenuKind = 'item' | 'background'
 type TreeContextMenuKind = 'node' | 'background'
 type PropertyTarget =
@@ -480,19 +470,31 @@ const EXPLORER_ROOT_ID = '__explorer_root__'
 
 const { t } = useI18n()
 const workStore = useWorkStore()
+const unpackStore = useUnpackStore()
 const settingsStore = useSettingsStore()
 const settings = computed(() => unref(settingsStore.settings as unknown as Ref<AppSettings>))
 
-const unpackState = computed({
-  get: () => workStore.unpack as unknown as UnpackState,
-  set: (value: UnpackState) => {
-    ;(workStore as any).unpack = value
-  }
-})
-
-const filterTextApply = ref('')
-const explorerSearchText = ref('')
-const sidebarTab = ref<SidebarTab>('resources')
+const { unpack: unpackState } = storeToRefs(workStore)
+const {
+  pakData,
+  treeData,
+  showOverlay,
+  loadingTree,
+  currentDirectoryKey,
+  treeFocusKey,
+  checkedTreeKeys,
+  focusedEntryKey,
+  checkedEntryKeys,
+  selectionAnchorKey,
+  explorerSearchText,
+  filterDraftText,
+  filterTextApply,
+  sidebarTab,
+  explorerLayoutMode,
+  expandedTreeKeys,
+  loadedTreeSourceKey
+} = storeToRefs(unpackStore)
+const treeSourceKey = computed(() => buildTreeSourceKey(unpackState.value.fileList, pakData.value))
 const sidebarTabs = computed<UnpackSidebarTabItem[]>(() => [
   {
     value: 'resources',
@@ -505,17 +507,7 @@ const sidebarTabs = computed<UnpackSidebarTabItem[]>(() => [
     icon: FolderTree
   }
 ])
-const pakData = ref<PakInfo[]>([])
 const initialLoaded = ref(false)
-const treeData = shallowRef<RenderTreeNode[] | null>(null)
-const showOverlay = ref(false)
-const loadingTree = ref(false)
-const currentDirectoryKey = ref('')
-const treeFocusKey = ref('')
-const checkedTreeKeys = ref<string[]>([])
-const focusedEntryKey = ref('')
-const checkedEntryKeys = ref<string[]>([])
-const selectionAnchorKey = ref('')
 const visibleExplorerEntries = ref<ExplorerEntry[]>([])
 const texturePreviewCache = ref<Record<string, string | null>>({})
 const texturePreviewPending = new Set<string>()
@@ -532,7 +524,7 @@ const modelHoverPreview = ref<{
 let modelHoverTimer: ReturnType<typeof window.setTimeout> | null = null
 let modelHoverRequestId = 0
 let modelHoverUnavailableToastShown = false
-const explorerLayoutMode = ref<ExplorerLayoutMode>('details')
+let treeFilterApplyTimer: ReturnType<typeof window.setTimeout> | null = null
 const explorerContextMenuKind = ref<ExplorerContextMenuKind>('background')
 const explorerContextMenuTarget = ref<ExplorerEntry | null>(null)
 const explorerContextMenuOpen = ref(false)
@@ -1165,14 +1157,17 @@ function setExplorerFocus(key: string) {
 }
 
 function clearExplorerSelection(options: { clearContextMenuTarget?: boolean } = {}) {
-  focusedEntryKey.value = ''
-  checkedEntryKeys.value = []
-  selectionAnchorKey.value = ''
+  unpackStore.clearExplorerSelection()
   explorerContextMenuOpen.value = false
 
   if (options.clearContextMenuTarget ?? true) {
     explorerContextMenuTarget.value = null
   }
+}
+
+function buildTreeSourceKey(fileList: string, paks: Pick<PakInfo, 'path'>[]) {
+  if (!fileList || paks.length === 0) return ''
+  return JSON.stringify([fileList, paks.map((pak) => pak.path)])
 }
 
 function getExplorerBatchActionEntries(fallbackItem: ExplorerEntry) {
@@ -1192,11 +1187,7 @@ function setExplorerLayout(mode: ExplorerLayoutMode) {
   }
 }
 
-watch(pakData, async () => {
-  treeData.value = null
-  currentDirectoryKey.value = ''
-  checkedTreeKeys.value = []
-  clearExplorerSelection()
+function handlePakDataChanged() {
   exitPreviewMode()
   explorerContextMenuTarget.value = null
   explorerContextMenuOpen.value = false
@@ -1213,17 +1204,36 @@ watch(pakData, async () => {
   if (initialLoaded.value) {
     unpackState.value.paks = pakData.value.map((pak) => pak.path)
   }
-})
+}
 
 watch(
-  () => [pakData.value, unpackState.value.fileList],
-  async () => {
-    if (unpackState.value.fileList && pakData.value.length > 0) {
-      showOverlay.value = true
-      loadingTree.value = false
+  () => treeSourceKey.value,
+  (sourceKey) => {
+    if (!sourceKey) {
+      showOverlay.value = false
+      return
     }
+
+    showOverlay.value = sourceKey !== loadedTreeSourceKey.value
+    loadingTree.value = loadingTree.value && showOverlay.value
+  },
+  { immediate: true }
+)
+
+watch(
+  () => unpackState.value.fileList,
+  (fileList, previousFileList) => {
+    if (!initialLoaded.value || fileList === previousFileList) return
+    unpackStore.resetTreeState()
+    handlePakDataChanged()
   }
 )
+
+watch(loadedTreeSourceKey, async () => {
+  showOverlay.value = Boolean(
+    treeSourceKey.value && treeSourceKey.value !== loadedTreeSourceKey.value
+  )
+})
 
 watch(explorerRoot, (root) => {
   if (!root) {
@@ -1267,6 +1277,8 @@ watch(
   { immediate: true }
 )
 
+watch(filterDraftText, scheduleFilterUpdate)
+
 watch(
   () =>
     [
@@ -1281,9 +1293,37 @@ watch(
   { immediate: true }
 )
 
-const updateFilter = () => {
-  unpackState.value.filterText = unpackState.value.filterText.trim()
-  filterTextApply.value = unpackState.value.filterText
+function updateFilter() {
+  cancelPendingFilterUpdate()
+  const nextFilterText = filterDraftText.value.trim()
+  filterDraftText.value = nextFilterText
+
+  if (filterTextApply.value === nextFilterText && unpackState.value.filterText === nextFilterText) {
+    return
+  }
+
+  unpackState.value = {
+    ...unpackState.value,
+    filterText: nextFilterText
+  }
+  filterTextApply.value = nextFilterText
+}
+
+function scheduleFilterUpdate() {
+  const nextFilterText = filterDraftText.value.trim()
+  if (filterTextApply.value === nextFilterText && unpackState.value.filterText === nextFilterText) {
+    cancelPendingFilterUpdate()
+    return
+  }
+
+  cancelPendingFilterUpdate()
+  treeFilterApplyTimer = window.setTimeout(updateFilter, 300)
+}
+
+function cancelPendingFilterUpdate() {
+  if (!treeFilterApplyTimer) return
+  window.clearTimeout(treeFilterApplyTimer)
+  treeFilterApplyTimer = null
 }
 
 async function handleOpen() {
@@ -1337,9 +1377,8 @@ async function doRender() {
     }
 
     await fileListService.loadFilePathList(file.source.filePath)
-    treeData.value = await pak_read_file_tree_optimized()
-    sidebarTab.value = 'tree'
-    showOverlay.value = false
+    const renderedTreeData = await pak_read_file_tree_optimized()
+    unpackStore.setRenderedTree(renderedTreeData, treeSourceKey.value, [])
   } catch (error) {
     ShowError(error)
   } finally {
@@ -1358,10 +1397,8 @@ const handleOrder = async (order: PakId[]) => {
     return
   }
 
-  pakData.value = orderedPaks
-  unpackState.value = {
-    ...unpackState.value,
-    paks: orderedPaks.map((pak) => pak.path)
+  if (unpackStore.setPakData(orderedPaks)) {
+    handlePakDataChanged()
   }
 }
 
@@ -1625,7 +1662,10 @@ function getLoadedPaks(): Promise<PakInfo[]> {
 }
 
 async function reloadData() {
-  pakData.value = await getLoadedPaks()
+  const changed = unpackStore.setPakData(await getLoadedPaks())
+  if (changed) {
+    handlePakDataChanged()
+  }
 }
 
 let unlisten: UnlistenFn | undefined
@@ -1695,6 +1735,10 @@ function handleTreeNodeCheck(checkedKeys: string[]) {
   checkedTreeKeys.value = checkedKeys
 }
 
+function handleTreeExpandedKeysChange(keys: string[]) {
+  expandedTreeKeys.value = keys
+}
+
 function bringSelectedEntryIntoTreeView() {
   const key = bringTargetKey.value
   if (!key) return
@@ -1731,6 +1775,9 @@ function handleTreeBackgroundContextMenu(event: MouseEvent) {
 
 async function loadWorkRecords() {
   await workStore.loadWorkRecords()
+  filterDraftText.value = unpackState.value.filterText
+  filterTextApply.value = unpackState.value.filterText
+  explorerLayoutMode.value = unpackState.value.explorerLayoutMode
   if (initialLoaded.value) return
 
   if (pakData.value.length === 0 && unpackState.value.paks.length > 0) {
@@ -2688,6 +2735,8 @@ onMounted(async () => {
 })
 
 onUnmounted(async () => {
+  updateFilter()
+  cancelPendingFilterUpdate()
   stopListenToPreviewRelease()
   releasePreviewFileReferences()
   await nextTick()
