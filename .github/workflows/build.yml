@@ -56,7 +56,20 @@ jobs:
 
       - name: Install wasm-opt
         if: runner.os == 'Windows'
-        run: choco install binaryen -y --no-progress
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $scoopShims = "$env:USERPROFILE\scoop\shims"
+          $env:PATH = "$scoopShims;$env:PATH"
+          $scoopShims | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+          Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+          Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:PATH = "$scoopShims;$env:PATH"
+
+          scoop install binaryen
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Verify wasm-opt
         run: wasm-opt --version
