@@ -4,6 +4,7 @@ import {
   type ModelTextureResolution
 } from '@/api/tauri/utils'
 import { logFrontendWarn } from '@/utils/frontendLog'
+import { toUint8Array } from './bytes'
 import type { PreviewModel } from './wasm'
 
 export type ModelTextureUrls = Record<string, string>
@@ -113,8 +114,4 @@ function loadImage(url: string): Promise<HTMLImageElement> {
     image.onerror = () => reject(new Error(`Failed to load model texture: ${url}`))
     image.src = url
   })
-}
-
-function toUint8Array(value: number[] | Uint8Array) {
-  return value instanceof Uint8Array ? value : Uint8Array.from(value)
 }

@@ -50,6 +50,8 @@ export default {
       previewItem: 'Preview',
       previewModel: 'Preview Model',
       modelInsightMissingSource: 'Missing source pak or file hash. Cannot start model preview.',
+      modelPreviewUnavailable:
+        'Model preview is unavailable. Build the optional wasm preview module first.',
       exitPreviewMode: 'Exit Preview',
       modelPreviewKind: 'Mesh',
       modelPreviewLoading: 'Loading model preview...',

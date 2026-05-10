@@ -1,3 +1,5 @@
+import { logFrontendWarn } from '@/utils/frontendLog'
+
 export interface PreviewModel {
   meshes: PreviewSubmesh[]
   materials: PreviewMaterial[]
@@ -33,7 +35,9 @@ export interface MeshPreviewResponse {
 }
 
 interface ModelInsightWasmModule {
-  default?: (moduleOrPath?: RequestInfo | URL | BufferSource | WebAssembly.Module) => Promise<unknown>
+  default?: (
+    moduleOrPath?: RequestInfo | URL | BufferSource | WebAssembly.Module
+  ) => Promise<unknown>
   initModelInsightWasm: () => void
   modelInsightWasmVersion: () => string
   meshToPreviewModel: (
@@ -42,10 +46,20 @@ interface ModelInsightWasmModule {
     mdfBytes?: Uint8Array,
     mdfFileVersion?: number
   ) => MeshPreviewResponse
-  texToDds?: (texBytes: Uint8Array, mipmapCount?: number) => Uint8Array
 }
 
 let wasmPromise: Promise<ModelInsightWasmModule> | null = null
+let unavailableWarned = false
+
+export class ModelInsightWasmUnavailableError extends Error {
+  cause: unknown
+
+  constructor(cause: unknown) {
+    super('Model preview module is unavailable.')
+    this.name = 'ModelInsightWasmUnavailableError'
+    this.cause = cause
+  }
+}
 
 export async function loadModelInsightWasm(): Promise<ModelInsightWasmModule> {
   wasmPromise ??= importModelInsightWasm()
@@ -67,24 +81,34 @@ export async function meshToPreviewModel(options: {
   )
 }
 
-export async function texToDds(
-  texBytes: Uint8Array,
-  mipmapCount?: number
-): Promise<Uint8Array> {
-  const wasm = await loadModelInsightWasm()
-  if (!wasm.texToDds) {
-    throw new Error('model-insight wasm was built without TEX to DDS support')
+async function importModelInsightWasm(): Promise<ModelInsightWasmModule> {
+  const wasmBasePath = '../../wasm/model-insight'
+  const moduleUrl = new URL(`${wasmBasePath}/model_insight.js`, import.meta.url).href
+  const wasmUrl = new URL(`${wasmBasePath}/model_insight_bg.wasm`, import.meta.url).href
+  try {
+    const wasm = (await import(/* @vite-ignore */ moduleUrl)) as ModelInsightWasmModule
+    if (wasm.default) {
+      await wasm.default(wasmUrl)
+    }
+    wasm.initModelInsightWasm()
+    return wasm
+  } catch (error) {
+    warnUnavailableOnce(error)
+    throw new ModelInsightWasmUnavailableError(error)
   }
-  return wasm.texToDds(texBytes, mipmapCount)
 }
 
-async function importModelInsightWasm(): Promise<ModelInsightWasmModule> {
-  const moduleUrl = new URL('../../wasm/model-insight/model_insight.js', import.meta.url).href
-  const wasmUrl = new URL('../../wasm/model-insight/model_insight_bg.wasm', import.meta.url).href
-  const wasm = (await import(/* @vite-ignore */ moduleUrl)) as ModelInsightWasmModule
-  if (wasm.default) {
-    await wasm.default(wasmUrl)
-  }
-  wasm.initModelInsightWasm()
-  return wasm
+export function isModelInsightWasmUnavailableError(
+  error: unknown
+): error is ModelInsightWasmUnavailableError {
+  return error instanceof ModelInsightWasmUnavailableError
+}
+
+function warnUnavailableOnce(error: unknown) {
+  if (unavailableWarned) return
+  unavailableWarned = true
+  logFrontendWarn(
+    'modelInsight.wasm',
+    `optional model preview module is unavailable error=${error instanceof Error ? error.message : String(error)}`
+  )
 }

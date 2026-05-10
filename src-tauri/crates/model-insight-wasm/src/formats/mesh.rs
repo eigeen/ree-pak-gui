@@ -954,6 +954,7 @@ mod tests {
     const SAMPLE_MESH: &str = "test_files/mhs3/natives/STM/Art/Model/character/ch00/000/0000/ch00_000_0000.mesh.250604100";
 
     #[test]
+    #[ignore = "requires local RE Engine mesh fixture files"]
     fn reads_mhs3_mesh_header_lod_and_preview_geometry() {
         let mesh = MeshFile::read_path(SAMPLE_MESH).expect("mesh should parse");
 

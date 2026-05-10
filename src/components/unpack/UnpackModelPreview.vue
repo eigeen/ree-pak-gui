@@ -2,7 +2,7 @@
   <div ref="rootRef" :class="modelPreviewRootClass">
     <canvas
       ref="canvasRef"
-      class="model-preview-canvas"
+      class="model-preview-canvas block h-full w-full"
       @contextmenu.prevent
       @pointerdown="handlePointerDown"
       @pointermove="handlePointerMove"
@@ -11,34 +11,40 @@
       @wheel.prevent="handleWheel"
     />
 
-    <div class="model-preview-left-ui" @pointerdown.stop @wheel.stop>
-      <section class="model-preview-panel model-preview-settings-panel">
-        <div class="model-preview-panel-header">
+    <div
+      class="absolute top-3 left-3 grid w-[min(280px,calc(100%_-_24px))] gap-2"
+      @pointerdown.stop
+      @wheel.stop
+    >
+      <section :class="previewPanelClass">
+        <div :class="previewPanelHeaderClass">
           <button
             type="button"
-            class="model-preview-panel-title-button"
+            :class="previewPanelTitleButtonClass"
             :aria-expanded="settingsPanelExpanded"
             @click="settingsPanelExpanded = !settingsPanelExpanded"
           >
             <ChevronRight
-              class="model-preview-chevron size-3.5"
-              :class="{ 'model-preview-chevron-expanded': settingsPanelExpanded }"
+              class="size-3.5 shrink-0 transition-transform duration-150"
+              :class="{ 'rotate-90': settingsPanelExpanded }"
             />
-            <span class="model-preview-panel-title">
+            <span :class="previewPanelTitleClass">
               {{ t('unpack.modelPreviewSettings') }}
             </span>
           </button>
         </div>
-        <div v-if="settingsPanelExpanded" class="model-preview-settings-body">
-          <div class="model-preview-control-row">
-            <span>{{ t('unpack.modelPreviewTextureResolution') }}</span>
-            <div class="model-preview-segmented" role="radiogroup">
+        <div v-if="settingsPanelExpanded" class="grid gap-2 px-[9px] pb-[9px]">
+          <div :class="previewControlRowClass">
+            <span :class="previewControlLabelClass">{{
+              t('unpack.modelPreviewTextureResolution')
+            }}</span>
+            <div :class="previewSegmentedClass" role="radiogroup">
               <button
                 type="button"
-                class="model-preview-segment"
-                :class="{
-                  'model-preview-segment-active': meshPreviewTextureResolution === 'standard'
-                }"
+                :class="[
+                  previewSegmentClass,
+                  meshPreviewTextureResolution === 'standard' && previewSegmentActiveClass
+                ]"
                 :aria-checked="meshPreviewTextureResolution === 'standard'"
                 role="radio"
                 @click="meshPreviewTextureResolution = 'standard'"
@@ -47,8 +53,10 @@
               </button>
               <button
                 type="button"
-                class="model-preview-segment"
-                :class="{ 'model-preview-segment-active': meshPreviewTextureResolution === 'high' }"
+                :class="[
+                  previewSegmentClass,
+                  meshPreviewTextureResolution === 'high' && previewSegmentActiveClass
+                ]"
                 :aria-checked="meshPreviewTextureResolution === 'high'"
                 role="radio"
                 @click="meshPreviewTextureResolution = 'high'"
@@ -57,64 +65,68 @@
               </button>
             </div>
           </div>
-          <div class="model-preview-control-row">
-            <span>{{ t('unpack.modelPreviewBackground') }}</span>
-            <div class="model-preview-segmented" role="radiogroup">
+          <div :class="previewControlRowClass">
+            <span :class="previewControlLabelClass">{{ t('unpack.modelPreviewBackground') }}</span>
+            <div :class="previewSegmentedClass" role="radiogroup">
               <button
                 type="button"
-                class="model-preview-segment"
-                :class="{ 'model-preview-segment-active': meshPreviewBackgroundStyle === 'dark' }"
+                :class="[
+                  previewSegmentClass,
+                  meshPreviewBackgroundStyle === 'dark' && previewSegmentActiveClass
+                ]"
                 :aria-checked="meshPreviewBackgroundStyle === 'dark'"
                 role="radio"
                 @click="meshPreviewBackgroundStyle = 'dark'"
               >
-                <span class="model-preview-swatch model-preview-swatch-dark" />
+                <span :class="[previewSwatchClass, 'bg-[#101215]']" />
                 {{ t('unpack.modelPreviewBackgroundDark') }}
               </button>
               <button
                 type="button"
-                class="model-preview-segment"
-                :class="{ 'model-preview-segment-active': meshPreviewBackgroundStyle === 'light' }"
+                :class="[
+                  previewSegmentClass,
+                  meshPreviewBackgroundStyle === 'light' && previewSegmentActiveClass
+                ]"
                 :aria-checked="meshPreviewBackgroundStyle === 'light'"
                 role="radio"
                 @click="meshPreviewBackgroundStyle = 'light'"
               >
-                <span class="model-preview-swatch model-preview-swatch-light" />
+                <span :class="[previewSwatchClass, 'bg-[#dce1e7]']" />
                 {{ t('unpack.modelPreviewBackgroundLight') }}
               </button>
             </div>
           </div>
-          <label class="model-preview-control-row model-preview-switch-row">
-            <span>{{ t('unpack.modelPreviewGrid') }}</span>
+          <label :class="previewControlRowClass">
+            <span :class="previewControlLabelClass">{{ t('unpack.modelPreviewGrid') }}</span>
             <Switch v-model="showMeshPreviewGrid" />
           </label>
         </div>
       </section>
 
-      <section v-if="meshItems.length > 0" class="model-preview-panel model-preview-objects-panel">
-        <div class="model-preview-panel-header">
+      <section v-if="meshItems.length > 0" :class="previewPanelClass">
+        <div :class="previewPanelHeaderClass">
           <button
             type="button"
-            class="model-preview-panel-title-button"
+            :class="previewPanelTitleButtonClass"
             :aria-expanded="objectsPanelExpanded"
             @click="objectsPanelExpanded = !objectsPanelExpanded"
           >
             <ChevronRight
-              class="model-preview-chevron size-3.5"
-              :class="{ 'model-preview-chevron-expanded': objectsPanelExpanded }"
+              class="size-3.5 shrink-0 transition-transform duration-150"
+              :class="{ 'rotate-90': objectsPanelExpanded }"
             />
             <Layers class="size-3.5" />
-            <span class="model-preview-panel-title">
+            <span :class="previewPanelTitleClass">
               {{ t('unpack.modelPreviewObjects') }}
             </span>
           </button>
-          <div class="model-preview-object-actions">
+          <div class="flex items-center gap-1.5">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger as-child>
                   <button
                     type="button"
-                    class="model-preview-action-button"
+                    :class="previewActionButtonClass"
                     :aria-label="t('unpack.modelPreviewShowAllMeshes')"
                     @click="showAllMeshes"
                   >
@@ -129,7 +141,7 @@
                 <TooltipTrigger as-child>
                   <button
                     type="button"
-                    class="model-preview-action-button"
+                    :class="previewActionButtonClass"
                     :aria-label="t('unpack.modelPreviewHideAllMeshes')"
                     @click="hideAllMeshes"
                   >
@@ -141,12 +153,15 @@
             </TooltipProvider>
           </div>
         </div>
-        <div v-if="objectsPanelExpanded" class="model-preview-object-list">
-          <div v-for="group in meshGroups" :key="group.key" class="model-preview-object-group">
-            <div class="model-preview-group-header">
+        <div
+          v-if="objectsPanelExpanded"
+          class="max-h-[min(320px,calc(100vh_-_280px))] min-h-0 overflow-auto border-t border-[rgba(255,255,255,0.09)] p-1"
+        >
+          <div v-for="group in meshGroups" :key="group.key" class="grid gap-0.5">
+            <div class="flex min-w-0 items-center gap-1.5 rounded-md">
               <Checkbox
                 :model-value="group.visibility"
-                class="model-preview-group-checkbox"
+                class="ml-1.5"
                 :aria-label="
                   t('unpack.modelPreviewToggleMeshGroupVisibility', { group: group.name })
                 "
@@ -158,39 +173,49 @@
               </Checkbox>
               <button
                 type="button"
-                class="model-preview-group-row"
+                class="flex min-w-0 flex-1 items-center gap-1.5 rounded-md p-1.5 text-left text-xs font-semibold text-[rgba(224,230,238,0.78)] transition-colors duration-150 hover:bg-white/10 hover:text-white"
                 :aria-expanded="!collapsedMeshGroupKeys.has(group.key)"
                 @click="toggleMeshGroup(group.key)"
               >
                 <ChevronRight
-                  class="model-preview-chevron size-3.5"
+                  class="size-3.5 shrink-0 transition-transform duration-150"
                   :class="{
-                    'model-preview-chevron-expanded': !collapsedMeshGroupKeys.has(group.key)
+                    'rotate-90': !collapsedMeshGroupKeys.has(group.key)
                   }"
                 />
-                <span class="model-preview-group-name">{{ group.name }}</span>
+                <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{{
+                  group.name
+                }}</span>
               </button>
             </div>
-            <div v-if="!collapsedMeshGroupKeys.has(group.key)" class="model-preview-group-children">
+            <div
+              v-if="!collapsedMeshGroupKeys.has(group.key)"
+              class="ml-3 grid gap-0.5 border-l border-white/10 pl-2"
+            >
               <label
                 v-for="mesh in group.meshes"
                 :key="mesh.index"
-                class="model-preview-object-row"
-                :class="{ 'model-preview-object-row-hidden': !mesh.visible }"
+                class="flex min-w-0 cursor-pointer items-center gap-2 rounded-md p-1.5 text-[rgba(236,241,245,0.9)] transition-[background,opacity] duration-150 hover:bg-[rgba(255,255,255,0.08)]"
+                :class="{ 'opacity-[0.55]': !mesh.visible }"
               >
                 <Checkbox
                   :model-value="mesh.visible"
                   @update:model-value="toggleMeshVisibility(mesh.index, $event === true)"
                 />
-                <span class="model-preview-object-text">
-                  <span class="model-preview-object-name">{{ mesh.name }}</span>
-                  <span class="model-preview-object-stats">
-                    <span class="model-preview-object-stat">
+                <span class="grid min-w-0 gap-px">
+                  <span
+                    class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs text-[rgba(246,248,250,0.94)]"
+                    >{{ mesh.name }}</span
+                  >
+                  <span
+                    class="inline-flex min-w-0 items-center gap-1 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-[rgba(205,213,224,0.62)]"
+                  >
+                    <span class="inline-flex items-center gap-[3px]">
                       {{ mesh.vertices }}
                       <Share2 class="size-3" aria-hidden="true" />
                     </span>
-                    <span class="model-preview-object-stat-separator">/</span>
-                    <span class="model-preview-object-stat">
+                    <span class="text-[rgba(205,213,224,0.42)]">/</span>
+                    <span class="inline-flex items-center gap-[3px]">
                       {{ mesh.triangles }}
                       <Triangle class="size-3" aria-hidden="true" />
                     </span>
@@ -203,10 +228,12 @@
       </section>
     </div>
 
-    <div class="model-preview-toolbar">
+    <div
+      class="absolute top-3 right-3 flex gap-1.5 rounded-lg border border-[rgba(255,255,255,0.12)] bg-[rgba(14,16,20,0.72)] p-1 backdrop-blur-[10px]"
+    >
       <button
         type="button"
-        class="model-preview-icon-button"
+        class="inline-flex size-[30px] items-center justify-center rounded-md text-[rgba(236,241,245,0.86)] transition-colors duration-150 hover:bg-white/12 hover:text-white"
         :title="t('unpack.modelPreviewResetView')"
         @click="resetCamera"
       >
@@ -214,11 +241,14 @@
       </button>
     </div>
 
-    <div v-if="statusText" class="model-preview-status">
+    <div
+      v-if="statusText"
+      class="absolute bottom-3 left-3 flex max-w-[min(520px,calc(100%_-_24px))] items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.12)] bg-[rgba(14,16,20,0.72)] px-2.5 py-2 text-xs leading-[1.35] text-[rgba(236,241,245,0.9)] backdrop-blur-[10px]"
+    >
       <Loader2 v-if="loading" class="size-4 animate-spin" />
       <AlertTriangle v-else-if="error" class="size-4" />
       <Box v-else class="size-4" />
-      <span>{{ statusText }}</span>
+      <span class="min-w-0 [overflow-wrap:anywhere]">{{ statusText }}</span>
     </div>
   </div>
 </template>
@@ -240,18 +270,19 @@ import {
   Share2,
   Triangle
 } from 'lucide-vue-next'
-import { modelInsightLoadMeshAssets, type ModelInsightMeshAssets } from '@/api/tauri/utils'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { ExplorerEntry } from '@/lib/unpackExplorer'
-import { meshToPreviewModel, type PreviewModel } from '@/lib/modelInsight/wasm'
 import {
-  loadModelTextureImages,
-  loadModelTextureUrls,
-  type ModelTextureImages
-} from '@/lib/modelInsight/textures'
+  loadModelPreviewGeometry,
+  loadModelPreviewTextureImages,
+  type ModelPreviewGeometry
+} from '@/lib/modelInsight/loader'
+import { isModelInsightWasmUnavailableError, type PreviewModel } from '@/lib/modelInsight/wasm'
+import { type ModelTextureImages } from '@/lib/modelInsight/textures'
 import { logFrontendWarn } from '@/utils/frontendLog'
+import { ShowWarn } from '@/utils/message'
 import {
   addVec3,
   createDefaultModelPreviewCamera,
@@ -320,6 +351,24 @@ let pointerState: {
   button: number
 } | null = null
 
+const previewPanelClass =
+  'rounded-lg border border-[rgba(255,255,255,0.12)] bg-[rgba(14,16,20,0.74)] text-[12px] leading-[1.35] text-[rgba(236,241,245,0.9)] shadow-[0_16px_42px_rgba(0,0,0,0.22)] backdrop-blur-[10px]'
+const previewPanelHeaderClass = 'flex items-center justify-between gap-2.5 p-[9px]'
+const previewPanelTitleButtonClass =
+  'flex min-w-0 items-center gap-1.5 rounded-md text-[rgba(246,248,250,0.94)] transition-colors duration-150 hover:text-white'
+const previewPanelTitleClass =
+  'min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-semibold text-[rgba(246,248,250,0.94)]'
+const previewControlRowClass = 'flex items-center justify-between gap-2.5'
+const previewControlLabelClass = 'min-w-max text-[rgba(205,213,224,0.76)]'
+const previewSegmentedClass =
+  'inline-flex min-w-0 overflow-hidden rounded-md border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.055)]'
+const previewSegmentClass =
+  'inline-flex min-w-0 items-center gap-[5px] px-[7px] py-1 text-[11px] text-[rgba(224,230,238,0.78)] transition-colors duration-150 hover:bg-white/10 hover:text-white'
+const previewSegmentActiveClass = 'bg-[rgba(255,255,255,0.15)] text-white'
+const previewSwatchClass = 'size-3 shrink-0 rounded-full border border-[rgba(255,255,255,0.26)]'
+const previewActionButtonClass =
+  'flex size-[26px] items-center justify-center rounded-md text-[rgba(224,230,238,0.78)] transition-colors duration-150 hover:bg-white/10 hover:text-white'
+
 const camera: ModelPreviewCamera = {
   target: [0, 0, 0] as Vec3,
   yaw: -0.65,
@@ -352,7 +401,7 @@ const meshPreviewTextureResolution = computed<MeshPreviewTextureResolution>({
 })
 
 const modelPreviewRootClass = computed(() => [
-  'model-preview',
+  'model-preview relative h-full min-h-0 w-full overflow-hidden',
   `model-preview-background-${meshPreviewBackgroundStyle.value}`,
   { 'model-preview-grid': showMeshPreviewGrid.value }
 ])
@@ -447,27 +496,17 @@ async function loadPreview() {
   error.value = null
 
   try {
-    const assets = await modelInsightLoadMeshAssets({
-      hash: entry.hash,
-      belongsTo: entry.belongsTo,
-      entryPath: entry.path
-    })
-    const result = await meshToPreviewModel({
-      meshBytes: toUint8Array(assets.meshData),
-      meshFileVersion: assets.meshFileVersion,
-      mdfBytes: assets.mdfData ? toUint8Array(assets.mdfData) : null,
-      mdfFileVersion: assets.mdfFileVersion ?? null
-    })
+    const geometry = await loadModelPreviewGeometry(entry)
     if (loadToken !== previewLoadToken) return
-    preview.value = result.preview
-    resetVisibleMeshes(result.preview)
-    buildRenderState(result.preview)
+    preview.value = geometry.preview
+    resetVisibleMeshes(geometry.preview)
+    buildRenderState(geometry.preview)
     resetCamera()
     loading.value = false
-    void loadPreviewTextures(loadToken, assets, result.preview, entry.belongsTo)
+    void loadPreviewTextures(loadToken, geometry)
   } catch (caught) {
     if (loadToken !== previewLoadToken) return
-    const message = caught instanceof Error ? caught.message : String(caught)
+    const message = modelPreviewErrorMessage(caught)
     error.value = message
   } finally {
     if (loadToken === previewLoadToken) {
@@ -476,40 +515,36 @@ async function loadPreview() {
   }
 }
 
-async function loadPreviewTextures(
-  loadToken: number,
-  assets: ModelInsightMeshAssets,
-  model: PreviewModel,
-  belongsTo?: string
-) {
-  const textureImages = await loadPreviewTextureImages(assets, model, belongsTo)
-  if (loadToken !== previewLoadToken || preview.value !== model) return
+async function loadPreviewTextures(loadToken: number, geometry: ModelPreviewGeometry) {
+  const textureImages = await loadPreviewTextureImages(geometry)
+  if (loadToken !== previewLoadToken || preview.value !== geometry.preview) return
   if (Object.keys(textureImages).length === 0) return
-  buildRenderState(model, textureImages)
+  buildRenderState(geometry.preview, textureImages)
 }
 
-async function loadPreviewTextureImages(
-  assets: ModelInsightMeshAssets,
-  model: PreviewModel,
-  belongsTo?: string
-) {
+async function loadPreviewTextureImages(geometry: ModelPreviewGeometry) {
   try {
-    const textureUrls = await loadModelTextureUrls(assets, model, belongsTo, {
+    return await loadModelPreviewTextureImages(props.entry, geometry, {
       textureResolution: meshPreviewTextureResolution.value,
-      warnScope: 'unpack.modelPreview',
-      warnBasePath: assets.mdfEntryPath ?? assets.meshEntryPath
-    })
-    return await loadModelTextureImages(textureUrls, {
-      warnScope: 'unpack.modelPreview',
-      warnBasePath: assets.mdfEntryPath ?? assets.meshEntryPath
+      warnScope: 'unpack.modelPreview'
     })
   } catch (caught) {
     logFrontendWarn(
       'unpack.modelPreview',
-      `texture load failed path=${assets.mdfEntryPath ?? assets.meshEntryPath} error=${caught instanceof Error ? caught.message : String(caught)}`
+      `texture load failed path=${geometry.assets.mdfEntryPath ?? geometry.assets.meshEntryPath} error=${caught instanceof Error ? caught.message : String(caught)}`
     )
     return {}
   }
+}
+
+function modelPreviewErrorMessage(caught: unknown) {
+  if (isModelInsightWasmUnavailableError(caught)) {
+    const message = t('unpack.modelPreviewUnavailable')
+    ShowWarn(message)
+    return message
+  }
+
+  return caught instanceof Error ? caught.message : String(caught)
 }
 
 function setupCanvas() {
@@ -744,21 +779,9 @@ function disposeRenderState() {
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
 }
-
-function toUint8Array(value: number[] | Uint8Array) {
-  return value instanceof Uint8Array ? value : Uint8Array.from(value)
-}
 </script>
 
 <style scoped>
-.model-preview {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  overflow: hidden;
-}
-
 .model-preview-background-dark {
   background: #101215;
 }
@@ -781,330 +804,11 @@ function toUint8Array(value: number[] | Uint8Array) {
 }
 
 .model-preview-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
   touch-action: none;
   cursor: grab;
 }
 
 .model-preview-canvas:active {
   cursor: grabbing;
-}
-
-.model-preview-left-ui {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  display: grid;
-  width: min(280px, calc(100% - 24px));
-  gap: 8px;
-}
-
-.model-preview-panel {
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  background: rgba(14, 16, 20, 0.74);
-  color: rgba(236, 241, 245, 0.9);
-  font-size: 12px;
-  line-height: 1.35;
-  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(10px);
-}
-
-.model-preview-panel-header,
-.model-preview-panel-title-button,
-.model-preview-control-row,
-.model-preview-switch-row,
-.model-preview-object-actions,
-.model-preview-action-button,
-.model-preview-group-header,
-.model-preview-group-row,
-.model-preview-object-row {
-  display: flex;
-  align-items: center;
-}
-
-.model-preview-panel-header {
-  justify-content: space-between;
-  gap: 10px;
-  padding: 9px;
-}
-
-.model-preview-panel-title-button {
-  min-width: 0;
-  gap: 6px;
-  border-radius: 6px;
-  color: rgba(246, 248, 250, 0.94);
-  transition:
-    background 120ms ease,
-    color 120ms ease;
-}
-
-.model-preview-panel-title-button:hover {
-  color: #ffffff;
-}
-
-.model-preview-panel-title {
-  min-width: 0;
-  overflow: hidden;
-  color: rgba(246, 248, 250, 0.94);
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.model-preview-chevron {
-  flex-shrink: 0;
-  transition: transform 120ms ease;
-}
-
-.model-preview-chevron-expanded {
-  transform: rotate(90deg);
-}
-
-.model-preview-settings-body {
-  display: grid;
-  gap: 8px;
-  padding: 0 9px 9px;
-}
-
-.model-preview-control-row {
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.model-preview-control-row > span {
-  min-width: max-content;
-  color: rgba(205, 213, 224, 0.76);
-}
-
-.model-preview-segmented {
-  display: inline-flex;
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.055);
-}
-
-.model-preview-segment,
-.model-preview-action-button,
-.model-preview-group-row {
-  color: rgba(224, 230, 238, 0.78);
-  transition:
-    background 120ms ease,
-    color 120ms ease,
-    border-color 120ms ease;
-}
-
-.model-preview-segment {
-  display: inline-flex;
-  min-width: 0;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 7px;
-  font-size: 11px;
-}
-
-.model-preview-segment:hover,
-.model-preview-action-button:hover,
-.model-preview-group-row:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
-}
-
-.model-preview-segment-active {
-  background: rgba(255, 255, 255, 0.15);
-  color: #ffffff;
-}
-
-.model-preview-swatch {
-  width: 12px;
-  height: 12px;
-  flex-shrink: 0;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.26);
-}
-
-.model-preview-swatch-dark {
-  background: #101215;
-}
-
-.model-preview-swatch-light {
-  background: #dce1e7;
-}
-
-.model-preview-object-actions {
-  gap: 6px;
-}
-
-.model-preview-action-button {
-  width: 26px;
-  height: 26px;
-  justify-content: center;
-  border-radius: 6px;
-}
-
-.model-preview-object-list {
-  max-height: min(320px, calc(100vh - 280px));
-  min-height: 0;
-  overflow: auto;
-  border-top: 1px solid rgba(255, 255, 255, 0.09);
-  padding: 4px;
-}
-
-.model-preview-object-group {
-  display: grid;
-  gap: 2px;
-}
-
-.model-preview-group-header {
-  min-width: 0;
-  gap: 6px;
-  border-radius: 6px;
-}
-
-.model-preview-group-checkbox {
-  margin-left: 6px;
-}
-
-.model-preview-group-row {
-  min-width: 0;
-  flex: 1;
-  gap: 6px;
-  border-radius: 6px;
-  padding: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  text-align: left;
-}
-
-.model-preview-group-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.model-preview-group-children {
-  display: grid;
-  gap: 2px;
-  margin-left: 12px;
-  padding-left: 8px;
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.model-preview-object-row {
-  min-width: 0;
-  gap: 8px;
-  border-radius: 6px;
-  padding: 6px;
-  color: rgba(236, 241, 245, 0.9);
-  cursor: pointer;
-  transition:
-    background 120ms ease,
-    opacity 120ms ease;
-}
-
-.model-preview-object-row:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.model-preview-object-row-hidden {
-  opacity: 0.55;
-}
-
-.model-preview-object-text {
-  display: grid;
-  min-width: 0;
-  gap: 1px;
-}
-
-.model-preview-object-name,
-.model-preview-object-stats {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.model-preview-object-name {
-  color: rgba(246, 248, 250, 0.94);
-  font-size: 12px;
-}
-
-.model-preview-object-stats {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: rgba(205, 213, 224, 0.62);
-  font-size: 11px;
-}
-
-.model-preview-object-stat {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-}
-
-.model-preview-object-stat-separator {
-  color: rgba(205, 213, 224, 0.42);
-}
-
-.model-preview-toolbar {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  display: flex;
-  gap: 6px;
-  padding: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  background: rgba(14, 16, 20, 0.72);
-  backdrop-filter: blur(10px);
-}
-
-.model-preview-icon-button {
-  display: inline-flex;
-  width: 30px;
-  height: 30px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  color: rgba(236, 241, 245, 0.86);
-  transition:
-    background 120ms ease,
-    color 120ms ease;
-}
-
-.model-preview-icon-button:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
-}
-
-.model-preview-status {
-  position: absolute;
-  left: 12px;
-  bottom: 12px;
-  display: flex;
-  max-width: min(520px, calc(100% - 24px));
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  background: rgba(14, 16, 20, 0.72);
-  color: rgba(236, 241, 245, 0.9);
-  font-size: 12px;
-  line-height: 1.35;
-  backdrop-filter: blur(10px);
-}
-
-.model-preview-status span {
-  min-width: 0;
-  overflow-wrap: anywhere;
 }
 </style>

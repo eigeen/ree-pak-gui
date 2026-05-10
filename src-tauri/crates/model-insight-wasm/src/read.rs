@@ -1,56 +1,34 @@
-use std::{fmt, path::Path};
+use std::path::Path;
 
 use byteorder::{ByteOrder, LittleEndian};
 
 pub type ParseResult<T> = Result<T, ParseError>;
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum ParseError {
+    #[error("invalid magic: expected {expected}, got 0x{actual:08x}")]
     InvalidMagic {
         expected: &'static str,
         actual: u32,
     },
+    #[error("unsupported format: {0}")]
     Unsupported(&'static str),
+    #[error(
+        "read out of bounds at {offset:#x}: requested {requested} bytes from {len} byte buffer"
+    )]
     OutOfBounds {
         offset: usize,
         len: usize,
         requested: usize,
     },
+    #[error("invalid file offset {0:#x}")]
     InvalidOffset(u64),
+    #[error("invalid utf-16 string")]
     InvalidUtf16,
+    #[error("missing numeric RE file version suffix")]
     MissingFileVersion,
-    Io(std::io::Error),
-}
-
-impl fmt::Display for ParseError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InvalidMagic { expected, actual } => {
-                write!(f, "invalid magic: expected {expected}, got 0x{actual:08x}")
-            }
-            Self::Unsupported(message) => write!(f, "unsupported format: {message}"),
-            Self::OutOfBounds {
-                offset,
-                len,
-                requested,
-            } => write!(
-                f,
-                "read out of bounds at {offset:#x}: requested {requested} bytes from {len} byte buffer"
-            ),
-            Self::InvalidOffset(offset) => write!(f, "invalid file offset {offset:#x}"),
-            Self::InvalidUtf16 => write!(f, "invalid utf-16 string"),
-            Self::MissingFileVersion => write!(f, "missing numeric RE file version suffix"),
-            Self::Io(err) => err.fmt(f),
-        }
-    }
-}
-
-impl std::error::Error for ParseError {}
-
-impl From<std::io::Error> for ParseError {
-    fn from(value: std::io::Error) -> Self {
-        Self::Io(value)
-    }
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
 
 #[derive(Clone, Copy)]

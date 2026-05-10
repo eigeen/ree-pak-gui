@@ -235,6 +235,7 @@ mod tests {
         "test_files/mhs3/natives/STM/Art/Model/character/ch00/000/0000/ch00_000_0000.mdf2.49";
 
     #[test]
+    #[ignore = "requires local RE Engine MDF fixture files"]
     fn reads_mhs3_mdf_materials_and_textures() {
         let mdf = MdfFile::read_path(SAMPLE_MDF).expect("mdf should parse");
 

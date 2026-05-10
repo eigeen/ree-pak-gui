@@ -367,9 +367,7 @@ import type {
 import {
   exportTextureFiles,
   getPreviewFile,
-  modelInsightLoadMeshAssets,
   terminateTextureExport,
-  type ModelInsightMeshAssets,
   type TextureExportFormat,
   type TextureExportProgressEvent
 } from '@/api/tauri/utils'
@@ -406,8 +404,12 @@ import {
   type ExplorerPreviewKind
 } from '@/lib/unpackExplorerPreview'
 import { renderModelPreviewToDataUrl } from '@/lib/modelInsight/previewRenderer'
-import { loadModelTextureImages, loadModelTextureUrls } from '@/lib/modelInsight/textures'
-import { meshToPreviewModel, type PreviewModel } from '@/lib/modelInsight/wasm'
+import {
+  clearModelPreviewLoaderCache,
+  loadModelPreviewGeometry,
+  loadModelPreviewTextureImages
+} from '@/lib/modelInsight/loader'
+import { isModelInsightWasmUnavailableError } from '@/lib/modelInsight/wasm'
 import {
   useAudioBankExportProgress,
   type AudioExportFormat
@@ -529,6 +531,7 @@ const modelHoverPreview = ref<{
 } | null>(null)
 let modelHoverTimer: ReturnType<typeof window.setTimeout> | null = null
 let modelHoverRequestId = 0
+let modelHoverUnavailableToastShown = false
 const explorerLayoutMode = ref<ExplorerLayoutMode>('details')
 const explorerContextMenuKind = ref<ExplorerContextMenuKind>('background')
 const explorerContextMenuTarget = ref<ExplorerEntry | null>(null)
@@ -1205,6 +1208,7 @@ watch(pakData, async () => {
   texturePreviewPending.clear()
   modelPreviewCache.value = {}
   modelPreviewPending.clear()
+  clearModelPreviewLoaderCache()
   clearModelHoverPreview()
   if (initialLoaded.value) {
     unpackState.value.paks = pakData.value.map((pak) => pak.path)
@@ -1655,6 +1659,7 @@ function releasePreviewFileReferences() {
   texturePreviewPending.clear()
   modelPreviewCache.value = {}
   modelPreviewPending.clear()
+  clearModelPreviewLoaderCache()
   clearModelHoverPreview()
   visibleExplorerEntries.value = []
 }
@@ -2004,24 +2009,10 @@ async function ensureModelHoverPreview(item: ExplorerEntry) {
   modelPreviewPending.add(item.id)
 
   try {
-    const assets = await modelInsightLoadMeshAssets({
-      hash: item.hash,
-      belongsTo: item.belongsTo,
-      entryPath: item.path
-    })
-    const result = await meshToPreviewModel({
-      meshBytes: toUint8Array(assets.meshData),
-      meshFileVersion: assets.meshFileVersion,
-      mdfBytes: assets.mdfData ? toUint8Array(assets.mdfData) : null,
-      mdfFileVersion: assets.mdfFileVersion ?? null
-    })
-    const textureImages = await loadHoverPreviewTextureImages(
-      assets,
-      result.preview,
-      item.belongsTo
-    )
+    const geometry = await loadModelPreviewGeometry(item)
+    const textureImages = await loadHoverPreviewTextureImages(item, geometry)
     const previewUrl = renderModelPreviewToDataUrl(
-      result.preview,
+      geometry.preview,
       {
         width: 256,
         height: 256,
@@ -2036,10 +2027,15 @@ async function ensureModelHoverPreview(item: ExplorerEntry) {
     applyModelHoverPreview(item, previewUrl)
     return previewUrl
   } catch (error) {
-    logFrontendWarn(
-      'unpack.modelPreview',
-      `model preview render failed path=${item.path} error=${error instanceof Error ? error.message : String(error)}`
-    )
+    const previewModuleUnavailable = isModelInsightWasmUnavailableError(error)
+    if (previewModuleUnavailable) {
+      showModelPreviewUnavailableToastOnce()
+    } else {
+      logFrontendWarn(
+        'unpack.modelPreview',
+        `model preview render failed path=${item.path} error=${error instanceof Error ? error.message : String(error)}`
+      )
+    }
     modelPreviewCache.value = {
       ...modelPreviewCache.value,
       [item.id]: null
@@ -2051,31 +2047,27 @@ async function ensureModelHoverPreview(item: ExplorerEntry) {
   }
 }
 
-function toUint8Array(value: number[] | Uint8Array) {
-  return value instanceof Uint8Array ? value : Uint8Array.from(value)
-}
-
 async function loadHoverPreviewTextureImages(
-  assets: ModelInsightMeshAssets,
-  model: PreviewModel,
-  belongsTo?: string
+  item: ExplorerEntry,
+  geometry: Awaited<ReturnType<typeof loadModelPreviewGeometry>>
 ) {
   try {
-    const textureUrls = await loadModelTextureUrls(assets, model, belongsTo, {
-      warnScope: 'unpack.modelPreview',
-      warnBasePath: assets.mdfEntryPath ?? assets.meshEntryPath
-    })
-    return await loadModelTextureImages(textureUrls, {
-      warnScope: 'unpack.modelPreview',
-      warnBasePath: assets.mdfEntryPath ?? assets.meshEntryPath
+    return await loadModelPreviewTextureImages(item, geometry, {
+      warnScope: 'unpack.modelPreview'
     })
   } catch (error) {
     logFrontendWarn(
       'unpack.modelPreview',
-      `hover texture load failed path=${assets.mdfEntryPath ?? assets.meshEntryPath} error=${error instanceof Error ? error.message : String(error)}`
+      `hover texture load failed path=${geometry.assets.mdfEntryPath ?? geometry.assets.meshEntryPath} error=${error instanceof Error ? error.message : String(error)}`
     )
     return {}
   }
+}
+
+function showModelPreviewUnavailableToastOnce() {
+  if (modelHoverUnavailableToastShown) return
+  modelHoverUnavailableToastShown = true
+  ShowWarn(t('unpack.modelPreviewUnavailable'))
 }
 
 function applyModelHoverPreview(item: ExplorerEntry, url: string | null) {

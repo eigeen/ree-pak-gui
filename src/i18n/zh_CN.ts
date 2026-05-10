@@ -50,6 +50,7 @@ export default {
       previewItem: '预览',
       previewModel: '预览模型',
       modelInsightMissingSource: '缺少来源 Pak 或文件哈希，无法启动模型预览。',
+      modelPreviewUnavailable: '模型预览模块不可用，请先构建可选 wasm 预览模块。',
       exitPreviewMode: '退出预览',
       modelPreviewKind: 'Mesh',
       modelPreviewLoading: '正在加载模型预览...',
