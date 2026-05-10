@@ -1,0 +1,2 @@
+# wasm-bindgen output, linked into src/wasm/model-insight by the build script
+/pkg/

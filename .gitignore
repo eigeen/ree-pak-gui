@@ -34,6 +34,7 @@ coverage
 /assets
 /ree-pak-tools
 AGENTS.md
-/openspec
 /.ace
 /.claude
+# Generated wasm-bindgen frontend artifacts
+/src/wasm

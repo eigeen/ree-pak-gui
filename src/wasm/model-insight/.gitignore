@@ -1,7 +1,0 @@
-*
-!.gitignore
-!README.md
-!model_insight.js
-!model_insight.d.ts
-!model_insight_bg.wasm
-!model_insight_bg.wasm.d.ts

@@ -7,11 +7,12 @@ import { spawnSync } from 'node:child_process'
 const WASM_BINDGEN_VERSION = '0.2.121'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(__dirname, '..')
-const extensionDir = join(repoRoot, 'extensions/model-insight')
-const generatedDir = join(extensionDir, 'pkg')
+const tauriDir = join(repoRoot, 'src-tauri')
+const crateDir = join(tauriDir, 'crates/model-insight-wasm')
+const generatedDir = join(crateDir, 'pkg')
 const frontendWasmDir = join(repoRoot, 'src/wasm/model-insight')
 const wasmInput = join(
-  extensionDir,
+  tauriDir,
   'target/wasm32-unknown-unknown/release/model_insight.wasm'
 )
 const wasmBindgenOutput = join(generatedDir, 'model_insight_bg.wasm')
@@ -25,11 +26,14 @@ const frontendFiles = [
 
 run('cargo', [
   'build',
+  '--manifest-path',
+  join(tauriDir, 'Cargo.toml'),
+  '-p',
+  'model-insight-wasm',
   '--target',
   'wasm32-unknown-unknown',
-  '--release',
-  '--no-default-features'
-], { cwd: extensionDir })
+  '--release'
+], { cwd: tauriDir })
 
 mkdirSync(generatedDir, { recursive: true })
 

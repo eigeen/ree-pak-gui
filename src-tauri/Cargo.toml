@@ -11,6 +11,10 @@ rust-version = "1.88"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[workspace]
+members = [".", "crates/model-insight-wasm"]
+resolver = "3"
+
 [build-dependencies]
 tauri-build = { version = "2.6.1", features = [] }
 
