@@ -88,10 +88,6 @@ export function getCompileInfo(): Promise<CompileInfo> {
   return invoke('get_compile_info')
 }
 
-export function performUpdate(filePath: string): Promise<void> {
-  return invoke('perform_update', { filePath })
-}
-
 export function vgmstreamGetStatus(): Promise<VgmstreamStatus> {
   return invoke('vgmstream_get_status')
 }

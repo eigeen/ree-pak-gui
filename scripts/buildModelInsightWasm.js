@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, mkdirSync, rmSync, symlinkSync } from 'node:fs'
+import { copyFileSync, existsSync, lstatSync, mkdirSync, rmSync, symlinkSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -62,7 +62,14 @@ function replaceWithSymlink(destination, source) {
     }
   }
 
-  symlinkSync(relative(dirname(destination), source), destination)
+  try {
+    symlinkSync(relative(dirname(destination), source), destination)
+  } catch (error) {
+    copyFileSync(source, destination)
+    console.warn(
+      `Failed to create symlink for ${destination}; copied wasm artifact instead. error=${error instanceof Error ? error.message : String(error)}`
+    )
+  }
 }
 
 function resolveWasmBindgen() {

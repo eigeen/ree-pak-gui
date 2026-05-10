@@ -1,7 +1,7 @@
-use anyhow::Context as _;
 use ree_pak_core::filename::FileNameTable;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, time::Instant};
+use tauri::AppHandle;
 
 use crate::{
     channel::{
@@ -24,6 +24,7 @@ use crate::{
         },
         pak::{PackConflictInfo, PakHeaderInfo, PakService},
         preview::{PreviewService, TextureExportFormat},
+        update::{AppUpdateInfo, AppUpdateProgressChannel},
     },
     utility, warp_result_elapsed,
 };
@@ -441,23 +442,21 @@ pub fn get_compile_info() -> CompileInfo {
     }
 }
 
-/// Replace current binary with the given file.
-///
-/// Will apply after restart.
 #[tauri::command]
-pub fn perform_update(file_path: String) -> Result<(), String> {
+pub fn app_check_update() -> Result<Option<AppUpdateInfo>, String> {
     log_sync_command(
-        "perform_update",
-        Some(format!("file_path={file_path}")),
-        || {
-            self_replace::self_replace(&file_path)
-                .context("Failed to replace current binary")
-                .map_err(|e| e.to_string())?;
-            let _ = std::fs::remove_file(&file_path);
-
-            Ok(())
-        },
+        "app_check_update",
+        Some("source=github_releases".to_string()),
+        || crate::service::update::check_for_update().map_err(|e| e.to_string()),
     )
+}
+
+#[tauri::command]
+pub async fn app_install_update(
+    app: AppHandle,
+    on_event: AppUpdateProgressChannel,
+) -> Result<(), String> {
+    crate::service::update::install_update(app, on_event).await
 }
 
 #[tauri::command]
