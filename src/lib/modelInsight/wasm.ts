@@ -80,9 +80,10 @@ export async function texToDds(
 
 async function importModelInsightWasm(): Promise<ModelInsightWasmModule> {
   const moduleUrl = new URL('../../wasm/model-insight/model_insight.js', import.meta.url).href
+  const wasmUrl = new URL('../../wasm/model-insight/model_insight_bg.wasm', import.meta.url).href
   const wasm = (await import(/* @vite-ignore */ moduleUrl)) as ModelInsightWasmModule
   if (wasm.default) {
-    await wasm.default()
+    await wasm.default(wasmUrl)
   }
   wasm.initModelInsightWasm()
   return wasm

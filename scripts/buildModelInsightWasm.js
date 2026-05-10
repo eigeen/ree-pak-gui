@@ -14,6 +14,7 @@ const wasmInput = join(
   extensionDir,
   'target/wasm32-unknown-unknown/release/model_insight.wasm'
 )
+const wasmBindgenOutput = join(generatedDir, 'model_insight_bg.wasm')
 const exeSuffix = process.platform === 'win32' ? '.exe' : ''
 const frontendFiles = [
   'model_insight.js',
@@ -34,6 +35,7 @@ mkdirSync(generatedDir, { recursive: true })
 
 const wasmBindgen = resolveWasmBindgen()
 run(wasmBindgen, ['--target', 'web', '--out-dir', generatedDir, wasmInput])
+optimizeWasmOutput()
 linkFrontendWasmFiles()
 
 function linkFrontendWasmFiles() {
@@ -111,6 +113,16 @@ function wasmBindgenCandidates(root) {
     join(root, `wasm-bindgen${exeSuffix}`),
     join(root, 'bin', `wasm-bindgen${exeSuffix}`)
   ]
+}
+
+function optimizeWasmOutput() {
+  const wasmOpt = `wasm-opt${exeSuffix}`
+  if (!commandWorks(wasmOpt)) {
+    console.warn('wasm-opt not found; skipping wasm optimization.')
+    return
+  }
+
+  run(wasmOpt, ['-O', '-o', wasmBindgenOutput, wasmBindgenOutput])
 }
 
 function commandWorks(command) {
