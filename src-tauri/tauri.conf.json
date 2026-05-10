@@ -59,7 +59,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' 'unsafe-inline' ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost https://asset.localhost blob: data:; media-src 'self' asset: http://asset.localhost https://asset.localhost blob:",
+      "csp": "default-src 'self' 'unsafe-inline' ipc: http://ipc.localhost; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; img-src 'self' asset: http://asset.localhost https://asset.localhost blob: data:; media-src 'self' asset: http://asset.localhost https://asset.localhost blob:",
       "assetProtocol": {
         "enable": true,
         "scope": {

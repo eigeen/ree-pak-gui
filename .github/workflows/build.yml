@@ -39,6 +39,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            binaryen \
             build-essential \
             curl \
             file \
@@ -48,6 +49,17 @@ jobs:
             libwebkit2gtk-4.1-dev \
             libxdo-dev \
             wget
+
+      - name: Install wasm-opt
+        if: runner.os == 'macOS'
+        run: brew install binaryen
+
+      - name: Install wasm-opt
+        if: runner.os == 'Windows'
+        run: choco install binaryen -y --no-progress
+
+      - name: Verify wasm-opt
+        run: wasm-opt --version
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2

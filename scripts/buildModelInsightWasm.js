@@ -16,6 +16,7 @@ const wasmInput = join(
   'target/wasm32-unknown-unknown/release/model_insight.wasm'
 )
 const wasmBindgenOutput = join(generatedDir, 'model_insight_bg.wasm')
+const isWindows = process.platform === 'win32'
 const exeSuffix = process.platform === 'win32' ? '.exe' : ''
 const frontendFiles = [
   'model_insight.js',
@@ -40,26 +41,24 @@ mkdirSync(generatedDir, { recursive: true })
 const wasmBindgen = resolveWasmBindgen()
 run(wasmBindgen, ['--target', 'web', '--out-dir', generatedDir, wasmInput])
 optimizeWasmOutput()
-linkFrontendWasmFiles()
+stageFrontendWasmFiles()
 
-function linkFrontendWasmFiles() {
+function stageFrontendWasmFiles() {
   mkdirSync(frontendWasmDir, { recursive: true })
 
   for (const file of frontendFiles) {
     const source = join(generatedDir, file)
     const destination = join(frontendWasmDir, file)
-    replaceWithSymlink(destination, source)
+    stageFrontendWasmFile(destination, source)
   }
 }
 
-function replaceWithSymlink(destination, source) {
-  if (existsSync(destination)) {
-    const stat = lstatSync(destination)
-    if (!stat.isSymbolicLink()) {
-      rmSync(destination, { force: true })
-    } else {
-      rmSync(destination)
-    }
+function stageFrontendWasmFile(destination, source) {
+  removeExistingFile(destination)
+
+  if (isWindows) {
+    copyFileSync(source, destination)
+    return
   }
 
   try {
@@ -69,6 +68,17 @@ function replaceWithSymlink(destination, source) {
     console.warn(
       `Failed to create symlink for ${destination}; copied wasm artifact instead. error=${error instanceof Error ? error.message : String(error)}`
     )
+  }
+}
+
+function removeExistingFile(destination) {
+  if (existsSync(destination)) {
+    const stat = lstatSync(destination)
+    if (!stat.isSymbolicLink()) {
+      rmSync(destination, { force: true })
+    } else {
+      rmSync(destination)
+    }
   }
 }
 
@@ -138,8 +148,7 @@ function optimizeWasmOutput() {
 
 function commandWorks(command) {
   const result = spawnSync(command, ['--version'], {
-    stdio: 'ignore',
-    shell: process.platform === 'win32'
+    stdio: 'ignore'
   })
   return result.status === 0
 }
@@ -147,11 +156,11 @@ function commandWorks(command) {
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: options.cwd ?? repoRoot,
-    stdio: 'inherit',
-    shell: process.platform === 'win32'
+    stdio: 'inherit'
   })
 
   if (result.status !== 0) {
-    throw new Error(`${command} ${args.join(' ')} failed with status ${result.status}`)
+    const status = result.status ?? result.error?.message ?? 'unknown error'
+    throw new Error(`${command} ${args.join(' ')} failed with status ${status}`)
   }
 }
