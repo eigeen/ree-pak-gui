@@ -252,23 +252,27 @@
 
     <div
       v-if="modelHoverPreview"
-      class="model-hover-preview fixed z-50 overflow-hidden rounded-md border border-border/70 bg-background/92 shadow-2xl backdrop-blur-md"
-      :class="{ 'is-loading': modelHoverPreview.loading }"
+      class="pointer-events-none fixed z-50 w-[260px] overflow-hidden rounded-md border border-border/70 bg-background/92 shadow-2xl backdrop-blur-md"
       :style="modelHoverPreviewStyle"
     >
-      <div class="model-hover-preview-stage">
+      <div class="grid h-[180px] place-items-center bg-background">
         <img
           v-if="modelHoverPreview.url"
           :src="modelHoverPreview.url"
           :alt="modelHoverPreview.fileName"
-          class="model-hover-preview-image"
+          class="max-h-full max-w-full object-contain"
           draggable="false"
         />
-        <div v-else class="model-hover-preview-loading">
+        <div
+          v-else
+          class="grid h-full w-full place-items-center text-[color-mix(in_srgb,var(--color-foreground)_54%,transparent)] [&_svg]:animate-[model-hover-preview-pulse_1.2s_ease-in-out_infinite]"
+        >
           <Box class="size-7" />
         </div>
       </div>
-      <div class="model-hover-preview-name">
+      <div
+        class="overflow-hidden truncate border-t border-[color-mix(in_srgb,var(--color-border)_72%,transparent)] px-2.5 py-2 text-xs font-semibold"
+      >
         {{ modelHoverPreview.fileName }}
       </div>
     </div>
@@ -2699,47 +2703,7 @@ onUnmounted(async () => {
 })
 </script>
 
-<style scoped>
-.model-hover-preview {
-  pointer-events: none;
-  width: 260px;
-}
-
-.model-hover-preview-stage {
-  display: grid;
-  height: 180px;
-  place-items: center;
-  background: var(--color-background);
-}
-
-.model-hover-preview-image {
-  max-height: 100%;
-  max-width: 100%;
-  object-fit: contain;
-}
-
-.model-hover-preview-loading {
-  display: grid;
-  height: 100%;
-  width: 100%;
-  place-items: center;
-  color: color-mix(in srgb, var(--color-foreground) 54%, transparent);
-}
-
-.model-hover-preview.is-loading .model-hover-preview-loading :deep(svg) {
-  animation: model-hover-preview-pulse 1.2s ease-in-out infinite;
-}
-
-.model-hover-preview-name {
-  overflow: hidden;
-  padding: 8px 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  border-top: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
-  font-size: 12px;
-  font-weight: 600;
-}
-
+<style>
 @keyframes model-hover-preview-pulse {
   0%,
   100% {

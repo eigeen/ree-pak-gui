@@ -81,7 +81,7 @@ function handleItemHoverEnd(item: ExplorerEntry, event: PointerEvent) {
           <template v-if="item.isDir">
             <component
               :is="props.renderers.getHeroIcon(item)"
-              class="asset-hero-icon size-14"
+              class="size-14 [filter:drop-shadow(0_10px_18px_rgb(0_0_0_/_0.28))]"
               :style="props.renderers.getHeroIconStyle(item)"
             />
           </template>
@@ -92,13 +92,13 @@ function handleItemHoverEnd(item: ExplorerEntry, event: PointerEvent) {
               :src="props.renderers.getTexturePreview(item) ?? undefined"
               :alt="item.displayName ?? item.name"
               fit="cover"
-              class="asset-tile-preview size-full"
+              class="size-full [&_.el-image__error]:bg-transparent [&_.el-image__inner]:size-full [&_.el-image__inner]:object-cover [&_.el-image__wrapper]:size-full"
             >
               <template #error>
                 <div class="flex h-full w-full items-center justify-center">
                   <component
                     :is="props.renderers.getHeroIcon(item)"
-                    class="asset-hero-icon size-12"
+                    class="size-12 [filter:drop-shadow(0_10px_18px_rgb(0_0_0_/_0.28))]"
                     :style="props.renderers.getHeroIconStyle(item)"
                   />
                 </div>
@@ -108,7 +108,7 @@ function handleItemHoverEnd(item: ExplorerEntry, event: PointerEvent) {
           <template v-else>
             <component
               :is="props.renderers.getHeroIcon(item)"
-              class="asset-hero-icon size-12"
+              class="size-12 [filter:drop-shadow(0_10px_18px_rgb(0_0_0_/_0.28))]"
               :style="props.renderers.getHeroIconStyle(item)"
             />
           </template>
@@ -151,23 +151,3 @@ function handleItemHoverEnd(item: ExplorerEntry, event: PointerEvent) {
     </template>
   </VirtualExplorerGrid>
 </template>
-
-<style scoped>
-.asset-hero-icon {
-  filter: drop-shadow(0 10px 18px rgb(0 0 0 / 0.28));
-}
-
-.asset-tile-preview :deep(.el-image__wrapper),
-.asset-tile-preview :deep(.el-image__inner) {
-  height: 100%;
-  width: 100%;
-}
-
-.asset-tile-preview :deep(.el-image__inner) {
-  object-fit: cover;
-}
-
-.asset-tile-preview :deep(.el-image__error) {
-  background: transparent;
-}
-</style>

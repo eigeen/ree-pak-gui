@@ -93,7 +93,7 @@ function handleItemHoverEnd(item: ExplorerEntry, event: PointerEvent) {
       <div class="flex min-w-0 items-center gap-2.5">
         <component
           :is="props.renderers.getHeroIcon(item)"
-          class="asset-list-icon size-4"
+          class="size-4 [filter:drop-shadow(0_4px_8px_rgb(0_0_0_/_0.2))]"
           :style="props.renderers.getHeroIconStyle(item)"
         />
 
@@ -116,9 +116,3 @@ function handleItemHoverEnd(item: ExplorerEntry, event: PointerEvent) {
     </template>
   </VirtualExplorerList>
 </template>
-
-<style scoped>
-.asset-list-icon {
-  filter: drop-shadow(0 4px 8px rgb(0 0 0 / 0.2));
-}
-</style>
