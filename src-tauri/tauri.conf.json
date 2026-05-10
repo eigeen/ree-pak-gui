@@ -43,7 +43,7 @@
   },
   "productName": "ree-pak-rs",
   "mainBinaryName": "ree-pak-rs",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "identifier": "com.reepak.tool",
   "plugins": {},
   "app": {
