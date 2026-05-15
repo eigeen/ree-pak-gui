@@ -82,9 +82,19 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
+
+      - name: Prefer Rust toolchain shims
+        if: runner.os != 'Windows'
+        run: echo "${CARGO_HOME:-$HOME/.cargo}/bin" >> "$GITHUB_PATH"
+
+      - name: Verify Rust tools
+        shell: bash
+        run: |
+          rustup show active-toolchain
+          command -v cargo
+          cargo --version
 
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
