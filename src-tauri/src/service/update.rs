@@ -13,7 +13,7 @@ use std::{
 use tauri::{AppHandle, ipc::Channel};
 
 const UPDATE_REPO_OWNER: &str = "eigeen";
-const UPDATE_REPO_NAME: &str = "ree-pak-gui";
+const UPDATE_REPO_NAME: &str = "ree-pak-gui-update";
 const UPDATE_BIN_NAME: &str = "ree-pak-rs";
 
 #[derive(Clone, Serialize)]

@@ -112,6 +112,12 @@ jobs:
         id: package
         run: bun run release:package -- --target ${{ matrix.target }} --exe ${{ matrix.artifact_binary }}
 
+      - name: Verify update archive extraction
+        run: cargo test --manifest-path src-tauri/Cargo.toml --locked --test release_archive packaged_release_archive_extracts_expected_binary
+        env:
+          REE_PAK_RELEASE_ARCHIVE_PATH: ${{ steps.package.outputs.archive_path }}
+          REE_PAK_RELEASE_BIN_PATH: ${{ steps.package.outputs.bin_path_in_archive }}
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v6
         with:
