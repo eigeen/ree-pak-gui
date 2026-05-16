@@ -20,15 +20,15 @@ jobs:
           - name: windows-x86_64
             os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact_binary: src-tauri/target/release/ree-pak-rs.exe
+            artifact_binary: src-tauri/target/release/ree-pak-gui.exe
           - name: linux-x86_64
             os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact_binary: src-tauri/target/release/ree-pak-rs
+            artifact_binary: src-tauri/target/release/ree-pak-gui
           - name: macos-aarch64
             os: macos-15
             target: aarch64-apple-darwin
-            artifact_binary: src-tauri/target/release/ree-pak-rs
+            artifact_binary: src-tauri/target/release/ree-pak-gui
 
     steps:
       - name: Checkout
@@ -131,7 +131,7 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: ree-pak-rs-${{ steps.package.outputs.version }}-${{ matrix.target }}
+          name: ree-pak-gui-${{ steps.package.outputs.version }}-${{ matrix.target }}
           path: |
             ${{ matrix.artifact_binary }}
             ${{ steps.package.outputs.archive_path }}

@@ -14,7 +14,7 @@ use tauri::{AppHandle, ipc::Channel};
 
 const UPDATE_REPO_OWNER: &str = "eigeen";
 const UPDATE_REPO_NAME: &str = "ree-pak-gui-update";
-const UPDATE_BIN_NAME: &str = "ree-pak-rs";
+const UPDATE_BIN_NAME: &str = "ree-pak-gui";
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -109,7 +109,7 @@ fn download_asset(
     let client = reqwest::blocking::Client::new();
     let mut response = client
         .get(&asset.download_url)
-        .header(reqwest::header::USER_AGENT, "ree-pak-rs/self-update")
+        .header(reqwest::header::USER_AGENT, "ree-pak-gui/self-update")
         .header(reqwest::header::ACCEPT, "application/octet-stream")
         .send()?
         .error_for_status()?;

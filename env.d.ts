@@ -8,6 +8,16 @@ declare module 'markdown-it/dist/index.cjs.js' {
   }
 
   export default class MarkdownIt {
+    inline: {
+      ruler: {
+        before(
+          beforeName: string,
+          ruleName: string,
+          rule: (state: any, silent: boolean) => boolean
+        ): void
+      }
+    }
+
     constructor(options?: MarkdownItOptions)
     render(source: string): string
   }

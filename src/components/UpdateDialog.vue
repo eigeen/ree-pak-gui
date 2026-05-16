@@ -65,6 +65,7 @@ import { useI18n } from 'vue-i18n'
 import { getCurrentWindow, ProgressBarStatus } from '@tauri-apps/api/window'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { Download } from 'lucide-vue-next'
+import { addGithubImageTagRule } from '@/lib/releaseMarkdown'
 import { UpdateService } from '@/service/update'
 import { useUpdateStore } from '@/store/update'
 import { logFrontendInfo } from '@/utils/frontendLog'
@@ -94,6 +95,7 @@ const markdown = new MarkdownIt({
   breaks: true,
   linkify: true
 })
+addGithubImageTagRule(markdown)
 const renderedDescription = computed(() => {
   const releaseMarkdown = updateState.updateVersion?.releaseMarkdown
   return releaseMarkdown ? markdown.render(releaseMarkdown) : ''
@@ -297,6 +299,16 @@ defineExpose({ popup })
   color: var(--color-primary);
   text-decoration: underline;
   text-underline-offset: 0.18em;
+}
+
+.update-description-markdown :deep(img) {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  margin: 0.75rem 0 1rem;
+  border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+  border-radius: 0.5rem;
 }
 
 .update-description-markdown :deep(code) {

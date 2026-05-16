@@ -1,15 +1,6 @@
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
-import {
-  appendFile,
-  chmod,
-  copyFile,
-  mkdir,
-  mkdtemp,
-  readFile,
-  rm,
-  writeFile
-} from 'node:fs/promises'
+import { appendFile, chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { parseArgs } from 'node:util'
@@ -18,7 +9,7 @@ import { zipSync } from 'fflate'
 
 const ROOT_DIR = process.cwd()
 const DEFAULT_OUTPUT_DIR = path.join('dist', 'release')
-const DEFAULT_BINARY_NAME = 'ree-pak-rs'
+const DEFAULT_BINARY_NAME = 'ree-pak-gui'
 
 function resolvePath(filePath) {
   return path.isAbsolute(filePath) ? filePath : path.join(ROOT_DIR, filePath)
@@ -75,6 +66,10 @@ function sha256Hex(buffer) {
   return createHash('sha256').update(buffer).digest('hex')
 }
 
+function resolveExecutableName(target, binaryName) {
+  return target.includes('windows') ? `${binaryName}.exe` : binaryName
+}
+
 function formatOutputs(outputs) {
   const githubOutput = process.env.GITHUB_OUTPUT
   if (!githubOutput) {
@@ -102,7 +97,7 @@ const { values } = parseArgs({
 
 const target = values.target ?? process.env.TARGET ?? getHostTarget()
 const binaryName = values['bin-name']
-const executableName = target.includes('windows') ? `${binaryName}.exe` : binaryName
+const executableName = resolveExecutableName(target, binaryName)
 const exePath = resolvePath(
   values.exe ?? path.join('src-tauri', 'target', 'release', executableName)
 )
@@ -136,7 +131,7 @@ if (target.includes('windows')) {
   const stagingDir = await mkdtemp(path.join(tmpdir(), 'ree-pak-release-'))
   const stagedExecutablePath = path.join(stagingDir, binPathInArchive)
   try {
-    await copyFile(exePath, stagedExecutablePath)
+    await writeFile(stagedExecutablePath, executableBuffer)
     await chmod(stagedExecutablePath, 0o755)
     execFileSync('tar', ['-czf', archivePath, '-C', stagingDir, binPathInArchive], {
       cwd: ROOT_DIR,
